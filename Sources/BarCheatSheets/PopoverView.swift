@@ -7,6 +7,8 @@ extension Notification.Name {
 }
 
 struct PopoverView: View {
+    static let contentSize = CGSize(width: 520, height: 480)
+
     @ObservedObject var store: CheatSheetStore
     @FocusState private var searchIsFocused: Bool
 
@@ -24,7 +26,7 @@ struct PopoverView: View {
             Divider()
             footer
         }
-        .frame(width: 520, height: 480)
+        .frame(width: Self.contentSize.width, height: Self.contentSize.height)
         .background(Color(nsColor: .windowBackgroundColor))
         .alert(
             "Unable to Open VS Code",
