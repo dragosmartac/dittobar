@@ -25,6 +25,7 @@ open "dist/Bar Cheat Sheets.app"
 | --- | --- |
 | `Option-Space` | Open or close the popover globally |
 | `Command-1` … `Command-9` | Select a cheat-sheet tab |
+| `Command-Option-Left` / `Command-Option-Right` | Select the previous or next cheat-sheet tab |
 | `Tab` / `Shift-Tab` | Select the next or previous command |
 | `Up` / `Down` | Select the previous or next command |
 | `Command-C` | Copy the selected command |

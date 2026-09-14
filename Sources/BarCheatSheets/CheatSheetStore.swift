@@ -65,6 +65,12 @@ final class CheatSheetStore: ObservableObject {
         selectedCommandIndex = 0
     }
 
+    func moveSheetSelection(by offset: Int) {
+        guard !sheets.isEmpty else { return }
+        let index = (selectedSheetIndex + offset + sheets.count) % sheets.count
+        selectSheet(at: index)
+    }
+
     func moveSelection(by offset: Int) {
         let count = visibleCommands.count
         guard count > 0 else {

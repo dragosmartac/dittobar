@@ -164,6 +164,7 @@ struct PopoverView: View {
     private var footer: some View {
         HStack(spacing: 14) {
             Label("Tab / ⇧Tab navigate", systemImage: "arrow.up.arrow.down")
+            Text("⌘⌥←/→ tabs")
             Label("⌘C copy", systemImage: "doc.on.doc")
             Text("⌘E edit")
             Text("⌘F search")

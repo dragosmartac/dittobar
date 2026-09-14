@@ -155,6 +155,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return nil
         }
 
+        if modifiers.contains(.command), modifiers.contains(.option),
+           !modifiers.contains(.control), !modifiers.contains(.shift) {
+            if event.keyCode == 123 {
+                store.moveSheetSelection(by: -1)
+                return nil
+            }
+            if event.keyCode == 124 {
+                store.moveSheetSelection(by: 1)
+                return nil
+            }
+        }
+
         if event.keyCode == 48 {
             store.moveSelection(by: modifiers.contains(.shift) ? -1 : 1)
             return nil
