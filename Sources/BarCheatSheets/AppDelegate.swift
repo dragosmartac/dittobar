@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItemMenu: NSMenu!
     private var hotKeyManager: HotKeyManager?
     private var keyMonitor: Any?
+    private var previouslyActiveApplication: NSRunningApplication?
+    private var restoreFocusWhenPopoverCloses = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configurePopover()
@@ -16,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         hotKeyManager = HotKeyManager { [weak self] in
             DispatchQueue.main.async {
-                self?.togglePopover()
+                self?.togglePopover(restoringFocusOnClose: true)
             }
         }
 
@@ -38,7 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.contentViewController = NSHostingController(rootView: PopoverView(store: store))
         popover.delegate = self
         store.onRequestClose = { [weak self] in
-            self?.popover.performClose(nil)
+            self?.closePopover(restoringFocus: true)
         }
     }
 
@@ -72,24 +74,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return
         }
 
-        togglePopover()
+        togglePopover(restoringFocusOnClose: false)
     }
 
     @objc private func quitApplication() {
         NSApp.terminate(nil)
     }
 
-    private func togglePopover() {
+    private func togglePopover(restoringFocusOnClose: Bool) {
         if popover.isShown {
-            popover.performClose(nil)
+            closePopover(restoringFocus: restoringFocusOnClose)
             return
         }
 
         guard let button = statusItem.button else { return }
+        let frontmostApplication = NSWorkspace.shared.frontmostApplication
+        if frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            previouslyActiveApplication = frontmostApplication
+        }
         store.reload()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         NSApp.activate(ignoringOtherApps: true)
         popover.contentViewController?.view.window?.makeKey()
+    }
+
+    private func closePopover(restoringFocus: Bool) {
+        restoreFocusWhenPopoverCloses = restoringFocus
+        popover.performClose(nil)
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        defer {
+            restoreFocusWhenPopoverCloses = false
+            previouslyActiveApplication = nil
+        }
+
+        guard restoreFocusWhenPopoverCloses else { return }
+        previouslyActiveApplication?.activate(options: [])
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> NSEvent? {
@@ -98,7 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
         if event.keyCode == 53 {
-            popover.performClose(nil)
+            closePopover(restoringFocus: true)
             return nil
         }
 
