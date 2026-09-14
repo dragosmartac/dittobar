@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var previouslyActiveApplication: NSRunningApplication?
     private var restoreFocusWhenPopoverCloses = false
 
+    private static let popoverScreenFraction: CGFloat = 0.85
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         configurePopover()
         configureStatusItem()
@@ -36,7 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func configurePopover() {
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = PopoverView.contentSize
+        popover.contentSize = preferredPopoverSize(for: NSScreen.main)
         popover.contentViewController = NSHostingController(rootView: PopoverView(store: store))
         popover.delegate = self
         store.onRequestClose = { [weak self] in
@@ -92,10 +94,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier {
             previouslyActiveApplication = frontmostApplication
         }
+        popover.contentSize = preferredPopoverSize(for: button.window?.screen ?? NSScreen.main)
         store.reload()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         NSApp.activate(ignoringOtherApps: true)
         popover.contentViewController?.view.window?.makeKey()
+    }
+
+    private func preferredPopoverSize(for screen: NSScreen?) -> NSSize {
+        guard let screen else {
+            return NSSize(width: 900, height: 800)
+        }
+
+        return NSSize(
+            width: floor(screen.visibleFrame.width * Self.popoverScreenFraction),
+            height: floor(screen.visibleFrame.height * Self.popoverScreenFraction)
+        )
     }
 
     private func closePopover(restoringFocus: Bool) {

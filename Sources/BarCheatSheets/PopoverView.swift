@@ -7,8 +7,6 @@ extension Notification.Name {
 }
 
 struct PopoverView: View {
-    static let contentSize = CGSize(width: 1500, height: 1300)
-
     @ObservedObject var store: CheatSheetStore
     @FocusState private var searchIsFocused: Bool
 
@@ -26,7 +24,7 @@ struct PopoverView: View {
             Divider()
             footer
         }
-        .frame(width: Self.contentSize.width, height: Self.contentSize.height)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
         .alert("New Cheat Sheet", isPresented: $store.isNewSheetPromptPresented) {
             TextField("Name", text: $store.newSheetName)
