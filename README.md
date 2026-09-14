@@ -31,6 +31,7 @@ open "dist/Bar Cheat Sheets.app"
 | `Command-E` | Open the current Markdown file in VS Code |
 | `Command-F` | Focus search |
 | `Command-Shift-M` | Open the More Options menu |
+| `C` | Copy the full cheat-sheets directory path while More Options is open |
 | `Escape` | Close the popover |
 
 ## Edit cheat sheets

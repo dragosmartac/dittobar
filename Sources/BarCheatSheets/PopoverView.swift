@@ -206,7 +206,12 @@ private struct MoreOptionsButton: NSViewRepresentable {
 
             addItem("Edit Current Sheet in VS Code", action: #selector(editCurrentSheet), key: "e")
             addItem("Open Cheat Sheets Folder", action: #selector(openFolder))
-            addItem("Copy Cheat Sheets Folder Path", action: #selector(copyFolderPath))
+            addItem(
+                "Copy Cheat Sheets Folder Path",
+                action: #selector(copyFolderPath),
+                key: "c",
+                modifiers: []
+            )
             menu.addItem(.separator())
             addItem("Quit Bar Cheat Sheets", action: #selector(quitApplication), key: "q")
 
@@ -222,8 +227,14 @@ private struct MoreOptionsButton: NSViewRepresentable {
             NotificationCenter.default.removeObserver(self)
         }
 
-        private func addItem(_ title: String, action: Selector, key: String = "") {
+        private func addItem(
+            _ title: String,
+            action: Selector,
+            key: String = "",
+            modifiers: NSEvent.ModifierFlags = .command
+        ) {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+            item.keyEquivalentModifierMask = modifiers
             item.target = self
             menu.addItem(item)
         }
