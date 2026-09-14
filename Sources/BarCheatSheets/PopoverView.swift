@@ -7,7 +7,7 @@ extension Notification.Name {
 }
 
 struct PopoverView: View {
-    static let contentSize = CGSize(width: 1040, height: 960)
+    static let contentSize = CGSize(width: 1500, height: 1300)
 
     @ObservedObject var store: CheatSheetStore
     @FocusState private var searchIsFocused: Bool
@@ -28,8 +28,19 @@ struct PopoverView: View {
         }
         .frame(width: Self.contentSize.width, height: Self.contentSize.height)
         .background(Color(nsColor: .windowBackgroundColor))
+        .alert("New Cheat Sheet", isPresented: $store.isNewSheetPromptPresented) {
+            TextField("Name", text: $store.newSheetName)
+            Button("Cancel", role: .cancel) {}
+            Button("Create") {
+                store.createNewSheetInVSCode(named: store.newSheetName)
+            }
+            .keyboardShortcut(.defaultAction)
+            .disabled(store.newSheetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        } message: {
+            Text("Enter a name for the Markdown file.")
+        }
         .alert(
-            "Unable to Open VS Code",
+            "Unable to Complete Action",
             isPresented: Binding(
                 get: { store.editorErrorMessage != nil },
                 set: { if !$0 { store.editorErrorMessage = nil } }
@@ -154,6 +165,7 @@ struct PopoverView: View {
             Label("⌘C copy", systemImage: "doc.on.doc")
             Text("⌘E edit")
             Text("⌘F search")
+            Text("⌘⇧N new")
             Text("⌘⇧M more")
             Spacer()
             Text("⌥Space")
@@ -204,6 +216,12 @@ private struct MoreOptionsButton: NSViewRepresentable {
             self.store = store
             super.init()
 
+            addItem(
+                "New Cheat Sheet in VS Code",
+                action: #selector(createNewSheet),
+                key: "n",
+                modifiers: [.command, .shift]
+            )
             addItem("Edit Current Sheet in VS Code", action: #selector(editCurrentSheet), key: "e")
             addItem("Open Cheat Sheets Folder", action: #selector(openFolder))
             addItem(
@@ -258,6 +276,10 @@ private struct MoreOptionsButton: NSViewRepresentable {
 
         @objc private func editCurrentSheet() {
             store.openSelectedSheetInVSCode()
+        }
+
+        @objc private func createNewSheet() {
+            store.requestNewSheetCreation()
         }
 
         @objc private func openFolder() {

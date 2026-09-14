@@ -9,6 +9,8 @@ final class CheatSheetStore: ObservableObject {
     @Published var query = ""
     @Published private(set) var copiedCommandID: String?
     @Published var editorErrorMessage: String?
+    @Published var isNewSheetPromptPresented = false
+    @Published var newSheetName = ""
 
     let folderURL: URL
     var onRequestClose: (() -> Void)?
@@ -102,6 +104,61 @@ final class CheatSheetStore: ObservableObject {
             NSSound.beep()
             return
         }
+
+        openInVSCode(sourceURL)
+    }
+
+    func requestNewSheetCreation() {
+        newSheetName = ""
+        isNewSheetPromptPresented = true
+    }
+
+    func createNewSheetInVSCode(named proposedName: String, fileManager: FileManager = .default) {
+        var name = proposedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.lowercased().hasSuffix(".md") {
+            name = String(name.dropLast(3)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        guard !name.isEmpty else {
+            editorErrorMessage = "Enter a name for the new cheat sheet."
+            return
+        }
+
+        guard !name.contains("/") else {
+            editorErrorMessage = "Cheat sheet names cannot contain a slash (/)."
+            return
+        }
+
+        let fileURL = folderURL.appendingPathComponent(name).appendingPathExtension("md")
+        guard !fileManager.fileExists(atPath: fileURL.path) else {
+            editorErrorMessage = "A cheat sheet named \"\(name)\" already exists."
+            return
+        }
+
+        let template = """
+        # \(name)
+
+        ## Command name
+        Add an optional description here.
+
+        ```sh
+        command
+        ```
+        """
+
+        do {
+            try template.write(to: fileURL, atomically: true, encoding: .utf8)
+            reload(fileManager: fileManager)
+            if let index = sheets.firstIndex(where: { $0.sourceURL == fileURL }) {
+                selectSheet(at: index)
+            }
+            openInVSCode(fileURL)
+        } catch {
+            editorErrorMessage = "The new cheat sheet could not be created: \(error.localizedDescription)"
+        }
+    }
+
+    private func openInVSCode(_ sourceURL: URL) {
 
         let bundleIdentifiers = [
             "com.facebook.fbvscode",

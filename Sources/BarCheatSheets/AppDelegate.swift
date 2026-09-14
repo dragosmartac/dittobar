@@ -123,6 +123,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return nil
         }
 
+        if modifiers.contains(.command), modifiers.contains(.shift),
+           event.charactersIgnoringModifiers?.lowercased() == "n" {
+            store.requestNewSheetCreation()
+            return nil
+        }
+
         if modifiers.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "e" {
             store.openSelectedSheetInVSCode()
             return nil
