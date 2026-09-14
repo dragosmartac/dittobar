@@ -125,9 +125,11 @@ struct PopoverView: View {
                     store.copySelectedCommand()
                 }
                 .listRowBackground(
-                    index == store.selectedCommandIndex
-                        ? Color.accentColor.opacity(0.12)
-                        : Color.clear
+                    item.id == store.copiedCommandID
+                        ? Color.green.opacity(0.24)
+                        : index == store.selectedCommandIndex
+                            ? Color.accentColor.opacity(0.12)
+                            : Color.clear
                 )
             }
             .listStyle(.inset)
