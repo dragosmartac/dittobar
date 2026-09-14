@@ -7,7 +7,7 @@ extension Notification.Name {
 }
 
 struct PopoverView: View {
-    static let contentSize = CGSize(width: 520, height: 480)
+    static let contentSize = CGSize(width: 1040, height: 960)
 
     @ObservedObject var store: CheatSheetStore
     @FocusState private var searchIsFocused: Bool
