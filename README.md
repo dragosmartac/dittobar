@@ -27,7 +27,7 @@ open "dist/Bar Cheat Sheets.app"
 | `Command-1` … `Command-9` | Select a cheat-sheet tab |
 | `Tab` / `Shift-Tab` | Select the next or previous command |
 | `Up` / `Down` | Select the previous or next command |
-| `Y` | Copy the selected command when search is not focused |
+| `Command-C` | Copy the selected command |
 | `Command-E` | Open the current Markdown file in VS Code |
 | `Command-F` | Focus search |
 | `Command-Shift-M` | Open the More Options menu |

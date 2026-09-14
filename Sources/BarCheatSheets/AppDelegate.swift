@@ -143,10 +143,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return nil
         }
 
-        let isEditingText = popover.contentViewController?.view.window?.firstResponder is NSTextView
-        if !isEditingText,
-           modifiers.isEmpty,
-           event.charactersIgnoringModifiers?.lowercased() == "y" {
+        if modifiers.contains(.command),
+           !modifiers.contains(.option),
+           !modifiers.contains(.control),
+           !modifiers.contains(.shift),
+           event.charactersIgnoringModifiers?.lowercased() == "c" {
             store.copySelectedCommand()
             return nil
         }
