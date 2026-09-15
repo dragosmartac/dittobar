@@ -50,7 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         guard let button = statusItem.button else { return }
         button.image = NSImage(
-            systemSymbolName: "command.square",
+            systemSymbolName: "note.text",
             accessibilityDescription: "Bar Cheat Sheets"
         )
         button.toolTip = "Bar Cheat Sheets (⌥Space)"
