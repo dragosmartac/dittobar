@@ -67,17 +67,23 @@ enum CheatSheetParser {
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                     if !command.isEmpty {
                         let identifier = "\(fileName):\(commands.count):\(title)"
+                        let detail = descriptionLines
+                            .joined(separator: " ")
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+
                         commands.append(
                             CheatCommand(
                                 id: identifier,
                                 storageKey: "\(fileName)#\(title)",
                                 title: title,
-                                detail: descriptionLines
-                                    .joined(separator: " ")
-                                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                                detail: detail,
                                 command: command,
                                 language: language,
-                                variables: CommandTemplate.variables(in: command)
+                                // Descriptions take variables too, sharing a
+                                // field with the command when the name matches.
+                                // Command first, so the form focuses a field
+                                // that actually affects what gets copied.
+                                variables: CommandTemplate.variables(in: "\(command)\n\(detail)")
                             )
                         )
                     }

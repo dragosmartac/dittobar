@@ -92,22 +92,34 @@ enum CommandTextStyle {
         )
     }
 
-    static func detail(_ text: String) -> NSAttributedString {
-        NSAttributedString(
-            string: text,
-            attributes: [
-                .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
-                .foregroundColor: NSColor.secondaryLabelColor
-            ]
+    /// Descriptions support variables too, tinted the same way as in commands.
+    static func detail(_ segments: [CommandTemplate.Segment]) -> NSAttributedString {
+        let size = NSFont.smallSystemFontSize
+        return build(
+            segments,
+            plain: NSFont.systemFont(ofSize: size),
+            emphasised: NSFont.systemFont(ofSize: size, weight: .semibold),
+            plainColor: .secondaryLabelColor
         )
     }
 
     /// Substituted variable values are tinted and bold, as in the SwiftUI version.
     static func command(_ segments: [CommandTemplate.Segment]) -> NSAttributedString {
         let size = NSFont.systemFontSize
-        let plain = NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
-        let emphasised = NSFont.monospacedSystemFont(ofSize: size, weight: .bold)
+        return build(
+            segments,
+            plain: NSFont.monospacedSystemFont(ofSize: size, weight: .regular),
+            emphasised: NSFont.monospacedSystemFont(ofSize: size, weight: .bold),
+            plainColor: .labelColor
+        )
+    }
 
+    private static func build(
+        _ segments: [CommandTemplate.Segment],
+        plain: NSFont,
+        emphasised: NSFont,
+        plainColor: NSColor
+    ) -> NSAttributedString {
         let result = NSMutableAttributedString()
         for segment in segments {
             result.append(
@@ -117,7 +129,7 @@ enum CommandTextStyle {
                         .font: segment.isVariable ? emphasised : plain,
                         .foregroundColor: segment.isVariable
                             ? NSColor.controlAccentColor
-                            : NSColor.labelColor
+                            : plainColor
                     ]
                 )
             )

@@ -118,6 +118,7 @@ struct PopoverView: View {
                 CommandRow(
                     command: item,
                     segments: store.resolvedSegments(for: item),
+                    detailSegments: store.resolvedDetailSegments(for: item),
                     isSelected: index == store.selectedCommandIndex,
                     wasCopied: item.id == store.copiedCommandID
                 )
@@ -307,6 +308,7 @@ private struct MoreOptionsButton: NSViewRepresentable {
 private struct CommandRow: View {
     let command: CheatCommand
     let segments: [CommandTemplate.Segment]
+    let detailSegments: [CommandTemplate.Segment]
     let isSelected: Bool
     let wasCopied: Bool
 
@@ -330,7 +332,7 @@ private struct CommandRow: View {
             }
 
             if !command.detail.isEmpty {
-                SelectableText(attributedString: CommandTextStyle.detail(command.detail))
+                SelectableText(attributedString: CommandTextStyle.detail(detailSegments))
             }
 
             SelectableText(

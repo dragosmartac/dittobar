@@ -63,7 +63,7 @@ Changes reload automatically. Two example files are created on first launch.
 
 ## Variables
 
-Write `{{name=default}}` anywhere inside a code block to turn that part of the command
+Write `{{name=default}}` inside a code block — or in a description — to turn that part
 into an editable field:
 
 ````markdown
@@ -91,6 +91,9 @@ Other details:
 
 - `{{name}}` without an `=` declares a field that starts empty.
 - Repeating a name reuses one field, so `{{branch}}` twice in a command is edited once.
+  This spans the description and the command: the same `{{diff}}` in both is one field.
+- Only the command is copied. A variable in a description keeps the note in step with
+  the command — useful for recording the output dataset a run will produce.
 - Values you enter are remembered per command and pre-fill the form next time.
   **Reset to Defaults** restores what the Markdown says.
 - `Command-Return` skips the form and copies using the current values.

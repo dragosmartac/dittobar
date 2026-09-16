@@ -29,11 +29,13 @@ final class CheatSheetStore: ObservableObject {
 
     Variables
 
-      Write {{name=default}} inside a code block to make that part editable.
-      Copying such a command opens a form instead: Tab moves between fields,
-      Return copies, Escape cancels. Repeat a name to reuse one field, and
-      write {{name}} with no default to start empty. Values you type are
-      remembered per command.
+      Write {{name=default}} in a code block, or in a description, to make
+      that part editable. Copying such a command opens a form instead: Tab
+      moves between fields, Return copies, Escape cancels. Repeat a name to
+      reuse one field — the same {{diff}} in a description and a command is
+      edited once. Write {{name}} with no default to start empty. Values you
+      type are remembered per command. Only the command is copied; variables
+      in a description just keep it in step.
 
     Keys
 
@@ -83,6 +85,8 @@ final class CheatSheetStore: ObservableObject {
                 || $0.detail.localizedCaseInsensitiveContains(trimmedQuery)
                 || $0.command.localizedCaseInsensitiveContains(trimmedQuery)
                 || resolvedCommand(for: $0).localizedCaseInsensitiveContains(trimmedQuery)
+                || CommandTemplate.render($0.detail, values: effectiveValues(for: $0))
+                    .localizedCaseInsensitiveContains(trimmedQuery)
         }
     }
 
@@ -137,6 +141,10 @@ final class CheatSheetStore: ObservableObject {
 
     func resolvedSegments(for command: CheatCommand) -> [CommandTemplate.Segment] {
         CommandTemplate.segments(of: command.command, values: effectiveValues(for: command))
+    }
+
+    func resolvedDetailSegments(for command: CheatCommand) -> [CommandTemplate.Segment] {
+        CommandTemplate.segments(of: command.detail, values: effectiveValues(for: command))
     }
 
     func presentVariableForm(for command: CheatCommand) {
