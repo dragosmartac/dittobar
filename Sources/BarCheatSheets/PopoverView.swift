@@ -163,6 +163,10 @@ struct PopoverView: View {
                                 ? Color.accentColor.opacity(0.12)
                                 : Color.clear
                     )
+                    .listRowSeparator(.hidden)
+                    .overlay(alignment: .bottom) {
+                        Divider()
+                    }
                 }
             }
             .listStyle(.inset)
@@ -496,16 +500,15 @@ private struct SectionHeaderRow: View {
     let title: String
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text(title)
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Divider()
-        }
-        .padding(.top, 10)
-        .padding(.bottom, 2)
-        .listRowBackground(Color.clear)
-        .accessibilityAddTraits(.isHeader)
+        Text(title)
+            .font(.headline)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
