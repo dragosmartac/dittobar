@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var keyMonitor: Any?
     private var previouslyActiveApplication: NSRunningApplication?
     private var restoreFocusWhenPopoverCloses = false
+    private var isCopyOptionsPresented = false
+    private var copyOptionsCommand: CheatCommand?
 
     private static let popoverScreenHeightFraction: CGFloat = 0.85
 
@@ -171,30 +173,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     @objc private func copySelectedTitle() {
-        guard let command = store.selectedCommand else { return }
+        guard let command = copyOptionsCommand else { return }
         store.copyTitle(of: command)
     }
 
     @objc private func openSelectedLink() {
-        guard let command = store.selectedCommand else { return }
+        guard let command = copyOptionsCommand else { return }
         store.openLink(command)
     }
 
     @objc private func copySelectedDescription() {
-        guard let command = store.selectedCommand else { return }
+        guard let command = copyOptionsCommand else { return }
         store.copyDescription(of: command, asMarkdown: false)
     }
 
     @objc private func copySelectedDescriptionAsMarkdown() {
-        guard let command = store.selectedCommand else { return }
+        guard let command = copyOptionsCommand else { return }
         store.copyDescription(of: command, asMarkdown: true)
     }
 
-    private func showCopyOptionsMenu() {
+    private func showCopyOptionsMenu(for command: CheatCommand) {
         guard popover.isShown,
-              let command = store.selectedCommand,
               let fallbackView = popover.contentViewController?.view else {
-            store.isCopyOptionsPresented = false
+            isCopyOptionsPresented = false
+            copyOptionsCommand = nil
+            store.restorePinnedCommandSelection()
             return
         }
 
@@ -218,7 +221,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             at: anchorPoint,
             in: anchorView
         )
-        store.isCopyOptionsPresented = false
+        store.restorePinnedCommandSelection()
+        isCopyOptionsPresented = false
+        copyOptionsCommand = nil
     }
 
     private func togglePopover(restoringFocusOnClose: Bool) {
@@ -266,7 +271,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func popoverDidClose(_ notification: Notification) {
         store.cancelVariableForm()
-        store.isCopyOptionsPresented = false
+        store.restorePinnedCommandSelection()
+        isCopyOptionsPresented = false
+        copyOptionsCommand = nil
 
         defer {
             restoreFocusWhenPopoverCloses = false
@@ -284,7 +291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         // Alerts bring their own Return and Escape handling.
         if store.isNewSheetPromptPresented || store.editorErrorMessage != nil
-            || store.isCopyOptionsPresented {
+            || isCopyOptionsPresented {
             return event
         }
 
@@ -377,9 +384,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // copies without opening the variable form.
         if event.keyCode == 36 || event.keyCode == 76 {
             if modifiers == .option {
-                store.isCopyOptionsPresented = true
+                guard let command = store.selectedCommand else { return nil }
+                copyOptionsCommand = command
+                store.pinCommandSelection(command)
+                isCopyOptionsPresented = true
                 DispatchQueue.main.async { [weak self] in
-                    self?.showCopyOptionsMenu()
+                    self?.showCopyOptionsMenu(for: command)
                 }
             } else if modifiers.contains(.command) {
                 store.copySelectedCommandSkippingForm()

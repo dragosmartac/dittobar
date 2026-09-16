@@ -12,9 +12,12 @@ import SwiftUI
 struct SelectableText: NSViewRepresentable {
     let attributedString: NSAttributedString
     var maximumNumberOfLines = 0
+    var onMouseDown: (() -> Void)?
 
     func makeNSView(context: Context) -> NSTextField {
-        let field = NSTextField(labelWithAttributedString: attributedString)
+        let field = SelectionNotifyingTextField(labelWithString: "")
+        field.attributedStringValue = attributedString
+        field.onMouseDown = onMouseDown
         field.isSelectable = true
         // Clicking hands rendering to the field editor. Without rich-text
         // support it redraws everything in the field's base font, so the
@@ -31,6 +34,7 @@ struct SelectableText: NSViewRepresentable {
     }
 
     func updateNSView(_ field: NSTextField, context: Context) {
+        (field as? SelectionNotifyingTextField)?.onMouseDown = onMouseDown
         if field.attributedStringValue != attributedString {
             field.attributedStringValue = attributedString
             applyBaseFont(to: field)
@@ -73,6 +77,17 @@ struct SelectableText: NSViewRepresentable {
         // Cap at the proposal so a short label does not shove its neighbours
         // out of an HStack, but still report the height wrapping needs.
         return CGSize(width: min(ceil(fitting.width), width), height: ceil(fitting.height))
+    }
+}
+
+/// Selectable labels consume clicks before SwiftUI's row gesture sees them.
+/// Notify the row first, then preserve NSTextField's normal text-selection behavior.
+private final class SelectionNotifyingTextField: NSTextField {
+    var onMouseDown: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        onMouseDown?()
+        super.mouseDown(with: event)
     }
 }
 

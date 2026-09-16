@@ -14,7 +14,7 @@ final class CheatSheetStore: ObservableObject {
     @Published var newSheetName = ""
     @Published var variableForm: VariableFormState?
     @Published var isSettingsPresented = false
-    @Published var isCopyOptionsPresented = false
+    @Published private var pinnedCommandID: String?
 
     let folderURL: URL
     var onRequestClose: (() -> Void)?
@@ -105,8 +105,33 @@ final class CheatSheetStore: ObservableObject {
 
     var selectedCommand: CheatCommand? {
         let commands = visibleCommands
+        if let pinnedCommandID,
+           let command = commands.first(where: { $0.id == pinnedCommandID }) {
+            return command
+        }
         guard commands.indices.contains(selectedCommandIndex) else { return nil }
         return commands[selectedCommandIndex]
+    }
+
+    func isCommandSelected(_ command: CheatCommand, at index: Int) -> Bool {
+        if let pinnedCommandID {
+            return command.id == pinnedCommandID
+        }
+        return index == selectedCommandIndex
+    }
+
+    /// Native menu tracking can temporarily disturb SwiftUI list selection.
+    /// Keep both rendering and command lookup tied to the entry that opened it.
+    func pinCommandSelection(_ command: CheatCommand) {
+        pinnedCommandID = command.id
+    }
+
+    func restorePinnedCommandSelection() {
+        guard let pinnedCommandID else { return }
+        if let index = visibleCommands.firstIndex(where: { $0.id == pinnedCommandID }) {
+            selectedCommandIndex = index
+        }
+        self.pinnedCommandID = nil
     }
 
     func selectSheet(at index: Int) {

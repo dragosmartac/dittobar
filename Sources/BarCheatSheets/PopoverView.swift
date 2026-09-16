@@ -131,14 +131,15 @@ struct PopoverView: View {
                     titleFontSize: CGFloat(titleFontSize),
                     descriptionFontSize: CGFloat(descriptionFontSize),
                     commandFontSize: CGFloat(commandFontSize),
-                    isSelected: index == store.selectedCommandIndex,
-                    wasCopied: item.id == store.copiedCommandID
+                    isSelected: store.isCommandSelected(item, at: index),
+                    wasCopied: item.id == store.copiedCommandID,
+                    onSelect: { store.selectedCommandIndex = index }
                 )
                 .id(item.id)
                 .background(
                     SelectedRowAnchor(
                         store: store,
-                        isSelected: index == store.selectedCommandIndex
+                        isSelected: store.isCommandSelected(item, at: index)
                     )
                 )
                 .contentShape(Rectangle())
@@ -153,7 +154,7 @@ struct PopoverView: View {
                 .listRowBackground(
                     item.id == store.copiedCommandID
                         ? Color.green.opacity(0.24)
-                        : index == store.selectedCommandIndex
+                        : store.isCommandSelected(item, at: index)
                             ? Color.accentColor.opacity(0.12)
                             : Color.clear
                 )
@@ -430,13 +431,15 @@ private struct CommandRow: View {
     let commandFontSize: CGFloat
     let isSelected: Bool
     let wasCopied: Bool
+    let onSelect: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 SelectableText(
                     attributedString: CommandTextStyle.title(command.title, size: titleFontSize),
-                    maximumNumberOfLines: 1
+                    maximumNumberOfLines: 1,
+                    onMouseDown: onSelect
                 )
                 .fixedSize()
                 if command.hasVariables {
@@ -460,14 +463,16 @@ private struct CommandRow: View {
                     attributedString: CommandTextStyle.detail(
                         detailSegments,
                         size: descriptionFontSize
-                    )
+                    ),
+                    onMouseDown: onSelect
                 )
             }
 
             if !command.isDescriptionOnly {
                 SelectableText(
                     attributedString: CommandTextStyle.command(segments, size: commandFontSize),
-                    maximumNumberOfLines: 4
+                    maximumNumberOfLines: 4,
+                    onMouseDown: onSelect
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(8)
