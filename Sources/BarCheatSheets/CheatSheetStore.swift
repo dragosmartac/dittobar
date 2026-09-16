@@ -18,6 +18,7 @@ final class CheatSheetStore: ObservableObject {
 
     let folderURL: URL
     var onRequestClose: (() -> Void)?
+    weak var selectedRowAnchorView: NSView?
 
     /// Prepended to every sheet this app creates. The parser skips HTML
     /// comments, so this block can safely show headings and code fences.

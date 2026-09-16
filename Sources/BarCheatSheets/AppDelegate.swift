@@ -169,17 +169,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func showCopyOptionsMenu() {
         guard popover.isShown,
               let command = store.selectedCommand,
-              let view = popover.contentViewController?.view else {
+              let fallbackView = popover.contentViewController?.view else {
             store.isCopyOptionsPresented = false
             return
         }
 
         copyOptionsMenu.items[1].isEnabled = !command.detail.isEmpty
         copyOptionsMenu.items[2].isEnabled = !command.detail.isEmpty
+
+        let anchorView = store.selectedRowAnchorView?.window == fallbackView.window
+            ? store.selectedRowAnchorView ?? fallbackView
+            : fallbackView
+        let anchorPoint: NSPoint
+        if anchorView === fallbackView {
+            anchorPoint = NSPoint(x: fallbackView.bounds.midX, y: fallbackView.bounds.midY)
+        } else {
+            anchorPoint = NSPoint(x: min(120, anchorView.bounds.midX), y: anchorView.bounds.midY)
+        }
+
         copyOptionsMenu.popUp(
             positioning: copyOptionsMenu.items.first,
-            at: NSPoint(x: view.bounds.midX, y: view.bounds.midY),
-            in: view
+            at: anchorPoint,
+            in: anchorView
         )
         store.isCopyOptionsPresented = false
     }

@@ -135,6 +135,12 @@ struct PopoverView: View {
                     wasCopied: item.id == store.copiedCommandID
                 )
                 .id(item.id)
+                .background(
+                    SelectedRowAnchor(
+                        store: store,
+                        isSelected: index == store.selectedCommandIndex
+                    )
+                )
                 .contentShape(Rectangle())
                 // No double-click action: it would swallow the double-click
                 // that selects a word in the selectable text below.
@@ -217,6 +223,42 @@ struct PopoverView: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
         .frame(height: 38)
+    }
+}
+
+private struct SelectedRowAnchor: NSViewRepresentable {
+    let store: CheatSheetStore
+    let isSelected: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(store: store)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        if isSelected {
+            store.selectedRowAnchorView = view
+        } else if store.selectedRowAnchorView === view {
+            store.selectedRowAnchorView = nil
+        }
+    }
+
+    static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
+        if coordinator.store?.selectedRowAnchorView === view {
+            coordinator.store?.selectedRowAnchorView = nil
+        }
+    }
+
+    @MainActor
+    final class Coordinator {
+        weak var store: CheatSheetStore?
+
+        init(store: CheatSheetStore) {
+            self.store = store
+        }
     }
 }
 
