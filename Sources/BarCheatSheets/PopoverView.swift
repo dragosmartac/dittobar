@@ -207,15 +207,24 @@ struct PopoverView: View {
     private var footer: some View {
         HStack(spacing: 14) {
             Label("Tab / ⇧Tab navigate", systemImage: "arrow.up.arrow.down")
+            footerShortcutDivider
             Text("⌘⌥←/→ tabs")
+            footerShortcutDivider
             Label("↩ copy", systemImage: "doc.on.doc")
+            footerShortcutDivider
             Text("⌥↩ options")
+            footerShortcutDivider
             Text("⌘↩ skip form")
+            footerShortcutDivider
             Text("⌘E edit")
+            footerShortcutDivider
             Text("⌘F search")
+            footerShortcutDivider
             Text("⌘⇧N new")
+            footerShortcutDivider
             Text("⌘⇧M more")
             Spacer()
+            footerShortcutDivider
             Text("⌥Space")
                 .foregroundStyle(.secondary)
         }
@@ -223,6 +232,12 @@ struct PopoverView: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
         .frame(height: 38)
+    }
+
+    private var footerShortcutDivider: some View {
+        Divider()
+            .frame(height: 14)
+            .opacity(0.7)
     }
 }
 
