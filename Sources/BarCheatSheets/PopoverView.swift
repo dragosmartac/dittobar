@@ -313,9 +313,11 @@ private struct CommandRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text(command.title)
-                    .font(.headline)
-                    .textSelection(.enabled)
+                SelectableText(
+                    attributedString: CommandTextStyle.title(command.title),
+                    maximumNumberOfLines: 1
+                )
+                .fixedSize()
                 if command.hasVariables {
                     VariableCountBadge(count: command.variables.count)
                 }
@@ -328,18 +330,16 @@ private struct CommandRow: View {
             }
 
             if !command.detail.isEmpty {
-                Text(command.detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+                SelectableText(attributedString: CommandTextStyle.detail(command.detail))
             }
 
-            HighlightedCommandText(segments: segments)
-                .textSelection(.enabled)
-                .lineLimit(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+            SelectableText(
+                attributedString: CommandTextStyle.command(segments),
+                maximumNumberOfLines: 4
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(8)
+            .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
         }
         .padding(.vertical, 5)
     }
@@ -358,21 +358,5 @@ private struct VariableCountBadge: View {
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
         .background(Color.accentColor.opacity(0.14), in: Capsule())
-    }
-}
-
-/// Renders a command with its substituted variable values tinted, so it is
-/// obvious at a glance which parts of the command are editable.
-private struct HighlightedCommandText: View {
-    let segments: [CommandTemplate.Segment]
-
-    var body: some View {
-        segments
-            .reduce(Text(verbatim: "")) { partial, segment in
-                partial + Text(verbatim: segment.text)
-                    .foregroundStyle(segment.isVariable ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-                    .bold(segment.isVariable)
-            }
-            .font(.system(.body, design: .monospaced))
     }
 }
