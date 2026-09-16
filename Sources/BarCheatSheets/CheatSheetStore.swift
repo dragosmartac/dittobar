@@ -54,7 +54,7 @@ final class CheatSheetStore: ObservableObject {
       ⌥Return    choose whether to copy the title or description
       ⌘Return    copy it without opening the form
       ⌘C         copy whatever text you have selected here
-      ⌘E         open this file in VS Code
+      ⌘E         open this file in your configured editor
 
     Anything inside an HTML comment, like this block, is ignored. The app
     reloads this file automatically when you save it.
@@ -289,13 +289,15 @@ final class CheatSheetStore: ObservableObject {
         pasteboard.setString(folderURL.path, forType: .string)
     }
 
-    func openSelectedSheetInVSCode() {
+    func openSelectedSheetInEditor() {
         guard let sourceURL = selectedSheet?.sourceURL else {
             NSSound.beep()
             return
         }
 
-        openInVSCode(sourceURL)
+        if openInConfiguredEditor(sourceURL) {
+            onRequestClose?()
+        }
     }
 
     func requestNewSheetCreation() {
@@ -303,7 +305,7 @@ final class CheatSheetStore: ObservableObject {
         isNewSheetPromptPresented = true
     }
 
-    func createNewSheetInVSCode(named proposedName: String, fileManager: FileManager = .default) {
+    func createNewSheetInEditor(named proposedName: String, fileManager: FileManager = .default) {
         var name = proposedName.trimmingCharacters(in: .whitespacesAndNewlines)
         if name.lowercased().hasSuffix(".md") {
             name = String(name.dropLast(3)).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -351,7 +353,7 @@ final class CheatSheetStore: ObservableObject {
             if let index = sheets.firstIndex(where: { $0.sourceURL == fileURL }) {
                 selectSheet(at: index)
             }
-            if openInVSCode(fileURL) {
+            if openInConfiguredEditor(fileURL) {
                 onRequestClose?()
             }
         } catch {
@@ -360,48 +362,35 @@ final class CheatSheetStore: ObservableObject {
     }
 
     @discardableResult
-    private func openInVSCode(_ sourceURL: URL) -> Bool {
-
-        let bundleIdentifiers = [
-            "com.facebook.fbvscode",
-            "com.facebook.fbvscode-dev",
-            "com.facebook.fbvscode-insiders",
-            "com.microsoft.VSCode",
-            "com.microsoft.VSCodeInsiders"
-        ]
-        let applicationURL = bundleIdentifiers.compactMap({
-            NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0)
-        }).first ?? knownVSCodeLocations().first(where: {
-            FileManager.default.fileExists(atPath: $0.path)
-        })
+    private func openInConfiguredEditor(_ sourceURL: URL) -> Bool {
+        let editor = EditorPreferences.selectedEditor()
+        let applicationURL = editor == .systemDefault
+            ? NSWorkspace.shared.urlForApplication(toOpen: sourceURL)
+            : EditorPreferences.applicationURL(for: editor)
 
         guard let applicationURL else {
-            editorErrorMessage = "VS Code could not be found in Applications."
+            editorErrorMessage = editor == .systemDefault
+                ? "No default Markdown editor could be found. Choose an editor in Settings."
+                : "\(editor.title) could not be found. Choose another editor in Settings."
             return false
         }
 
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
         NSWorkspace.shared.open(
             [sourceURL],
             withApplicationAt: applicationURL,
-            configuration: NSWorkspace.OpenConfiguration()
-        ) { [weak self] _, error in
-            guard let error else { return }
+            configuration: configuration
+        ) { [weak self] application, error in
             DispatchQueue.main.async {
-                self?.editorErrorMessage = error.localizedDescription
+                if let error {
+                    self?.editorErrorMessage = error.localizedDescription
+                } else {
+                    application?.activate(options: [.activateAllWindows])
+                }
             }
         }
         return true
-    }
-
-    private func knownVSCodeLocations() -> [URL] {
-        let applications = URL(fileURLWithPath: "/Applications", isDirectory: true)
-        return [
-            "VS Code @ FB.app",
-            "VS Code @ FB - Dev.app",
-            "VS Code @ FB - Insiders.app",
-            "Visual Studio Code.app",
-            "Visual Studio Code - Insiders.app"
-        ].map { applications.appendingPathComponent($0, isDirectory: true) }
     }
 
     func reload(fileManager: FileManager = .default) {

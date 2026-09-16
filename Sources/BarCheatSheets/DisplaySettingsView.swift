@@ -1,9 +1,11 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct DisplaySettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTab: SettingsTab? = .layout
+    @State private var isChoosingCustomEditor = false
 
     @AppStorage(DisplayPreferences.titleFontSizeKey)
     private var titleFontSize = DisplayPreferences.defaultTitleFontSize
@@ -13,6 +15,10 @@ struct DisplaySettingsView: View {
     private var commandFontSize = DisplayPreferences.defaultCommandFontSize
     @AppStorage(DisplayPreferences.popoverWidthFractionKey)
     private var popoverWidthFraction = DisplayPreferences.defaultPopoverWidthFraction
+    @AppStorage(EditorPreferences.selectedEditorKey)
+    private var selectedEditor = EditorPreferences.defaultEditor.rawValue
+    @AppStorage(EditorPreferences.customEditorPathKey)
+    private var customEditorPath = ""
 
     var body: some View {
         HStack(spacing: 0) {
@@ -21,6 +27,17 @@ struct DisplaySettingsView: View {
             detail
         }
         .frame(width: 680, height: 410)
+        .fileImporter(
+            isPresented: $isChoosingCustomEditor,
+            allowedContentTypes: [.applicationBundle],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case let .success(urls) = result, let applicationURL = urls.first else {
+                return
+            }
+            customEditorPath = applicationURL.path
+            selectedEditor = EditorOption.custom.rawValue
+        }
     }
 
     private var sidebar: some View {
@@ -48,6 +65,8 @@ struct DisplaySettingsView: View {
                 layout
             case .textSizes:
                 textSizes
+            case .editor:
+                editor
             }
 
             Spacer(minLength: 0)
@@ -130,6 +149,39 @@ struct DisplaySettingsView: View {
         }
     }
 
+    private var editor: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Editor")
+                .font(.title2.bold())
+
+            Text("Choose the application used to open new and existing cheat sheets.")
+                .foregroundStyle(.secondary)
+
+            Picker("Editor", selection: $selectedEditor) {
+                ForEach(EditorOption.allCases) { editor in
+                    Text(editor.title).tag(editor.rawValue)
+                }
+            }
+            .pickerStyle(.radioGroup)
+
+            if selectedEditor == EditorOption.custom.rawValue {
+                HStack {
+                    Text(customEditorPath.isEmpty
+                        ? "No application selected"
+                        : URL(fileURLWithPath: customEditorPath).lastPathComponent)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Button(customEditorPath.isEmpty ? "Choose Application…" : "Change Application…") {
+                        isChoosingCustomEditor = true
+                    }
+                }
+            }
+        }
+    }
+
     private var selectedTabIsUsingDefaults: Bool {
         switch selectedTab ?? .layout {
         case .layout:
@@ -138,6 +190,9 @@ struct DisplaySettingsView: View {
             titleFontSize == DisplayPreferences.defaultTitleFontSize
                 && descriptionFontSize == DisplayPreferences.defaultDescriptionFontSize
                 && commandFontSize == DisplayPreferences.defaultCommandFontSize
+        case .editor:
+            selectedEditor == EditorPreferences.defaultEditor.rawValue
+                && customEditorPath.isEmpty
         }
     }
 
@@ -149,13 +204,18 @@ struct DisplaySettingsView: View {
             titleFontSize = DisplayPreferences.defaultTitleFontSize
             descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
             commandFontSize = DisplayPreferences.defaultCommandFontSize
+        case .editor:
+            selectedEditor = EditorPreferences.defaultEditor.rawValue
+            customEditorPath = ""
         }
     }
+
 }
 
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case layout
     case textSizes
+    case editor
 
     var id: Self { self }
 
@@ -163,6 +223,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .layout: "Layout"
         case .textSizes: "Text Sizes"
+        case .editor: "Editor"
         }
     }
 
@@ -170,6 +231,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .layout: "rectangle.expand.horizontal"
         case .textSizes: "textformat.size"
+        case .editor: "square.and.pencil"
         }
     }
 }

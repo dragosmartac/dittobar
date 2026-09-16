@@ -315,7 +315,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         if modifiers.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "e" {
-            store.openSelectedSheetInVSCode()
+            store.openSelectedSheetInEditor()
             return nil
         }
 

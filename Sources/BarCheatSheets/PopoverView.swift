@@ -46,7 +46,7 @@ struct PopoverView: View {
             TextField("Name", text: $store.newSheetName)
             Button("Cancel", role: .cancel) {}
             Button("Create") {
-                store.createNewSheetInVSCode(named: store.newSheetName)
+                store.createNewSheetInEditor(named: store.newSheetName)
             }
             .keyboardShortcut(.defaultAction)
             .disabled(store.newSheetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -328,12 +328,12 @@ private struct MoreOptionsButton: NSViewRepresentable {
             super.init()
 
             addItem(
-                "New Cheat Sheet in VS Code",
+                "New Cheat Sheet in Editor",
                 action: #selector(createNewSheet),
                 key: "n",
                 modifiers: [.command, .shift]
             )
-            addItem("Edit Current Sheet in VS Code", action: #selector(editCurrentSheet), key: "e")
+            addItem("Edit Current Sheet in Editor", action: #selector(editCurrentSheet), key: "e")
             addItem("Open Cheat Sheets Folder", action: #selector(openFolder))
             addItem(
                 "Copy Cheat Sheets Folder Path",
@@ -388,7 +388,7 @@ private struct MoreOptionsButton: NSViewRepresentable {
         }
 
         @objc private func editCurrentSheet() {
-            store.openSelectedSheetInVSCode()
+            store.openSelectedSheetInEditor()
         }
 
         @objc private func createNewSheet() {
