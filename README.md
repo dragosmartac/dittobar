@@ -29,7 +29,7 @@ open "dist/Bar Cheat Sheets.app"
 | `Tab` / `Shift-Tab` | Select the next or previous command |
 | `Up` / `Down` | Select the previous or next command |
 | `Return` | Copy the selected command, or open its variable form |
-| `Option-Return` | Open copy options for the selected entry |
+| `Option-Return` | Open entry options (including **Open Link** for URL entries) |
 | `Command-Return` | Copy the selected command without opening the variable form |
 | `Command-C` | Copy the text you have selected (titles, descriptions, and commands are all selectable) |
 | `Command-E` | Open the current Markdown file in the configured editor |
@@ -46,7 +46,7 @@ the system default, Visual Studio Code, TextEdit, or any custom application.
 
 Right-click any entry to copy its title, its rendered plain-text description, or its
 description with the original Markdown formatting. The same choices are available with
-`Option-Return`.
+`Option-Return`. URL entries also offer **Open Link** in both menus.
 
 ## Edit cheat sheets
 
@@ -74,6 +74,18 @@ Return on that entry copies its description as plain text (with Markdown formatt
 
 Descriptions support inline Markdown, including `` `code` ``, `**bold**`, `*italic*`,
 `~~strikethrough~~`, and `[links](https://example.com)`.
+
+Use a `url` fence for a link entry. It supports a description and variables just like a
+command. Return copies the URL; Option-Return offers to open it in the default application:
+
+````markdown
+## Production dashboard
+Traffic, errors, and latency for the production service.
+
+```url
+https://dashboards.example.com/services/{{service=payments}}
+```
+````
 
 Changes reload automatically. Two example files are created on first launch.
 

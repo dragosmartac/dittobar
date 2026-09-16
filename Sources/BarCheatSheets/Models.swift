@@ -20,6 +20,7 @@ struct CheatCommand: Identifiable, Equatable {
 
     var hasVariables: Bool { !variables.isEmpty }
     var isDescriptionOnly: Bool { command.isEmpty }
+    var isLink: Bool { language.caseInsensitiveCompare("url") == .orderedSame }
     var copyTemplate: String { isDescriptionOnly ? detail : command }
 
     var defaultValues: [String: String] {
@@ -40,6 +41,11 @@ enum CopyOutputFormat: Equatable {
     case markdownDescription
 }
 
+enum VariableFormAction: Equatable {
+    case copy
+    case openLink
+}
+
 /// The in-flight state of the variable form.
 struct VariableFormState: Equatable {
     let commandID: String
@@ -47,6 +53,7 @@ struct VariableFormState: Equatable {
     let title: String
     let template: String
     let outputFormat: CopyOutputFormat
+    let action: VariableFormAction
     let variables: [CommandVariable]
     var values: [String: String]
 

@@ -8,6 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
     private var copyOptionsMenu: NSMenu!
+    private var openLinkMenuItem: NSMenuItem!
+    private var openLinkSeparatorItem: NSMenuItem!
+    private var copyDescriptionMenuItem: NSMenuItem!
+    private var copyMarkdownDescriptionMenuItem: NSMenuItem!
     private var hotKeyManager: HotKeyManager?
     private var keyMonitor: Any?
     private var previouslyActiveApplication: NSRunningApplication?
@@ -110,6 +114,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let menu = NSMenu(title: "Copy Options")
         menu.autoenablesItems = false
 
+        let openLinkItem = NSMenuItem(
+            title: "Open Link",
+            action: #selector(openSelectedLink),
+            keyEquivalent: ""
+        )
+        openLinkItem.target = self
+        menu.addItem(openLinkItem)
+        openLinkMenuItem = openLinkItem
+
+        let openLinkSeparator = NSMenuItem.separator()
+        menu.addItem(openLinkSeparator)
+        openLinkSeparatorItem = openLinkSeparator
+
         let titleItem = NSMenuItem(
             title: "Copy Title",
             action: #selector(copySelectedTitle),
@@ -125,6 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         )
         descriptionItem.target = self
         menu.addItem(descriptionItem)
+        copyDescriptionMenuItem = descriptionItem
 
         let markdownItem = NSMenuItem(
             title: "Copy Description as Markdown",
@@ -133,6 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         )
         markdownItem.target = self
         menu.addItem(markdownItem)
+        copyMarkdownDescriptionMenuItem = markdownItem
 
         copyOptionsMenu = menu
     }
@@ -156,6 +175,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         store.copyTitle(of: command)
     }
 
+    @objc private func openSelectedLink() {
+        guard let command = store.selectedCommand else { return }
+        store.openLink(command)
+    }
+
     @objc private func copySelectedDescription() {
         guard let command = store.selectedCommand else { return }
         store.copyDescription(of: command, asMarkdown: false)
@@ -174,8 +198,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return
         }
 
-        copyOptionsMenu.items[1].isEnabled = !command.detail.isEmpty
-        copyOptionsMenu.items[2].isEnabled = !command.detail.isEmpty
+        openLinkMenuItem.isHidden = !command.isLink
+        openLinkSeparatorItem.isHidden = !command.isLink
+        copyDescriptionMenuItem.isEnabled = !command.detail.isEmpty
+        copyMarkdownDescriptionMenuItem.isEnabled = !command.detail.isEmpty
 
         let anchorView = store.selectedRowAnchorView?.window == fallbackView.window
             ? store.selectedRowAnchorView ?? fallbackView

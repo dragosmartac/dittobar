@@ -29,6 +29,7 @@ final class CheatSheetStore: ObservableObject {
       # Title             the name shown on the tab
       ## Command name     one entry; the lines under it become its description
       ```sh … ```         the command itself, in a fenced code block
+      ```url … ```        a link; ⌥Return includes an option to open it
 
       A section with description text but no code block is also an entry.
       Return copies its description as plain text.
@@ -51,7 +52,7 @@ final class CheatSheetStore: ObservableObject {
     Keys
 
       Return     copy the selected command (opens the form if it has variables)
-      ⌥Return    choose whether to copy the title or description
+      ⌥Return    choose whether to open a link or copy title/description
       ⌘Return    copy it without opening the form
       ⌘C         copy whatever text you have selected here
       ⌘E         open this file in your configured editor
@@ -166,7 +167,8 @@ final class CheatSheetStore: ObservableObject {
         for command: CheatCommand,
         template: String,
         variables: [CommandVariable],
-        outputFormat: CopyOutputFormat
+        outputFormat: CopyOutputFormat,
+        action: VariableFormAction = .copy
     ) {
         guard !variables.isEmpty else { return }
         variableForm = VariableFormState(
@@ -175,6 +177,7 @@ final class CheatSheetStore: ObservableObject {
             title: command.title,
             template: template,
             outputFormat: outputFormat,
+            action: action,
             variables: variables,
             values: effectiveValues(for: command)
         )
@@ -200,7 +203,12 @@ final class CheatSheetStore: ObservableObject {
             for: form.storageKey
         )
         variableForm = nil
-        writeToPasteboard(form.rendered, flashing: form.commandID)
+        switch form.action {
+        case .copy:
+            writeToPasteboard(form.rendered, flashing: form.commandID)
+        case .openLink:
+            openLink(form.rendered)
+        }
     }
 
     func binding(forVariable name: String) -> Binding<String> {
@@ -263,6 +271,37 @@ final class CheatSheetStore: ObservableObject {
         )
         let value = asMarkdown ? rendered : MarkdownText.plainText(rendered)
         writeToPasteboard(value, flashing: command.id)
+    }
+
+    func openLink(_ command: CheatCommand) {
+        guard command.isLink else { return }
+
+        if command.hasVariables {
+            presentVariableForm(
+                for: command,
+                template: command.command,
+                variables: command.variables,
+                outputFormat: .command,
+                action: .openLink
+            )
+            return
+        }
+
+        openLink(resolvedCopyText(for: command))
+    }
+
+    private func openLink(_ value: String) {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmedValue), url.scheme != nil else {
+            editorErrorMessage = "\"\(trimmedValue)\" is not a valid URL."
+            return
+        }
+
+        guard NSWorkspace.shared.open(url) else {
+            editorErrorMessage = "The link could not be opened."
+            return
+        }
+        onRequestClose?()
     }
 
     private func writeToPasteboard(_ value: String, flashing commandID: String) {

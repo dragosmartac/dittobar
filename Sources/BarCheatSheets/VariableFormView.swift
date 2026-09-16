@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The fill-in-the-variables form, shown over the command list.
-/// Return copies the rendered command and dismisses; Escape cancels.
+/// Return completes the requested action and dismisses; Escape cancels.
 struct VariableFormView: View {
     @ObservedObject var store: CheatSheetStore
     @FocusState private var focusedVariable: String?
@@ -148,7 +148,7 @@ struct VariableFormView: View {
             // confirming the form before it can be typed into. Return is
             // already handled by .onSubmit on the fields; ⌘Return is a
             // distinct shortcut the replayed plain Return cannot match.
-            Button("Copy") {
+            Button(form.action == .openLink ? "Open Link" : "Copy") {
                 store.confirmVariableForm()
             }
             .keyboardShortcut(.return, modifiers: .command)

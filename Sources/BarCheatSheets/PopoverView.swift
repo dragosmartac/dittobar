@@ -188,6 +188,14 @@ struct PopoverView: View {
 
     @ViewBuilder
     private func copyOptionButtons(for command: CheatCommand) -> some View {
+        if command.isLink {
+            Button("Open Link") {
+                store.openLink(command)
+            }
+
+            Divider()
+        }
+
         Button("Copy Title") {
             store.copyTitle(of: command)
         }
@@ -433,6 +441,11 @@ private struct CommandRow: View {
                 .fixedSize()
                 if command.hasVariables {
                     VariableCountBadge(count: command.variables.count)
+                }
+                if command.isLink {
+                    Label("Link", systemImage: "link")
+                        .font(.caption2)
+                        .foregroundStyle(.tint)
                 }
                 Spacer()
                 if wasCopied {
