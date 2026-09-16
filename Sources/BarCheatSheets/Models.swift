@@ -12,6 +12,8 @@ struct CheatCommand: Identifiable, Equatable {
     /// Stable across reordering, so remembered variable values survive edits.
     let storageKey: String
     let title: String
+    /// Optional visual group within a cheat-sheet page.
+    let sectionTitle: String?
     let detail: String
     /// The raw template; may contain `{{name=default}}` placeholders.
     let command: String
@@ -28,11 +30,33 @@ struct CheatCommand: Identifiable, Equatable {
     }
 }
 
+struct CheatSheetSection: Identifiable, Equatable {
+    let id: String
+    let title: String
+    /// Position in the unfiltered command list where this header appears.
+    let commandOffset: Int
+}
+
 struct CheatSheet: Identifiable, Equatable {
     let id: String
     let title: String
     let commands: [CheatCommand]
+    let sections: [CheatSheetSection]
     let sourceURL: URL
+}
+
+enum CheatSheetRow: Identifiable, Equatable {
+    case section(CheatSheetSection)
+    case command(CheatCommand, visibleIndex: Int)
+
+    var id: String {
+        switch self {
+        case .section(let section):
+            return "section:\(section.id)"
+        case .command(let command, _):
+            return "command:\(command.id)"
+        }
+    }
 }
 
 enum CopyOutputFormat: Equatable {

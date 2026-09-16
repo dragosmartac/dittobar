@@ -56,12 +56,13 @@ Use the More Options menu to open the folder or copy its full path. Files live a
 ~/Library/Application Support/Bar Cheat Sheets/CheatSheets/
 ```
 
-Each Markdown file becomes a tab. Use an H1 for the tab name and an H2 followed by a fenced code block for every command:
+Each Markdown file becomes a tab. Use an H1 for the tab name and H3 headings followed
+by fenced code blocks for entries. Optional H2 headings divide entries into sections:
 
 ````markdown
 # Git
 
-## Amend the latest commit
+### Amend the latest commit
 An optional description can go here.
 
 ```sh
@@ -69,7 +70,30 @@ git commit --amend --no-edit
 ```
 ````
 
-An H2 with description text but no fenced code block is also shown as an entry. Pressing
+To divide a page into visual sections, use an H2 for each section and H3 headings for
+the entries inside it. Section headings are not selectable commands:
+
+````markdown
+# Dashboards
+
+## Trunk Validation dashboards
+
+### TBwB
+
+```url
+https://dashboards.example.com/trunk/tbwb
+```
+
+## Service dashboards
+
+### Production health
+
+```url
+https://dashboards.example.com/services/production
+```
+````
+
+An H3 with description text but no fenced code block is also shown as an entry. Pressing
 Return on that entry copies its description as plain text (with Markdown formatting removed).
 
 Descriptions support inline Markdown, including `` `code` ``, `**bold**`, `*italic*`,
@@ -79,7 +103,9 @@ Use a `url` fence for a link entry. It supports a description and variables just
 command. Return copies the URL; Option-Return offers to open it in the default application:
 
 ````markdown
-## Production dashboard
+## Service dashboards
+
+### Production dashboard
 Traffic, errors, and latency for the production service.
 
 ```url

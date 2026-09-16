@@ -123,45 +123,51 @@ struct PopoverView: View {
 
     private var commandList: some View {
         ScrollViewReader { proxy in
-            List(Array(store.visibleCommands.enumerated()), id: \.element.id) { index, item in
-                CommandRow(
-                    command: item,
-                    segments: store.resolvedSegments(for: item),
-                    detailSegments: store.resolvedDetailSegments(for: item),
-                    titleFontSize: CGFloat(titleFontSize),
-                    descriptionFontSize: CGFloat(descriptionFontSize),
-                    commandFontSize: CGFloat(commandFontSize),
-                    isSelected: store.isCommandSelected(item, at: index),
-                    wasCopied: item.id == store.copiedCommandID,
-                    onSelect: { store.selectedCommandIndex = index }
-                )
-                .id(item.id)
-                .background(
-                    SelectedRowAnchor(
-                        store: store,
-                        isSelected: store.isCommandSelected(item, at: index)
+            List(store.visibleRows) { row in
+                switch row {
+                case .section(let section):
+                    SectionHeaderRow(title: section.title)
+
+                case .command(let item, let index):
+                    CommandRow(
+                        command: item,
+                        segments: store.resolvedSegments(for: item),
+                        detailSegments: store.resolvedDetailSegments(for: item),
+                        titleFontSize: CGFloat(titleFontSize),
+                        descriptionFontSize: CGFloat(descriptionFontSize),
+                        commandFontSize: CGFloat(commandFontSize),
+                        isSelected: store.isCommandSelected(item, at: index),
+                        wasCopied: item.id == store.copiedCommandID,
+                        onSelect: { store.selectedCommandIndex = index }
                     )
-                )
-                .contentShape(Rectangle())
-                // No double-click action: it would swallow the double-click
-                // that selects a word in the selectable text below.
-                .onTapGesture {
-                    store.selectedCommandIndex = index
+                    .id(item.id)
+                    .background(
+                        SelectedRowAnchor(
+                            store: store,
+                            isSelected: store.isCommandSelected(item, at: index)
+                        )
+                    )
+                    .contentShape(Rectangle())
+                    // No double-click action: it would swallow the double-click
+                    // that selects a word in the selectable text below.
+                    .onTapGesture {
+                        store.selectedCommandIndex = index
+                    }
+                    .contextMenu {
+                        copyOptionButtons(for: item)
+                    }
+                    .listRowBackground(
+                        item.id == store.copiedCommandID
+                            ? Color.green.opacity(0.24)
+                            : store.isCommandSelected(item, at: index)
+                                ? Color.accentColor.opacity(0.12)
+                                : Color.clear
+                    )
                 }
-                .contextMenu {
-                    copyOptionButtons(for: item)
-                }
-                .listRowBackground(
-                    item.id == store.copiedCommandID
-                        ? Color.green.opacity(0.24)
-                        : store.isCommandSelected(item, at: index)
-                            ? Color.accentColor.opacity(0.12)
-                            : Color.clear
-                )
             }
             .listStyle(.inset)
             .overlay {
-                if store.visibleCommands.isEmpty {
+                if store.visibleRows.isEmpty {
                     ContentUnavailableView.search(text: store.query)
                 }
             }
@@ -483,6 +489,23 @@ private struct CommandRow: View {
             }
         }
         .padding(.vertical, 5)
+    }
+}
+
+private struct SectionHeaderRow: View {
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            Divider()
+        }
+        .padding(.top, 10)
+        .padding(.bottom, 2)
+        .listRowBackground(Color.clear)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 

@@ -12,19 +12,28 @@ enum CheatSheetParser {
             .capitalized
 
         var sheetTitle = fallbackTitle
-        var sectionTitle: String?
+        var entryTitle: String?
+        var groupTitle: String?
         var descriptionLines: [String] = []
         var commands: [CheatCommand] = []
+        var sections: [CheatSheetSection] = []
         var isInsideComment = false
         var index = 0
 
-        func appendEntry(title: String, detail: String, command: String, language: String) {
+        func appendEntry(
+            title: String,
+            sectionTitle: String?,
+            detail: String,
+            command: String,
+            language: String
+        ) {
             let identifier = "\(fileName):\(commands.count):\(title)"
             commands.append(
                 CheatCommand(
                     id: identifier,
                     storageKey: "\(fileName)#\(title)",
                     title: title,
+                    sectionTitle: sectionTitle,
                     detail: detail,
                     command: command,
                     language: language,
@@ -35,18 +44,34 @@ enum CheatSheetParser {
             )
         }
 
-        func finishDescriptionOnlySection() {
+        func appendSection(title: String) {
+            sections.append(
+                CheatSheetSection(
+                    id: "\(fileName):section:\(sections.count):\(title)",
+                    title: title,
+                    commandOffset: commands.count
+                )
+            )
+        }
+
+        func finishDescriptionOnlyEntry() {
             defer {
-                sectionTitle = nil
+                entryTitle = nil
                 descriptionLines = []
             }
 
-            guard let title = sectionTitle else { return }
+            guard let title = entryTitle else { return }
             let detail = descriptionLines
                 .joined(separator: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !detail.isEmpty else { return }
-            appendEntry(title: title, detail: detail, command: "", language: "")
+            appendEntry(
+                title: title,
+                sectionTitle: groupTitle,
+                detail: detail,
+                command: "",
+                language: ""
+            )
         }
 
         while index < lines.count {
@@ -71,15 +96,26 @@ enum CheatSheetParser {
             }
 
             if line.hasPrefix("# ") {
-                finishDescriptionOnlySection()
+                finishDescriptionOnlyEntry()
+                groupTitle = nil
                 sheetTitle = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
                 index += 1
                 continue
             }
 
             if line.hasPrefix("## ") {
-                finishDescriptionOnlySection()
-                sectionTitle = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                finishDescriptionOnlyEntry()
+                let title = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                appendSection(title: title)
+                groupTitle = title
+                descriptionLines = []
+                index += 1
+                continue
+            }
+
+            if line.hasPrefix("### ") {
+                finishDescriptionOnlyEntry()
+                entryTitle = String(line.dropFirst(4)).trimmingCharacters(in: .whitespaces)
                 descriptionLines = []
                 index += 1
                 continue
@@ -95,7 +131,7 @@ enum CheatSheetParser {
                     index += 1
                 }
 
-                if let title = sectionTitle {
+                if let title = entryTitle {
                     let command = codeLines.joined(separator: "\n")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                     if !command.isEmpty {
@@ -104,33 +140,35 @@ enum CheatSheetParser {
                             .trimmingCharacters(in: .whitespacesAndNewlines)
                         appendEntry(
                             title: title,
+                            sectionTitle: groupTitle,
                             detail: detail,
                             command: command,
                             language: language
                         )
                     } else {
-                        finishDescriptionOnlySection()
+                        finishDescriptionOnlyEntry()
                     }
                 }
 
-                sectionTitle = nil
+                entryTitle = nil
                 descriptionLines = []
                 index += 1
                 continue
             }
 
-            if sectionTitle != nil, !line.trimmingCharacters(in: .whitespaces).isEmpty {
+            if entryTitle != nil, !line.trimmingCharacters(in: .whitespaces).isEmpty {
                 descriptionLines.append(line.trimmingCharacters(in: .whitespaces))
             }
             index += 1
         }
 
-        finishDescriptionOnlySection()
+        finishDescriptionOnlyEntry()
 
         return CheatSheet(
             id: fileName,
             title: sheetTitle,
             commands: commands,
+            sections: sections,
             sourceURL: fileURL
         )
     }

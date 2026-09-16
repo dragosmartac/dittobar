@@ -27,11 +27,12 @@ final class CheatSheetStore: ObservableObject {
     How this file works
 
       # Title             the name shown on the tab
-      ## Command name     one entry; the lines under it become its description
+      ## Section name     an optional visual group within the page
+      ### Command name    one entry inside that section
       ```sh … ```         the command itself, in a fenced code block
       ```url … ```        a link; ⌥Return includes an option to open it
 
-      A section with description text but no code block is also an entry.
+      An entry with description text but no code block is also supported.
       Return copies its description as plain text.
 
     Description formatting
@@ -94,13 +95,61 @@ final class CheatSheetStore: ObservableObject {
         guard !trimmedQuery.isEmpty else { return commands }
 
         return commands.filter {
-            $0.title.localizedCaseInsensitiveContains(trimmedQuery)
+            ($0.sectionTitle?.localizedCaseInsensitiveContains(trimmedQuery) ?? false)
+                || $0.title.localizedCaseInsensitiveContains(trimmedQuery)
                 || $0.detail.localizedCaseInsensitiveContains(trimmedQuery)
                 || $0.command.localizedCaseInsensitiveContains(trimmedQuery)
                 || resolvedCopyText(for: $0).localizedCaseInsensitiveContains(trimmedQuery)
                 || CommandTemplate.render($0.detail, values: effectiveValues(for: $0))
                     .localizedCaseInsensitiveContains(trimmedQuery)
         }
+    }
+
+    /// Section headers and commands in display order. Headers remain independent
+    /// rows, including when a section has no commands yet.
+    var visibleRows: [CheatSheetRow] {
+        guard let sheet = selectedSheet else { return [] }
+
+        let commands = visibleCommands
+        let visibleIndexByID = Dictionary(
+            uniqueKeysWithValues: commands.enumerated().map { ($0.element.id, $0.offset) }
+        )
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isSearching = !trimmedQuery.isEmpty
+        var visibleSectionIDs = Set<String>()
+
+        for (index, section) in sheet.sections.enumerated() {
+            let nextOffset = index + 1 < sheet.sections.count
+                ? sheet.sections[index + 1].commandOffset
+                : sheet.commands.count
+            let start = min(section.commandOffset, sheet.commands.count)
+            let end = min(max(start, nextOffset), sheet.commands.count)
+            let containsVisibleCommand = sheet.commands[start..<end].contains {
+                visibleIndexByID[$0.id] != nil
+            }
+
+            if !isSearching
+                || section.title.localizedCaseInsensitiveContains(trimmedQuery)
+                || containsVisibleCommand {
+                visibleSectionIDs.insert(section.id)
+            }
+        }
+
+        var rows: [CheatSheetRow] = []
+        for commandOffset in 0...sheet.commands.count {
+            for section in sheet.sections
+                where section.commandOffset == commandOffset
+                    && visibleSectionIDs.contains(section.id) {
+                rows.append(.section(section))
+            }
+
+            guard commandOffset < sheet.commands.count else { continue }
+            let command = sheet.commands[commandOffset]
+            if let visibleIndex = visibleIndexByID[command.id] {
+                rows.append(.command(command, visibleIndex: visibleIndex))
+            }
+        }
+        return rows
     }
 
     var selectedCommand: CheatCommand? {
@@ -396,14 +445,14 @@ final class CheatSheetStore: ObservableObject {
 
         # \(name)
 
-        ## Command name
+        ### Command name
         Add an optional description here.
 
         ```sh
         command
         ```
 
-        ## Command with a variable
+        ### Command with a variable
         Copying this one opens a form with a single editable field.
 
         ```sh
@@ -494,96 +543,96 @@ final class CheatSheetStore: ObservableObject {
         let vimSample = """
         # Vim
 
-        ## Move left, down, up, right
+        ### Move left, down, up, right
         Basic Normal-mode movement.
 
         ```text
         h  j  k  l
         ```
 
-        ## Move by word
+        ### Move by word
         Next word, previous word, and end of word.
 
         ```text
         w  b  e
         ```
 
-        ## Move within a line
+        ### Move within a line
         Start, first non-blank character, and end of line.
 
         ```text
         0  ^  $
         ```
 
-        ## Jump through the file
+        ### Jump through the file
         First line, last line, or a specific line.
 
         ```text
         gg  G  :{line}
         ```
 
-        ## Enter Insert mode
+        ### Enter Insert mode
         Before/after the cursor, or on a new line below/above.
 
         ```text
         i  a  o  O
         ```
 
-        ## Delete, change, or yank a motion
+        ### Delete, change, or yank a motion
         Combine an operator with a motion; double it for the whole line.
 
         ```text
         d{motion}  c{motion}  y{motion}  dd  cc  yy
         ```
 
-        ## Paste
+        ### Paste
         Paste after or before the cursor.
 
         ```text
         p  P
         ```
 
-        ## Undo, redo, and repeat
+        ### Undo, redo, and repeat
 
         ```text
         u  Ctrl-r  .
         ```
 
-        ## Search and repeat
+        ### Search and repeat
         Search forward/backward, then move to the next/previous match.
 
         ```text
         /pattern  ?pattern  n  N
         ```
 
-        ## Replace throughout the file
+        ### Replace throughout the file
         Confirm each replacement.
 
         ```vim
         :%s/old/new/gc
         ```
 
-        ## Select text visually
+        ### Select text visually
         Character, line, or block selection.
 
         ```text
         v  V  Ctrl-v
         ```
 
-        ## Save and quit
+        ### Save and quit
 
         ```vim
         :w  :q  :wq  :q!
         ```
 
-        ## Switch buffers
+        ### Switch buffers
         Next, previous, list, or choose a buffer.
 
         ```vim
         :bn  :bp  :ls  :b {name}
         ```
 
-        ## Record and replay a macro
+        ### Record and replay a macro
         Record into register a, stop, then replay it.
 
         ```text
@@ -600,35 +649,35 @@ final class CheatSheetStore: ObservableObject {
         let gitSample = """
         # Git
 
-        ## See repository status
+        ### See repository status
         Show the current branch and staged, unstaged, and untracked files.
 
         ```sh
         git status --short --branch
         ```
 
-        ## Review unstaged changes
+        ### Review unstaged changes
         Inspect changes in the working tree before staging them.
 
         ```sh
         git diff
         ```
 
-        ## Review staged changes
+        ### Review staged changes
         Inspect exactly what will be included in the next commit.
 
         ```sh
         git diff --staged
         ```
 
-        ## Stage selected changes
+        ### Stage selected changes
         Interactively choose individual hunks to stage.
 
         ```sh
         git add --patch
         ```
 
-        ## Commit staged changes
+        ### Commit staged changes
         Create a commit with a concise message. Copying this one opens a form, because
         `{{name=default}}` marks an editable variable.
 
@@ -636,96 +685,96 @@ final class CheatSheetStore: ObservableObject {
         git commit -m "{{message=Describe the change}}"
         ```
 
-        ## Amend the latest commit
+        ### Amend the latest commit
         Add staged changes without changing the commit message.
 
         ```sh
         git commit --amend --no-edit
         ```
 
-        ## View compact history
+        ### View compact history
         Show a decorated branch graph for all local and remote branches.
 
         ```sh
         git log --oneline --graph --decorate --all
         ```
 
-        ## Create and switch to a branch
+        ### Create and switch to a branch
         Repeating a variable name reuses one field for every occurrence.
 
         ```sh
         git switch -c {{branch=feature/my-change}} && git push -u origin {{branch}}
         ```
 
-        ## Switch branches
+        ### Switch branches
 
         ```sh
         git switch {{branch=main}}
         ```
 
-        ## Update the current branch
+        ### Update the current branch
         Fetch from its remote and replay local commits on top.
 
         ```sh
         git pull --rebase
         ```
 
-        ## Push a new branch
+        ### Push a new branch
         Publish the branch and remember its upstream.
 
         ```sh
         git push -u origin HEAD
         ```
 
-        ## Temporarily stash changes
+        ### Temporarily stash changes
         Include untracked files and label the stash for easier recovery.
 
         ```sh
         git stash push -u -m "work in progress"
         ```
 
-        ## Restore the latest stash
+        ### Restore the latest stash
         Apply the most recent stash and remove it from the stash list.
 
         ```sh
         git stash pop
         ```
 
-        ## Unstage a file
+        ### Unstage a file
         Keep the working-tree changes while removing the file from the index.
 
         ```sh
         git restore --staged <file>
         ```
 
-        ## Discard a file's changes
+        ### Discard a file's changes
         Replace an unstaged file with its last committed version. This cannot be undone by Git.
 
         ```sh
         git restore <file>
         ```
 
-        ## Revert a published commit
+        ### Revert a published commit
         Make a new commit that safely reverses an earlier commit.
 
         ```sh
         git revert <commit>
         ```
 
-        ## Find a lost commit
+        ### Find a lost commit
         Inspect recent HEAD movements after a reset, rebase, or deleted branch.
 
         ```sh
         git reflog
         ```
 
-        ## Show who changed each line
+        ### Show who changed each line
 
         ```sh
         git blame <file>
         ```
 
-        ## Search commit messages
+        ### Search commit messages
 
         ```sh
         git log --grep="{{text=fix}}" --oneline
