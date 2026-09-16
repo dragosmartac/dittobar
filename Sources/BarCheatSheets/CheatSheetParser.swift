@@ -18,6 +18,37 @@ enum CheatSheetParser {
         var isInsideComment = false
         var index = 0
 
+        func appendEntry(title: String, detail: String, command: String, language: String) {
+            let identifier = "\(fileName):\(commands.count):\(title)"
+            commands.append(
+                CheatCommand(
+                    id: identifier,
+                    storageKey: "\(fileName)#\(title)",
+                    title: title,
+                    detail: detail,
+                    command: command,
+                    language: language,
+                    // Command first, so forms focus a field that affects the
+                    // normal copied value before description-only variables.
+                    variables: CommandTemplate.variables(in: "\(command)\n\(detail)")
+                )
+            )
+        }
+
+        func finishDescriptionOnlySection() {
+            defer {
+                sectionTitle = nil
+                descriptionLines = []
+            }
+
+            guard let title = sectionTitle else { return }
+            let detail = descriptionLines
+                .joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !detail.isEmpty else { return }
+            appendEntry(title: title, detail: detail, command: "", language: "")
+        }
+
         while index < lines.count {
             let line = lines[index]
 
@@ -40,12 +71,14 @@ enum CheatSheetParser {
             }
 
             if line.hasPrefix("# ") {
+                finishDescriptionOnlySection()
                 sheetTitle = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
                 index += 1
                 continue
             }
 
             if line.hasPrefix("## ") {
+                finishDescriptionOnlySection()
                 sectionTitle = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
                 descriptionLines = []
                 index += 1
@@ -66,26 +99,17 @@ enum CheatSheetParser {
                     let command = codeLines.joined(separator: "\n")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                     if !command.isEmpty {
-                        let identifier = "\(fileName):\(commands.count):\(title)"
                         let detail = descriptionLines
                             .joined(separator: " ")
                             .trimmingCharacters(in: .whitespacesAndNewlines)
-
-                        commands.append(
-                            CheatCommand(
-                                id: identifier,
-                                storageKey: "\(fileName)#\(title)",
-                                title: title,
-                                detail: detail,
-                                command: command,
-                                language: language,
-                                // Descriptions take variables too, sharing a
-                                // field with the command when the name matches.
-                                // Command first, so the form focuses a field
-                                // that actually affects what gets copied.
-                                variables: CommandTemplate.variables(in: "\(command)\n\(detail)")
-                            )
+                        appendEntry(
+                            title: title,
+                            detail: detail,
+                            command: command,
+                            language: language
                         )
+                    } else {
+                        finishDescriptionOnlySection()
                     }
                 }
 
@@ -100,6 +124,8 @@ enum CheatSheetParser {
             }
             index += 1
         }
+
+        finishDescriptionOnlySection()
 
         return CheatSheet(
             id: fileName,

@@ -63,6 +63,9 @@ git commit --amend --no-edit
 ```
 ````
 
+An H2 with description text but no fenced code block is also shown as an entry. Pressing
+Return on that entry copies its description as plain text (with Markdown formatting removed).
+
 Descriptions support inline Markdown, including `` `code` ``, `**bold**`, `*italic*`,
 `~~strikethrough~~`, and `[links](https://example.com)`.
 

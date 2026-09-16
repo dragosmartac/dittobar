@@ -361,13 +361,18 @@ private struct CommandRow: View {
                 )
             }
 
-            SelectableText(
-                attributedString: CommandTextStyle.command(segments, size: commandFontSize),
-                maximumNumberOfLines: 4
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
-            .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+            if !command.isDescriptionOnly {
+                SelectableText(
+                    attributedString: CommandTextStyle.command(segments, size: commandFontSize),
+                    maximumNumberOfLines: 4
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+                .background(
+                    Color(nsColor: .textBackgroundColor),
+                    in: RoundedRectangle(cornerRadius: 6)
+                )
+            }
         }
         .padding(.vertical, 5)
     }

@@ -19,6 +19,8 @@ struct CheatCommand: Identifiable, Equatable {
     let variables: [CommandVariable]
 
     var hasVariables: Bool { !variables.isEmpty }
+    var isDescriptionOnly: Bool { command.isEmpty }
+    var copyTemplate: String { isDescriptionOnly ? detail : command }
 
     var defaultValues: [String: String] {
         Dictionary(uniqueKeysWithValues: variables.map { ($0.name, $0.defaultValue) })
@@ -38,11 +40,13 @@ struct VariableFormState: Equatable {
     let storageKey: String
     let title: String
     let template: String
+    let copiesDescription: Bool
     let variables: [CommandVariable]
     var values: [String: String]
 
     var rendered: String {
-        CommandTemplate.render(template, values: values)
+        let text = CommandTemplate.render(template, values: values)
+        return copiesDescription ? MarkdownText.plainText(text) : text
     }
 
     var segments: [CommandTemplate.Segment] {

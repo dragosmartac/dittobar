@@ -7,6 +7,8 @@ struct VariableFormView: View {
     @FocusState private var focusedVariable: String?
     @AppStorage(DisplayPreferences.commandFontSizeKey)
     private var commandFontSize = DisplayPreferences.defaultCommandFontSize
+    @AppStorage(DisplayPreferences.descriptionFontSizeKey)
+    private var descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
 
     var body: some View {
         if let form = store.variableForm {
@@ -113,7 +115,12 @@ struct VariableFormView: View {
     }
 
     private func previewText(for form: VariableFormState) -> Text {
-        form.segments
+        if form.copiesDescription {
+            return Text(verbatim: form.rendered)
+                .font(.system(size: CGFloat(descriptionFontSize)))
+        }
+
+        return form.segments
             .reduce(Text(verbatim: "")) { partial, segment in
                 partial + Text(verbatim: segment.text)
                     .foregroundStyle(segment.isVariable ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))

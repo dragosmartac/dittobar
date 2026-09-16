@@ -28,6 +28,9 @@ final class CheatSheetStore: ObservableObject {
       ## Command name     one entry; the lines under it become its description
       ```sh … ```         the command itself, in a fenced code block
 
+      A section with description text but no code block is also an entry.
+      Return copies its description as plain text.
+
     Description formatting
 
       Descriptions support inline Markdown: `code`, **bold**, *italic*,
@@ -40,8 +43,8 @@ final class CheatSheetStore: ObservableObject {
       moves between fields, Return copies, Escape cancels. Repeat a name to
       reuse one field — the same {{diff}} in a description and a command is
       edited once. Write {{name}} with no default to start empty. Values you
-      type are remembered per command. Only the command is copied; variables
-      in a description just keep it in step.
+      type are remembered per entry. For command entries, only the command is
+      copied; description variables just keep the note in step.
 
     Keys
 
@@ -90,7 +93,7 @@ final class CheatSheetStore: ObservableObject {
             $0.title.localizedCaseInsensitiveContains(trimmedQuery)
                 || $0.detail.localizedCaseInsensitiveContains(trimmedQuery)
                 || $0.command.localizedCaseInsensitiveContains(trimmedQuery)
-                || resolvedCommand(for: $0).localizedCaseInsensitiveContains(trimmedQuery)
+                || resolvedCopyText(for: $0).localizedCaseInsensitiveContains(trimmedQuery)
                 || CommandTemplate.render($0.detail, values: effectiveValues(for: $0))
                     .localizedCaseInsensitiveContains(trimmedQuery)
         }
@@ -140,9 +143,12 @@ final class CheatSheetStore: ObservableObject {
         return values
     }
 
-    func resolvedCommand(for command: CheatCommand) -> String {
-        guard command.hasVariables else { return command.command }
-        return CommandTemplate.render(command.command, values: effectiveValues(for: command))
+    func resolvedCopyText(for command: CheatCommand) -> String {
+        let rendered = CommandTemplate.render(
+            command.copyTemplate,
+            values: effectiveValues(for: command)
+        )
+        return command.isDescriptionOnly ? MarkdownText.plainText(rendered) : rendered
     }
 
     func resolvedSegments(for command: CheatCommand) -> [CommandTemplate.Segment] {
@@ -159,7 +165,8 @@ final class CheatSheetStore: ObservableObject {
             commandID: command.id,
             storageKey: command.storageKey,
             title: command.title,
-            template: command.command,
+            template: command.copyTemplate,
+            copiesDescription: command.isDescriptionOnly,
             variables: command.variables,
             values: effectiveValues(for: command)
         )
@@ -200,13 +207,13 @@ final class CheatSheetStore: ObservableObject {
             presentVariableForm(for: selectedCommand)
             return
         }
-        writeToPasteboard(selectedCommand.command, flashing: selectedCommand.id)
+        writeToPasteboard(resolvedCopyText(for: selectedCommand), flashing: selectedCommand.id)
     }
 
     /// Copies straight away, using the current variable values and skipping the form.
     func copySelectedCommandSkippingForm() {
         guard let selectedCommand else { return }
-        writeToPasteboard(resolvedCommand(for: selectedCommand), flashing: selectedCommand.id)
+        writeToPasteboard(resolvedCopyText(for: selectedCommand), flashing: selectedCommand.id)
     }
 
     private func writeToPasteboard(_ value: String, flashing commandID: String) {
