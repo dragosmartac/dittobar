@@ -17,11 +17,22 @@ struct VariableFormView: View {
                     .frame(maxWidth: 620)
                     .padding(24)
             }
-            .task {
-                // The fields only exist after the overlay lays out.
-                try? await Task.sleep(for: .milliseconds(40))
+            .task(id: form.commandID) {
+                // Clearing first guarantees a state change even if focus was
+                // left on a field of the same name by a previous form.
+                focusedVariable = nil
+
+                // The fields only exist once the overlay has laid out.
+                try? await Task.sleep(for: .milliseconds(50))
+
+                // `try?` swallows cancellation, so check it explicitly rather
+                // than moving focus for a form that has already been dismissed.
+                guard !Task.isCancelled,
+                      store.variableForm?.commandID == form.commandID else { return }
+
                 focusedVariable = form.variables.first?.name
             }
+            .onDisappear { focusedVariable = nil }
         }
     }
 
@@ -121,12 +132,18 @@ struct VariableFormView: View {
             Button("Cancel", role: .cancel) {
                 store.cancelVariableForm()
             }
-            .keyboardShortcut(.cancelAction)
 
+            // Deliberately NOT .defaultAction. When this form appears, the
+            // search field behind it ends editing, and AppKit replays that as
+            // a Return key equivalent — which a .defaultAction button claims,
+            // confirming the form before it can be typed into. Return is
+            // already handled by .onSubmit on the fields; ⌘Return is a
+            // distinct shortcut the replayed plain Return cannot match.
             Button("Copy") {
                 store.confirmVariableForm()
             }
-            .keyboardShortcut(.defaultAction)
+            .keyboardShortcut(.return, modifiers: .command)
+            .buttonStyle(.borderedProminent)
         }
     }
 }

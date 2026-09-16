@@ -140,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         // The variable form owns the keyboard while it is open: Tab moves
-        // between its fields and Return confirms via its default button.
+        // between its fields and Return confirms via their onSubmit.
         if store.isVariableFormPresented {
             if event.keyCode == 53 {
                 store.cancelVariableForm()

@@ -81,6 +81,7 @@ Copying that command with `Return` opens a form instead of copying straight away
 | --- | --- |
 | `Tab` / `Shift-Tab` | Move between fields |
 | `Return` | Copy the filled-in command and close the form |
+| `Command-Return` | The same, and works even when no field has focus |
 | `Escape` | Close the form without copying |
 
 The live preview tints every substituted value, and the command list shows each command

@@ -27,7 +27,11 @@ struct PopoverView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
         .overlay {
-            VariableFormView(store: store)
+            // Built only while a form is up, so its @FocusState starts fresh
+            // each time instead of carrying focus over from the last command.
+            if store.variableForm != nil {
+                VariableFormView(store: store)
+            }
         }
         .alert("New Cheat Sheet", isPresented: $store.isNewSheetPromptPresented) {
             TextField("Name", text: $store.newSheetName)
