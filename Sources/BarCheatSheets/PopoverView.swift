@@ -171,6 +171,18 @@ struct PopoverView: View {
                     }
                 }
             }
+            .onChange(of: store.query) {
+                guard let id = store.visibleCommands.first?.id else { return }
+
+                // The selected index may already be zero, in which case its
+                // onChange handler does not fire. Wait for the filtered rows
+                // to be laid out, then center the first result explicitly.
+                DispatchQueue.main.async {
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        proxy.scrollTo(id, anchor: .center)
+                    }
+                }
+            }
         }
     }
 
