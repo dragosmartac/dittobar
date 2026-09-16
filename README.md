@@ -63,6 +63,9 @@ git commit --amend --no-edit
 ```
 ````
 
+Descriptions support inline Markdown, including `` `code` ``, `**bold**`, `*italic*`,
+`~~strikethrough~~`, and `[links](https://example.com)`.
+
 Changes reload automatically. Two example files are created on first launch.
 
 ## Variables

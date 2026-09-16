@@ -28,6 +28,11 @@ final class CheatSheetStore: ObservableObject {
       ## Command name     one entry; the lines under it become its description
       ```sh … ```         the command itself, in a fenced code block
 
+    Description formatting
+
+      Descriptions support inline Markdown: `code`, **bold**, *italic*,
+      ~~strikethrough~~, and [links](https://example.com).
+
     Variables
 
       Write {{name=default}} in a code block, or in a description, to make
