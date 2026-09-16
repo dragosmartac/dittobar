@@ -270,7 +270,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func popoverDidClose(_ notification: Notification) {
-        store.cancelVariableForm()
+        // Keep any in-progress variable form alive while the popover is hidden.
+        // This lets someone switch to another app to look up or copy a value,
+        // then reopen the popover and continue exactly where they left off.
+        // The form's own Cancel button and Escape handling still discard it.
         store.restorePinnedCommandSelection()
         isCopyOptionsPresented = false
         copyOptionsCommand = nil

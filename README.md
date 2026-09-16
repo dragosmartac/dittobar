@@ -139,7 +139,8 @@ Copying that command with `Return` opens a form instead of copying straight away
 | `Escape` | Close the form without copying |
 
 The live preview tints every substituted value, and the command list shows each command
-with its current values already filled in.
+with its current values already filled in. If the menu-bar popover closes while the form
+is open, reopening it restores the form and all values entered so far.
 
 Other details:
 
