@@ -29,6 +29,7 @@ open "dist/Bar Cheat Sheets.app"
 | `Tab` / `Shift-Tab` | Select the next or previous command |
 | `Up` / `Down` | Select the previous or next command |
 | `Return` | Copy the selected command, or open its variable form |
+| `Option-Return` | Open copy options for the selected entry |
 | `Command-Return` | Copy the selected command without opening the variable form |
 | `Command-C` | Copy the text you have selected (titles, descriptions, and commands are all selectable) |
 | `Command-E` | Open the current Markdown file in VS Code |
@@ -39,8 +40,12 @@ open "dist/Bar Cheat Sheets.app"
 | `C` | Copy the full cheat-sheets directory path while More Options is open |
 | `Escape` | Close the popover |
 
-Title, description, and command font sizes can also be changed from **More Options → Settings**.
-The choices are saved automatically.
+Popover width and the title, description, and command font sizes can be changed from
+**More Options → Settings**. The choices are saved automatically.
+
+Right-click any entry to copy its title, its rendered plain-text description, or its
+description with the original Markdown formatting. The same choices are available with
+`Option-Return`.
 
 ## Edit cheat sheets
 

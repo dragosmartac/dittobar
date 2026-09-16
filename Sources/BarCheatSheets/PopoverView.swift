@@ -141,6 +141,9 @@ struct PopoverView: View {
                 .onTapGesture {
                     store.selectedCommandIndex = index
                 }
+                .contextMenu {
+                    copyOptionButtons(for: item)
+                }
                 .listRowBackground(
                     item.id == store.copiedCommandID
                         ? Color.green.opacity(0.24)
@@ -165,6 +168,23 @@ struct PopoverView: View {
         }
     }
 
+    @ViewBuilder
+    private func copyOptionButtons(for command: CheatCommand) -> some View {
+        Button("Copy Title") {
+            store.copyTitle(of: command)
+        }
+
+        Button("Copy Description") {
+            store.copyDescription(of: command, asMarkdown: false)
+        }
+        .disabled(command.detail.isEmpty)
+
+        Button("Copy Description as Markdown") {
+            store.copyDescription(of: command, asMarkdown: true)
+        }
+        .disabled(command.detail.isEmpty)
+    }
+
     private var emptyState: some View {
         ContentUnavailableView {
             Label("No cheat sheets", systemImage: "doc.text")
@@ -183,6 +203,7 @@ struct PopoverView: View {
             Label("Tab / ⇧Tab navigate", systemImage: "arrow.up.arrow.down")
             Text("⌘⌥←/→ tabs")
             Label("↩ copy", systemImage: "doc.on.doc")
+            Text("⌥↩ options")
             Text("⌘↩ skip form")
             Text("⌘E edit")
             Text("⌘F search")

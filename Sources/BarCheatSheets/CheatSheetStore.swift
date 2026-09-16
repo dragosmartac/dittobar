@@ -14,6 +14,7 @@ final class CheatSheetStore: ObservableObject {
     @Published var newSheetName = ""
     @Published var variableForm: VariableFormState?
     @Published var isSettingsPresented = false
+    @Published var isCopyOptionsPresented = false
 
     let folderURL: URL
     var onRequestClose: (() -> Void)?
@@ -49,6 +50,7 @@ final class CheatSheetStore: ObservableObject {
     Keys
 
       Return     copy the selected command (opens the form if it has variables)
+      ⌥Return    choose whether to copy the title or description
       ⌘Return    copy it without opening the form
       ⌘C         copy whatever text you have selected here
       ⌘E         open this file in VS Code
@@ -159,15 +161,20 @@ final class CheatSheetStore: ObservableObject {
         CommandTemplate.segments(of: command.detail, values: effectiveValues(for: command))
     }
 
-    func presentVariableForm(for command: CheatCommand) {
-        guard command.hasVariables else { return }
+    private func presentVariableForm(
+        for command: CheatCommand,
+        template: String,
+        variables: [CommandVariable],
+        outputFormat: CopyOutputFormat
+    ) {
+        guard !variables.isEmpty else { return }
         variableForm = VariableFormState(
             commandID: command.id,
             storageKey: command.storageKey,
             title: command.title,
-            template: command.copyTemplate,
-            copiesDescription: command.isDescriptionOnly,
-            variables: command.variables,
+            template: template,
+            outputFormat: outputFormat,
+            variables: variables,
             values: effectiveValues(for: command)
         )
     }
@@ -186,7 +193,11 @@ final class CheatSheetStore: ObservableObject {
 
     func confirmVariableForm() {
         guard let form = variableForm else { return }
-        CommandVariableStorage.save(form.values, for: form.storageKey)
+        let remembered = CommandVariableStorage.values(for: form.storageKey)
+        CommandVariableStorage.save(
+            remembered.merging(form.values) { _, newValue in newValue },
+            for: form.storageKey
+        )
         variableForm = nil
         writeToPasteboard(form.rendered, flashing: form.commandID)
     }
@@ -204,7 +215,14 @@ final class CheatSheetStore: ObservableObject {
     func copySelectedCommand() {
         guard let selectedCommand else { return }
         if selectedCommand.hasVariables {
-            presentVariableForm(for: selectedCommand)
+            presentVariableForm(
+                for: selectedCommand,
+                template: selectedCommand.copyTemplate,
+                variables: selectedCommand.variables,
+                outputFormat: selectedCommand.isDescriptionOnly
+                    ? .plainDescription
+                    : .command
+            )
             return
         }
         writeToPasteboard(resolvedCopyText(for: selectedCommand), flashing: selectedCommand.id)
@@ -214,6 +232,36 @@ final class CheatSheetStore: ObservableObject {
     func copySelectedCommandSkippingForm() {
         guard let selectedCommand else { return }
         writeToPasteboard(resolvedCopyText(for: selectedCommand), flashing: selectedCommand.id)
+    }
+
+    func copyTitle(of command: CheatCommand) {
+        writeToPasteboard(command.title, flashing: command.id)
+    }
+
+    func copyDescription(of command: CheatCommand, asMarkdown: Bool) {
+        guard !command.detail.isEmpty else { return }
+
+        let variables = CommandTemplate.variables(in: command.detail)
+        let outputFormat: CopyOutputFormat = asMarkdown
+            ? .markdownDescription
+            : .plainDescription
+
+        if !variables.isEmpty {
+            presentVariableForm(
+                for: command,
+                template: command.detail,
+                variables: variables,
+                outputFormat: outputFormat
+            )
+            return
+        }
+
+        let rendered = CommandTemplate.render(
+            command.detail,
+            values: effectiveValues(for: command)
+        )
+        let value = asMarkdown ? rendered : MarkdownText.plainText(rendered)
+        writeToPasteboard(value, flashing: command.id)
     }
 
     private func writeToPasteboard(_ value: String, flashing commandID: String) {

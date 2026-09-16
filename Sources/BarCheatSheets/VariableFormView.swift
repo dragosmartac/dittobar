@@ -115,7 +115,7 @@ struct VariableFormView: View {
     }
 
     private func previewText(for form: VariableFormState) -> Text {
-        if form.copiesDescription {
+        if form.outputFormat == .plainDescription {
             return Text(verbatim: form.rendered)
                 .font(.system(size: CGFloat(descriptionFontSize)))
         }

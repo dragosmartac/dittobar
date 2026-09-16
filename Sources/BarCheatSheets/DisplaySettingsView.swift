@@ -3,7 +3,7 @@ import SwiftUI
 
 struct DisplaySettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedTab: SettingsTab? = .textSizes
+    @State private var selectedTab: SettingsTab? = .layout
 
     @AppStorage(DisplayPreferences.titleFontSizeKey)
     private var titleFontSize = DisplayPreferences.defaultTitleFontSize
@@ -11,6 +11,8 @@ struct DisplaySettingsView: View {
     private var descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
     @AppStorage(DisplayPreferences.commandFontSizeKey)
     private var commandFontSize = DisplayPreferences.defaultCommandFontSize
+    @AppStorage(DisplayPreferences.popoverWidthFractionKey)
+    private var popoverWidthFraction = DisplayPreferences.defaultPopoverWidthFraction
 
     var body: some View {
         HStack(spacing: 0) {
@@ -41,7 +43,9 @@ struct DisplaySettingsView: View {
 
     private var detail: some View {
         VStack(alignment: .leading, spacing: 18) {
-            switch selectedTab ?? .textSizes {
+            switch selectedTab ?? .layout {
+            case .layout:
+                layout
             case .textSizes:
                 textSizes
             }
@@ -52,11 +56,9 @@ struct DisplaySettingsView: View {
 
             HStack {
                 Button("Reset to Defaults") {
-                    titleFontSize = DisplayPreferences.defaultTitleFontSize
-                    descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
-                    commandFontSize = DisplayPreferences.defaultCommandFontSize
+                    resetSelectedTab()
                 }
-                .disabled(isUsingDefaults)
+                .disabled(selectedTabIsUsingDefaults)
 
                 Spacer()
 
@@ -68,6 +70,36 @@ struct DisplaySettingsView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var layout: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Layout")
+                .font(.title2.bold())
+
+            Text("Choose how far the dropdown expands horizontally.")
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Popover Width")
+                    Spacer()
+                    Text("\(Int((popoverWidthFraction * 100).rounded()))%")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+
+                Slider(
+                    value: $popoverWidthFraction,
+                    in: DisplayPreferences.popoverWidthFractionRange,
+                    step: 0.05
+                )
+                .accessibilityLabel("Popover width")
+                .accessibilityValue(
+                    "\(Int((popoverWidthFraction * 100).rounded())) percent of the screen"
+                )
+            }
+        }
     }
 
     private var textSizes: some View {
@@ -98,26 +130,45 @@ struct DisplaySettingsView: View {
         }
     }
 
-    private var isUsingDefaults: Bool {
-        titleFontSize == DisplayPreferences.defaultTitleFontSize
-            && descriptionFontSize == DisplayPreferences.defaultDescriptionFontSize
-            && commandFontSize == DisplayPreferences.defaultCommandFontSize
+    private var selectedTabIsUsingDefaults: Bool {
+        switch selectedTab ?? .layout {
+        case .layout:
+            popoverWidthFraction == DisplayPreferences.defaultPopoverWidthFraction
+        case .textSizes:
+            titleFontSize == DisplayPreferences.defaultTitleFontSize
+                && descriptionFontSize == DisplayPreferences.defaultDescriptionFontSize
+                && commandFontSize == DisplayPreferences.defaultCommandFontSize
+        }
+    }
+
+    private func resetSelectedTab() {
+        switch selectedTab ?? .layout {
+        case .layout:
+            popoverWidthFraction = DisplayPreferences.defaultPopoverWidthFraction
+        case .textSizes:
+            titleFontSize = DisplayPreferences.defaultTitleFontSize
+            descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
+            commandFontSize = DisplayPreferences.defaultCommandFontSize
+        }
     }
 }
 
 private enum SettingsTab: String, CaseIterable, Identifiable {
+    case layout
     case textSizes
 
     var id: Self { self }
 
     var title: String {
         switch self {
+        case .layout: "Layout"
         case .textSizes: "Text Sizes"
         }
     }
 
     var systemImage: String {
         switch self {
+        case .layout: "rectangle.expand.horizontal"
         case .textSizes: "textformat.size"
         }
     }

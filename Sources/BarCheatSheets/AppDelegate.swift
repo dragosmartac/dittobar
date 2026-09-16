@@ -7,17 +7,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let store = CheatSheetStore()
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
+    private var copyOptionsMenu: NSMenu!
     private var hotKeyManager: HotKeyManager?
     private var keyMonitor: Any?
     private var previouslyActiveApplication: NSRunningApplication?
     private var restoreFocusWhenPopoverCloses = false
 
-    private static let popoverScreenFraction: CGFloat = 0.85
+    private static let popoverScreenHeightFraction: CGFloat = 0.85
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureMainMenu()
         configurePopover()
         configureStatusItem()
+        configureCopyOptionsMenu()
 
         hotKeyManager = HotKeyManager { [weak self] in
             DispatchQueue.main.async {
@@ -28,12 +30,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleKeyEvent(event) ?? event
         }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(displayPreferencesDidChange),
+            name: UserDefaults.didChangeNotification,
+            object: nil
+        )
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
         }
+        NotificationCenter.default.removeObserver(self)
     }
 
     /// An accessory app displays no menu bar, but `NSApplication` still routes
@@ -96,6 +106,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         statusItemMenu = menu
     }
 
+    private func configureCopyOptionsMenu() {
+        let menu = NSMenu(title: "Copy Options")
+        menu.autoenablesItems = false
+
+        let titleItem = NSMenuItem(
+            title: "Copy Title",
+            action: #selector(copySelectedTitle),
+            keyEquivalent: ""
+        )
+        titleItem.target = self
+        menu.addItem(titleItem)
+
+        let descriptionItem = NSMenuItem(
+            title: "Copy Description",
+            action: #selector(copySelectedDescription),
+            keyEquivalent: ""
+        )
+        descriptionItem.target = self
+        menu.addItem(descriptionItem)
+
+        let markdownItem = NSMenuItem(
+            title: "Copy Description as Markdown",
+            action: #selector(copySelectedDescriptionAsMarkdown),
+            keyEquivalent: ""
+        )
+        markdownItem.target = self
+        menu.addItem(markdownItem)
+
+        copyOptionsMenu = menu
+    }
+
     @objc private func statusItemClicked() {
         if let event = NSApp.currentEvent, event.type == .rightMouseUp,
            let button = statusItem.button {
@@ -108,6 +149,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     @objc private func quitApplication() {
         NSApp.terminate(nil)
+    }
+
+    @objc private func copySelectedTitle() {
+        guard let command = store.selectedCommand else { return }
+        store.copyTitle(of: command)
+    }
+
+    @objc private func copySelectedDescription() {
+        guard let command = store.selectedCommand else { return }
+        store.copyDescription(of: command, asMarkdown: false)
+    }
+
+    @objc private func copySelectedDescriptionAsMarkdown() {
+        guard let command = store.selectedCommand else { return }
+        store.copyDescription(of: command, asMarkdown: true)
+    }
+
+    private func showCopyOptionsMenu() {
+        guard popover.isShown,
+              let command = store.selectedCommand,
+              let view = popover.contentViewController?.view else {
+            store.isCopyOptionsPresented = false
+            return
+        }
+
+        copyOptionsMenu.items[1].isEnabled = !command.detail.isEmpty
+        copyOptionsMenu.items[2].isEnabled = !command.detail.isEmpty
+        copyOptionsMenu.popUp(
+            positioning: copyOptionsMenu.items.first,
+            at: NSPoint(x: view.bounds.midX, y: view.bounds.midY),
+            in: view
+        )
+        store.isCopyOptionsPresented = false
     }
 
     private func togglePopover(restoringFocusOnClose: Bool) {
@@ -133,10 +207,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return NSSize(width: 900, height: 800)
         }
 
+        let widthFraction = DisplayPreferences.popoverWidthFraction()
         return NSSize(
-            width: floor(screen.visibleFrame.width * Self.popoverScreenFraction),
-            height: floor(screen.visibleFrame.height * Self.popoverScreenFraction)
+            width: floor(screen.visibleFrame.width * widthFraction),
+            height: floor(screen.visibleFrame.height * Self.popoverScreenHeightFraction)
         )
+    }
+
+    @objc private func displayPreferencesDidChange() {
+        guard popover.isShown else { return }
+        let screen = statusItem.button?.window?.screen
+            ?? popover.contentViewController?.view.window?.screen
+            ?? NSScreen.main
+        popover.contentSize = preferredPopoverSize(for: screen)
     }
 
     private func closePopover(restoringFocus: Bool) {
@@ -146,6 +229,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func popoverDidClose(_ notification: Notification) {
         store.cancelVariableForm()
+        store.isCopyOptionsPresented = false
 
         defer {
             restoreFocusWhenPopoverCloses = false
@@ -162,7 +246,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
         // Alerts bring their own Return and Escape handling.
-        if store.isNewSheetPromptPresented || store.editorErrorMessage != nil {
+        if store.isNewSheetPromptPresented || store.editorErrorMessage != nil
+            || store.isCopyOptionsPresented {
             return event
         }
 
@@ -251,9 +336,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         // Return copies, leaving ⌘C to the system so text in the list stays
-        // selectable and copyable. ⌘Return copies without opening the form.
+        // selectable and copyable. ⌥Return opens copy options, while ⌘Return
+        // copies without opening the variable form.
         if event.keyCode == 36 || event.keyCode == 76 {
-            if modifiers.contains(.command) {
+            if modifiers == .option {
+                store.isCopyOptionsPresented = true
+                DispatchQueue.main.async { [weak self] in
+                    self?.showCopyOptionsMenu()
+                }
+            } else if modifiers.contains(.command) {
                 store.copySelectedCommandSkippingForm()
             } else {
                 store.copySelectedCommand()

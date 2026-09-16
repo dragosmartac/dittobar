@@ -34,19 +34,25 @@ struct CheatSheet: Identifiable, Equatable {
     let sourceURL: URL
 }
 
+enum CopyOutputFormat: Equatable {
+    case command
+    case plainDescription
+    case markdownDescription
+}
+
 /// The in-flight state of the variable form.
 struct VariableFormState: Equatable {
     let commandID: String
     let storageKey: String
     let title: String
     let template: String
-    let copiesDescription: Bool
+    let outputFormat: CopyOutputFormat
     let variables: [CommandVariable]
     var values: [String: String]
 
     var rendered: String {
         let text = CommandTemplate.render(template, values: values)
-        return copiesDescription ? MarkdownText.plainText(text) : text
+        return outputFormat == .plainDescription ? MarkdownText.plainText(text) : text
     }
 
     var segments: [CommandTemplate.Segment] {
