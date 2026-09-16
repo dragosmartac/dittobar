@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 
 @MainActor
 final class CheatSheetStore: ObservableObject {
@@ -11,9 +12,40 @@ final class CheatSheetStore: ObservableObject {
     @Published var editorErrorMessage: String?
     @Published var isNewSheetPromptPresented = false
     @Published var newSheetName = ""
+    @Published var variableForm: VariableFormState?
 
     let folderURL: URL
     var onRequestClose: (() -> Void)?
+
+    /// Prepended to every sheet this app creates. The parser skips HTML
+    /// comments, so this block can safely show headings and code fences.
+    static let instructionsComment = """
+    <!--
+    How this file works
+
+      # Title             the name shown on the tab
+      ## Command name     one entry; the lines under it become its description
+      ```sh … ```         the command itself, in a fenced code block
+
+    Variables
+
+      Write {{name=default}} inside a code block to make that part editable.
+      Copying such a command opens a form instead: Tab moves between fields,
+      Return copies, Escape cancels. Repeat a name to reuse one field, and
+      write {{name}} with no default to start empty. Values you type are
+      remembered per command.
+
+    Keys
+
+      Return     copy the selected command (opens the form if it has variables)
+      ⌘Return    copy it without opening the form
+      ⌘C         copy whatever text you have selected here
+      ⌘E         open this file in VS Code
+
+    Anything inside an HTML comment, like this block, is ignored. The app
+    reloads this file automatically when you save it.
+    -->
+    """
 
     private var watcher: DirectoryWatcher?
 
@@ -50,6 +82,7 @@ final class CheatSheetStore: ObservableObject {
             $0.title.localizedCaseInsensitiveContains(trimmedQuery)
                 || $0.detail.localizedCaseInsensitiveContains(trimmedQuery)
                 || $0.command.localizedCaseInsensitiveContains(trimmedQuery)
+                || resolvedCommand(for: $0).localizedCaseInsensitiveContains(trimmedQuery)
         }
     }
 
@@ -80,16 +113,97 @@ final class CheatSheetStore: ObservableObject {
         selectedCommandIndex = (selectedCommandIndex + offset + count) % count
     }
 
+    // MARK: - Variables
+
+    var isVariableFormPresented: Bool { variableForm != nil }
+
+    /// The values a command starts with: its Markdown defaults, overridden by
+    /// whatever was last entered for the variables it still declares.
+    func effectiveValues(for command: CheatCommand) -> [String: String] {
+        var values = command.defaultValues
+        let remembered = CommandVariableStorage.values(for: command.storageKey)
+        for variable in command.variables {
+            if let value = remembered[variable.name] {
+                values[variable.name] = value
+            }
+        }
+        return values
+    }
+
+    func resolvedCommand(for command: CheatCommand) -> String {
+        guard command.hasVariables else { return command.command }
+        return CommandTemplate.render(command.command, values: effectiveValues(for: command))
+    }
+
+    func resolvedSegments(for command: CheatCommand) -> [CommandTemplate.Segment] {
+        CommandTemplate.segments(of: command.command, values: effectiveValues(for: command))
+    }
+
+    func presentVariableForm(for command: CheatCommand) {
+        guard command.hasVariables else { return }
+        variableForm = VariableFormState(
+            commandID: command.id,
+            storageKey: command.storageKey,
+            title: command.title,
+            template: command.command,
+            variables: command.variables,
+            values: effectiveValues(for: command)
+        )
+    }
+
+    func cancelVariableForm() {
+        variableForm = nil
+    }
+
+    func resetVariableFormToDefaults() {
+        guard var form = variableForm else { return }
+        form.values = Dictionary(
+            uniqueKeysWithValues: form.variables.map { ($0.name, $0.defaultValue) }
+        )
+        variableForm = form
+    }
+
+    func confirmVariableForm() {
+        guard let form = variableForm else { return }
+        CommandVariableStorage.save(form.values, for: form.storageKey)
+        variableForm = nil
+        writeToPasteboard(form.rendered, flashing: form.commandID)
+    }
+
+    func binding(forVariable name: String) -> Binding<String> {
+        Binding(
+            get: { [weak self] in self?.variableForm?.values[name] ?? "" },
+            set: { [weak self] newValue in self?.variableForm?.values[name] = newValue }
+        )
+    }
+
+    // MARK: - Copying
+
+    /// Commands with variables open the form; everything else copies directly.
     func copySelectedCommand() {
         guard let selectedCommand else { return }
+        if selectedCommand.hasVariables {
+            presentVariableForm(for: selectedCommand)
+            return
+        }
+        writeToPasteboard(selectedCommand.command, flashing: selectedCommand.id)
+    }
+
+    /// Copies straight away, using the current variable values and skipping the form.
+    func copySelectedCommandSkippingForm() {
+        guard let selectedCommand else { return }
+        writeToPasteboard(resolvedCommand(for: selectedCommand), flashing: selectedCommand.id)
+    }
+
+    private func writeToPasteboard(_ value: String, flashing commandID: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(selectedCommand.command, forType: .string)
-        copiedCommandID = selectedCommand.id
+        pasteboard.setString(value, forType: .string)
+        copiedCommandID = commandID
 
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(1))
-            if self?.copiedCommandID == selectedCommand.id {
+            if self?.copiedCommandID == commandID {
                 self?.copiedCommandID = nil
             }
         }
@@ -142,6 +256,8 @@ final class CheatSheetStore: ObservableObject {
         }
 
         let template = """
+        \(Self.instructionsComment)
+
         # \(name)
 
         ## Command name
@@ -149,6 +265,13 @@ final class CheatSheetStore: ObservableObject {
 
         ```sh
         command
+        ```
+
+        ## Command with a variable
+        Copying this one opens a form with a single editable field.
+
+        ```sh
+        echo {{message=hello}}
         ```
         """
 
@@ -341,7 +464,7 @@ final class CheatSheetStore: ObservableObject {
         ```
         """
 
-        try? vimSample.write(
+        try? "\(Self.instructionsComment)\n\n\(vimSample)".write(
             to: folderURL.appendingPathComponent("vim.md"),
             atomically: true,
             encoding: .utf8
@@ -379,10 +502,11 @@ final class CheatSheetStore: ObservableObject {
         ```
 
         ## Commit staged changes
-        Create a commit with a concise message.
+        Create a commit with a concise message. Copying this one opens a form, because
+        `{{name=default}}` marks an editable variable.
 
         ```sh
-        git commit -m "message"
+        git commit -m "{{message=Describe the change}}"
         ```
 
         ## Amend the latest commit
@@ -400,15 +524,16 @@ final class CheatSheetStore: ObservableObject {
         ```
 
         ## Create and switch to a branch
+        Repeating a variable name reuses one field for every occurrence.
 
         ```sh
-        git switch -c <branch>
+        git switch -c {{branch=feature/my-change}} && git push -u origin {{branch}}
         ```
 
         ## Switch branches
 
         ```sh
-        git switch <branch>
+        git switch {{branch=main}}
         ```
 
         ## Update the current branch
@@ -476,11 +601,11 @@ final class CheatSheetStore: ObservableObject {
         ## Search commit messages
 
         ```sh
-        git log --grep="text" --oneline
+        git log --grep="{{text=fix}}" --oneline
         ```
         """
 
-        try? gitSample.write(
+        try? "\(Self.instructionsComment)\n\n\(gitSample)".write(
             to: folderURL.appendingPathComponent("git.md"),
             atomically: true,
             encoding: .utf8

@@ -118,6 +118,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func popoverDidClose(_ notification: Notification) {
+        store.cancelVariableForm()
+
         defer {
             restoreFocusWhenPopoverCloses = false
             previouslyActiveApplication = nil
@@ -131,6 +133,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         guard popover.isShown else { return event }
 
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+
+        // Alerts bring their own Return and Escape handling.
+        if store.isNewSheetPromptPresented || store.editorErrorMessage != nil {
+            return event
+        }
+
+        // The variable form owns the keyboard while it is open: Tab moves
+        // between its fields and Return confirms via its default button.
+        if store.isVariableFormPresented {
+            if event.keyCode == 53 {
+                store.cancelVariableForm()
+                return nil
+            }
+            return event
+        }
 
         if event.keyCode == 53 {
             closePopover(restoringFocus: true)
@@ -196,12 +213,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return nil
         }
 
-        if modifiers.contains(.command),
-           !modifiers.contains(.option),
-           !modifiers.contains(.control),
-           !modifiers.contains(.shift),
-           event.charactersIgnoringModifiers?.lowercased() == "c" {
-            store.copySelectedCommand()
+        // Return copies, leaving ⌘C to the system so text in the list stays
+        // selectable and copyable. ⌘Return copies without opening the form.
+        if event.keyCode == 36 || event.keyCode == 76 {
+            if modifiers.contains(.command) {
+                store.copySelectedCommandSkippingForm()
+            } else {
+                store.copySelectedCommand()
+            }
             return nil
         }
 

@@ -26,6 +26,9 @@ struct PopoverView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
+        .overlay {
+            VariableFormView(store: store)
+        }
         .alert("New Cheat Sheet", isPresented: $store.isNewSheetPromptPresented) {
             TextField("Name", text: $store.newSheetName)
             Button("Cancel", role: .cancel) {}
@@ -110,17 +113,16 @@ struct PopoverView: View {
             List(Array(store.visibleCommands.enumerated()), id: \.element.id) { index, item in
                 CommandRow(
                     command: item,
+                    segments: store.resolvedSegments(for: item),
                     isSelected: index == store.selectedCommandIndex,
                     wasCopied: item.id == store.copiedCommandID
                 )
                 .id(item.id)
                 .contentShape(Rectangle())
+                // No double-click action: it would swallow the double-click
+                // that selects a word in the selectable text below.
                 .onTapGesture {
                     store.selectedCommandIndex = index
-                }
-                .onTapGesture(count: 2) {
-                    store.selectedCommandIndex = index
-                    store.copySelectedCommand()
                 }
                 .listRowBackground(
                     item.id == store.copiedCommandID
@@ -163,7 +165,8 @@ struct PopoverView: View {
         HStack(spacing: 14) {
             Label("Tab / ⇧Tab navigate", systemImage: "arrow.up.arrow.down")
             Text("⌘⌥←/→ tabs")
-            Label("⌘C copy", systemImage: "doc.on.doc")
+            Label("↩ copy", systemImage: "doc.on.doc")
+            Text("⌘↩ skip form")
             Text("⌘E edit")
             Text("⌘F search")
             Text("⌘⇧N new")
@@ -299,14 +302,19 @@ private struct MoreOptionsButton: NSViewRepresentable {
 
 private struct CommandRow: View {
     let command: CheatCommand
+    let segments: [CommandTemplate.Segment]
     let isSelected: Bool
     let wasCopied: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
+            HStack(spacing: 8) {
                 Text(command.title)
                     .font(.headline)
+                    .textSelection(.enabled)
+                if command.hasVariables {
+                    VariableCountBadge(count: command.variables.count)
+                }
                 Spacer()
                 if wasCopied {
                     Label("Copied", systemImage: "checkmark")
@@ -319,10 +327,10 @@ private struct CommandRow: View {
                 Text(command.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
             }
 
-            Text(command.command)
-                .font(.system(.body, design: .monospaced))
+            HighlightedCommandText(segments: segments)
                 .textSelection(.enabled)
                 .lineLimit(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -330,5 +338,37 @@ private struct CommandRow: View {
                 .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
         }
         .padding(.vertical, 5)
+    }
+}
+
+private struct VariableCountBadge: View {
+    let count: Int
+
+    var body: some View {
+        Label(
+            count == 1 ? "1 field" : "\(count) fields",
+            systemImage: "square.and.pencil"
+        )
+        .font(.caption2)
+        .foregroundStyle(.tint)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(Color.accentColor.opacity(0.14), in: Capsule())
+    }
+}
+
+/// Renders a command with its substituted variable values tinted, so it is
+/// obvious at a glance which parts of the command are editable.
+private struct HighlightedCommandText: View {
+    let segments: [CommandTemplate.Segment]
+
+    var body: some View {
+        segments
+            .reduce(Text(verbatim: "")) { partial, segment in
+                partial + Text(verbatim: segment.text)
+                    .foregroundStyle(segment.isVariable ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+                    .bold(segment.isVariable)
+            }
+            .font(.system(.body, design: .monospaced))
     }
 }

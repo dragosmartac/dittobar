@@ -15,10 +15,29 @@ enum CheatSheetParser {
         var sectionTitle: String?
         var descriptionLines: [String] = []
         var commands: [CheatCommand] = []
+        var isInsideComment = false
         var index = 0
 
         while index < lines.count {
             let line = lines[index]
+
+            // `<!-- ... -->` regions are ignored entirely, so a file can carry
+            // instructions that themselves contain headings and code fences.
+            // Fenced code blocks are consumed below, so their contents are safe.
+            if isInsideComment {
+                if line.contains("-->") {
+                    isInsideComment = false
+                }
+                index += 1
+                continue
+            }
+
+            let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+            if trimmedLine.hasPrefix("<!--") {
+                isInsideComment = !trimmedLine.dropFirst(4).contains("-->")
+                index += 1
+                continue
+            }
 
             if line.hasPrefix("# ") {
                 sheetTitle = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
@@ -51,12 +70,14 @@ enum CheatSheetParser {
                         commands.append(
                             CheatCommand(
                                 id: identifier,
+                                storageKey: "\(fileName)#\(title)",
                                 title: title,
                                 detail: descriptionLines
                                     .joined(separator: " ")
                                     .trimmingCharacters(in: .whitespacesAndNewlines),
                                 command: command,
-                                language: language
+                                language: language,
+                                variables: CommandTemplate.variables(in: command)
                             )
                         )
                     }
