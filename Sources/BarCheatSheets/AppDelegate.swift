@@ -166,6 +166,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return event
         }
 
+        // Let the settings sheet handle its own fields and key equivalents.
+        if store.isSettingsPresented {
+            return event
+        }
+
         // The variable form owns the keyboard while it is open: Tab moves
         // between its fields and Return confirms via their onSubmit.
         if store.isVariableFormPresented {
@@ -191,6 +196,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         if modifiers.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "f" {
             NotificationCenter.default.post(name: .focusCheatSheetSearch, object: nil)
+            return nil
+        }
+
+        if modifiers == .command, event.charactersIgnoringModifiers == "," {
+            store.isSettingsPresented = true
             return nil
         }
 

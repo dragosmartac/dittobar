@@ -9,6 +9,12 @@ extension Notification.Name {
 struct PopoverView: View {
     @ObservedObject var store: CheatSheetStore
     @FocusState private var searchIsFocused: Bool
+    @AppStorage(DisplayPreferences.titleFontSizeKey)
+    private var titleFontSize = DisplayPreferences.defaultTitleFontSize
+    @AppStorage(DisplayPreferences.descriptionFontSizeKey)
+    private var descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
+    @AppStorage(DisplayPreferences.commandFontSizeKey)
+    private var commandFontSize = DisplayPreferences.defaultCommandFontSize
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,6 +38,9 @@ struct PopoverView: View {
             if store.variableForm != nil {
                 VariableFormView(store: store)
             }
+        }
+        .sheet(isPresented: $store.isSettingsPresented) {
+            DisplaySettingsView()
         }
         .alert("New Cheat Sheet", isPresented: $store.isNewSheetPromptPresented) {
             TextField("Name", text: $store.newSheetName)
@@ -119,6 +128,9 @@ struct PopoverView: View {
                     command: item,
                     segments: store.resolvedSegments(for: item),
                     detailSegments: store.resolvedDetailSegments(for: item),
+                    titleFontSize: CGFloat(titleFontSize),
+                    descriptionFontSize: CGFloat(descriptionFontSize),
+                    commandFontSize: CGFloat(commandFontSize),
                     isSelected: index == store.selectedCommandIndex,
                     wasCopied: item.id == store.copiedCommandID
                 )
@@ -240,6 +252,8 @@ private struct MoreOptionsButton: NSViewRepresentable {
                 modifiers: []
             )
             menu.addItem(.separator())
+            addItem("Settings…", action: #selector(openSettings), key: ",")
+            menu.addItem(.separator())
             addItem("Quit Bar Cheat Sheets", action: #selector(quitApplication), key: "q")
 
             NotificationCenter.default.addObserver(
@@ -299,6 +313,10 @@ private struct MoreOptionsButton: NSViewRepresentable {
             store.copyFolderPath()
         }
 
+        @objc private func openSettings() {
+            store.isSettingsPresented = true
+        }
+
         @objc private func quitApplication() {
             NSApp.terminate(nil)
         }
@@ -309,6 +327,9 @@ private struct CommandRow: View {
     let command: CheatCommand
     let segments: [CommandTemplate.Segment]
     let detailSegments: [CommandTemplate.Segment]
+    let titleFontSize: CGFloat
+    let descriptionFontSize: CGFloat
+    let commandFontSize: CGFloat
     let isSelected: Bool
     let wasCopied: Bool
 
@@ -316,7 +337,7 @@ private struct CommandRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 SelectableText(
-                    attributedString: CommandTextStyle.title(command.title),
+                    attributedString: CommandTextStyle.title(command.title, size: titleFontSize),
                     maximumNumberOfLines: 1
                 )
                 .fixedSize()
@@ -332,11 +353,16 @@ private struct CommandRow: View {
             }
 
             if !command.detail.isEmpty {
-                SelectableText(attributedString: CommandTextStyle.detail(detailSegments))
+                SelectableText(
+                    attributedString: CommandTextStyle.detail(
+                        detailSegments,
+                        size: descriptionFontSize
+                    )
+                )
             }
 
             SelectableText(
-                attributedString: CommandTextStyle.command(segments),
+                attributedString: CommandTextStyle.command(segments, size: commandFontSize),
                 maximumNumberOfLines: 4
             )
             .frame(maxWidth: .infinity, alignment: .leading)

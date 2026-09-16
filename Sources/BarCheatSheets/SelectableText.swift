@@ -82,19 +82,21 @@ struct SelectableText: NSViewRepresentable {
 /// those text styles do not line up with SwiftUI's `.headline` / `.caption`,
 /// which made the rows render at inconsistent sizes.
 enum CommandTextStyle {
-    static func title(_ text: String) -> NSAttributedString {
+    static func title(_ text: String, size: CGFloat) -> NSAttributedString {
         NSAttributedString(
             string: text,
             attributes: [
-                .font: NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .semibold),
+                .font: NSFont.systemFont(ofSize: size, weight: .semibold),
                 .foregroundColor: NSColor.labelColor
             ]
         )
     }
 
     /// Descriptions support variables too, tinted the same way as in commands.
-    static func detail(_ segments: [CommandTemplate.Segment]) -> NSAttributedString {
-        let size = NSFont.smallSystemFontSize
+    static func detail(
+        _ segments: [CommandTemplate.Segment],
+        size: CGFloat
+    ) -> NSAttributedString {
         return build(
             segments,
             plain: NSFont.systemFont(ofSize: size),
@@ -104,8 +106,10 @@ enum CommandTextStyle {
     }
 
     /// Substituted variable values are tinted and bold, as in the SwiftUI version.
-    static func command(_ segments: [CommandTemplate.Segment]) -> NSAttributedString {
-        let size = NSFont.systemFontSize
+    static func command(
+        _ segments: [CommandTemplate.Segment],
+        size: CGFloat
+    ) -> NSAttributedString {
         return build(
             segments,
             plain: NSFont.monospacedSystemFont(ofSize: size, weight: .regular),

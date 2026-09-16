@@ -33,10 +33,14 @@ open "dist/Bar Cheat Sheets.app"
 | `Command-C` | Copy the text you have selected (titles, descriptions, and commands are all selectable) |
 | `Command-E` | Open the current Markdown file in VS Code |
 | `Command-F` | Focus search |
+| `Command-,` | Open text-size settings |
 | `Command-Shift-N` | Create a new cheat sheet and open it in VS Code |
 | `Command-Shift-M` | Open the More Options menu |
 | `C` | Copy the full cheat-sheets directory path while More Options is open |
 | `Escape` | Close the popover |
+
+Title, description, and command font sizes can also be changed from **More Options → Settings**.
+The choices are saved automatically.
 
 ## Edit cheat sheets
 

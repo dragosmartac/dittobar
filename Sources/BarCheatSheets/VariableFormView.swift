@@ -5,6 +5,8 @@ import SwiftUI
 struct VariableFormView: View {
     @ObservedObject var store: CheatSheetStore
     @FocusState private var focusedVariable: String?
+    @AppStorage(DisplayPreferences.commandFontSizeKey)
+    private var commandFontSize = DisplayPreferences.defaultCommandFontSize
 
     var body: some View {
         if let form = store.variableForm {
@@ -117,7 +119,7 @@ struct VariableFormView: View {
                     .foregroundStyle(segment.isVariable ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
                     .bold(segment.isVariable)
             }
-            .font(.system(.body, design: .monospaced))
+            .font(.system(size: CGFloat(commandFontSize), design: .monospaced))
     }
 
     private func actions(for form: VariableFormState) -> some View {

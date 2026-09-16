@@ -13,6 +13,7 @@ final class CheatSheetStore: ObservableObject {
     @Published var isNewSheetPromptPresented = false
     @Published var newSheetName = ""
     @Published var variableForm: VariableFormState?
+    @Published var isSettingsPresented = false
 
     let folderURL: URL
     var onRequestClose: (() -> Void)?
