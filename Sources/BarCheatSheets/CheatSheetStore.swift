@@ -351,13 +351,16 @@ final class CheatSheetStore: ObservableObject {
             if let index = sheets.firstIndex(where: { $0.sourceURL == fileURL }) {
                 selectSheet(at: index)
             }
-            openInVSCode(fileURL)
+            if openInVSCode(fileURL) {
+                onRequestClose?()
+            }
         } catch {
             editorErrorMessage = "The new cheat sheet could not be created: \(error.localizedDescription)"
         }
     }
 
-    private func openInVSCode(_ sourceURL: URL) {
+    @discardableResult
+    private func openInVSCode(_ sourceURL: URL) -> Bool {
 
         let bundleIdentifiers = [
             "com.facebook.fbvscode",
@@ -374,7 +377,7 @@ final class CheatSheetStore: ObservableObject {
 
         guard let applicationURL else {
             editorErrorMessage = "VS Code could not be found in Applications."
-            return
+            return false
         }
 
         NSWorkspace.shared.open(
@@ -387,6 +390,7 @@ final class CheatSheetStore: ObservableObject {
                 self?.editorErrorMessage = error.localizedDescription
             }
         }
+        return true
     }
 
     private func knownVSCodeLocations() -> [URL] {

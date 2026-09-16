@@ -79,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.contentViewController = NSHostingController(rootView: PopoverView(store: store))
         popover.delegate = self
         store.onRequestClose = { [weak self] in
-            self?.closePopover(restoringFocus: true)
+            self?.closePopover(restoringFocus: false)
         }
     }
 
