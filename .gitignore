@@ -2,3 +2,5 @@
 .swiftpm/
 dist/
 .DS_Store
+SWIFT_CODEBASE_GUIDE.md
+sketches/
