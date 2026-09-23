@@ -34,7 +34,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleKeyEvent(event) ?? event
+            // Not `self?.handleKeyEvent(event) ?? event`: optional chaining
+            // flattens the result, so a handled key's `nil` would fall back to
+            // `event` and be delivered anyway, making AppKit beep.
+            guard let self else { return event }
+            return self.handleKeyEvent(event)
         }
 
         NotificationCenter.default.addObserver(
