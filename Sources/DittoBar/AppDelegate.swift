@@ -94,16 +94,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         guard let button = statusItem.button else { return }
         button.image = NSImage(
             systemSymbolName: "note.text",
-            accessibilityDescription: "Bar Cheat Sheets"
+            accessibilityDescription: "DittoBar"
         )
-        button.toolTip = "Bar Cheat Sheets (⌥Space)"
+        button.toolTip = "DittoBar (⌥Space)"
         button.target = self
         button.action = #selector(statusItemClicked)
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
         let menu = NSMenu()
         let quitItem = NSMenuItem(
-            title: "Quit Bar Cheat Sheets",
+            title: "Quit DittoBar",
             action: #selector(quitApplication),
             keyEquivalent: "q"
         )

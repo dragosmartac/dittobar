@@ -74,7 +74,7 @@ struct PopoverView: View {
                 Image(systemName: "command.square.fill")
                     .font(.title2)
                     .foregroundStyle(.tint)
-                Text("Bar Cheat Sheets")
+                Text("DittoBar")
                     .font(.headline)
                 Spacer()
                 MoreOptionsButton(store: store)
@@ -363,7 +363,7 @@ private struct MoreOptionsButton: NSViewRepresentable {
             menu.addItem(.separator())
             addItem("Settings…", action: #selector(openSettings), key: ",")
             menu.addItem(.separator())
-            addItem("Quit Bar Cheat Sheets", action: #selector(quitApplication), key: "q")
+            addItem("Quit DittoBar", action: #selector(quitApplication), key: "q")
 
             NotificationCenter.default.addObserver(
                 self,

@@ -5,13 +5,13 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>BarCheatSheets</string>
+    <string>DittoBar</string>
     <key>CFBundleIdentifier</key>
-    <string>com.local.BarCheatSheets</string>
+    <string>com.local.DittoBar</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Bar Cheat Sheets</string>
+    <string>DittoBar</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

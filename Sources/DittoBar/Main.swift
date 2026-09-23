@@ -1,7 +1,7 @@
 import AppKit
 
 @main
-enum BarCheatSheetsApp {
+enum DittoBarApp {
     static func main() {
         let application = NSApplication.shared
         let delegate = AppDelegate()

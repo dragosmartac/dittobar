@@ -3,14 +3,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "BarCheatSheets",
+    name: "DittoBar",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "BarCheatSheets", targets: ["BarCheatSheets"])
+        .executable(name: "DittoBar", targets: ["DittoBar"])
     ],
     targets: [
         .executableTarget(
-            name: "BarCheatSheets",
+            name: "DittoBar",
             swiftSettings: [.swiftLanguageMode(.v5)],
             linkerSettings: [
                 .linkedFramework("AppKit"),

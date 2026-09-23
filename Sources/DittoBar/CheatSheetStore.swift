@@ -71,7 +71,7 @@ final class CheatSheetStore: ObservableObject {
             in: .userDomainMask
         ).first!
         folderURL = applicationSupport
-            .appendingPathComponent("Bar Cheat Sheets", isDirectory: true)
+            .appendingPathComponent("DittoBar", isDirectory: true)
             .appendingPathComponent("CheatSheets", isDirectory: true)
 
         createInitialFilesIfNeeded(fileManager: fileManager)

@@ -2,13 +2,13 @@
 set -euo pipefail
 
 PROJECT_DIR="${0:A:h:h}"
-APP_DIR="$PROJECT_DIR/dist/Bar Cheat Sheets.app"
+APP_DIR="$PROJECT_DIR/dist/DittoBar.app"
 
 cd "$PROJECT_DIR"
 swift build -c release --disable-sandbox
 
 mkdir -p "$APP_DIR/Contents/MacOS"
-cp ".build/release/BarCheatSheets" "$APP_DIR/Contents/MacOS/BarCheatSheets"
+cp ".build/release/DittoBar" "$APP_DIR/Contents/MacOS/DittoBar"
 cp "Support/Info.plist" "$APP_DIR/Contents/Info.plist"
 codesign --force --sign - "$APP_DIR"
 

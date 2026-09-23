@@ -1,6 +1,6 @@
-# Bar Cheat Sheets
+# Ditto Bar
 
-A keyboard-first macOS menu-bar utility for commands stored in Markdown files.
+Your repeatable commands, URLs and more one keystroke away - Markdown cheat sheets in the macOS menu bar.
 
 ## Run it
 
@@ -16,7 +16,7 @@ To build a standalone application:
 
 ```sh
 ./scripts/build-app.sh
-open "dist/Bar Cheat Sheets.app"
+open "dist/DittoBar.app"
 ```
 
 ## Keyboard controls
@@ -53,7 +53,7 @@ description with the original Markdown formatting. The same choices are availabl
 Use the More Options menu to open the folder or copy its full path. Files live at:
 
 ```text
-~/Library/Application Support/Bar Cheat Sheets/CheatSheets/
+~/Library/Application Support/DittoBar/CheatSheets/
 ```
 
 Each Markdown file becomes a tab. Use an H1 for the tab name and H3 headings followed
