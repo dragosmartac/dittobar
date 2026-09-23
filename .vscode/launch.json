@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:dittobar}",
+            "name": "Debug DittoBar",
+            "target": "DittoBar",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug DittoBar"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:dittobar}",
+            "name": "Release DittoBar",
+            "target": "DittoBar",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release DittoBar"
+        }
+    ]
+}

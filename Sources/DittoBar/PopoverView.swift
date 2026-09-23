@@ -74,8 +74,13 @@ struct PopoverView: View {
                 Image(systemName: "command.square.fill")
                     .font(.title2)
                     .foregroundStyle(.tint)
-                Text("DittoBar")
-                    .font(.headline)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("Ditto Bar")
+                        .font(.headline)
+                    Text("Write it only once")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 MoreOptionsButton(store: store)
                     .frame(width: 20, height: 20)
