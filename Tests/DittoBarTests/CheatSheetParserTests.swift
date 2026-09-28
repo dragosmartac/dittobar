@@ -74,4 +74,49 @@ struct CheatSheetParserTests {
 
         #expect(sheet.title == "Git Commands")
     }
+
+    @Test func parsesSectionsAndAssignsEntries() throws {
+        let source = """
+        # Resources
+
+        ## Section 1
+
+        ### Reminder
+        Read the release notes before upgrading.
+
+        <!-- Comment Divider
+        -->
+        ## Section 2
+
+        ### Documentation
+        Entry description.
+        ```url
+        https://example.com/docs
+        ```
+
+        ### Support
+        ```url
+        https://example.com/support
+        ```
+        """
+        let sheet = CheatSheetParser.parse(
+            source,
+            fileURL: URL(fileURLWithPath: "/tmp/resources.md")
+        )
+
+        try #require(sheet.commands.count == 3)
+        #expect(sheet.sections.map(\.title) == ["Section 1", "Section 2"])
+        #expect(sheet.sections.map(\.commandOffset) == [0, 1])
+        #expect(sheet.commands.map(\.title) == ["Reminder", "Documentation", "Support"])
+        #expect(sheet.commands.map(\.sectionTitle) == ["Section 1", "Section 2", "Section 2"])
+        #expect(sheet.commands.map(\.isDescriptionOnly) == [true, false, false])
+        #expect(sheet.commands.map(\.isLink) == [false, true, true])
+        #expect(sheet.commands[0].detail == "Read the release notes before upgrading.")
+        #expect(sheet.commands[1].detail == "Entry description.")
+        #expect(sheet.commands.map(\.command) == [
+            "",
+            "https://example.com/docs",
+            "https://example.com/support"
+        ])
+    }
 }
