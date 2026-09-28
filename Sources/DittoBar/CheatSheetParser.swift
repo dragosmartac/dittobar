@@ -4,12 +4,7 @@ enum CheatSheetParser {
     static func parse(_ source: String, fileURL: URL) -> CheatSheet {
         let fileName = fileURL.lastPathComponent
         let lines = source.components(separatedBy: .newlines)
-        let fallbackTitle = URL(fileURLWithPath: fileName)
-            .deletingPathExtension()
-            .lastPathComponent
-            .replacingOccurrences(of: "_", with: " ")
-            .replacingOccurrences(of: "-", with: " ")
-            .capitalized
+        let fallbackTitle = Self.fallbackTitle(for: fileURL)
 
         var sheetTitle = fallbackTitle
         var entryTitle: String?
@@ -171,5 +166,16 @@ enum CheatSheetParser {
             sections: sections,
             sourceURL: fileURL
         )
+    }
+
+    private static func fallbackTitle(for fileURL: URL) -> String {
+        /* Computes a fallback title for the case in which one is
+         not defined in the md file */
+        return fileURL
+            .deletingPathExtension()
+            .lastPathComponent
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .capitalized
     }
 }
