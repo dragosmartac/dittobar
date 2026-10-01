@@ -13,8 +13,8 @@ struct PopoverView: View {
     private var titleFontSize = DisplayPreferences.defaultTitleFontSize
     @AppStorage(DisplayPreferences.descriptionFontSizeKey)
     private var descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
-    @AppStorage(DisplayPreferences.commandFontSizeKey)
-    private var commandFontSize = DisplayPreferences.defaultCommandFontSize
+    @AppStorage(DisplayPreferences.payloadFontSizeKey)
+    private var payloadFontSize = DisplayPreferences.defaultPayloadFontSize
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,7 +24,7 @@ struct PopoverView: View {
             if store.sheets.isEmpty {
                 emptyState
             } else {
-                commandList
+                entryList
             }
 
             Divider()
@@ -34,7 +34,7 @@ struct PopoverView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .overlay {
             // Built only while a form is up, so its @FocusState starts fresh
-            // each time instead of carrying focus over from the last command.
+            // each time instead of carrying focus over from the last entry.
             if store.variableForm != nil {
                 VariableFormView(store: store)
             }
@@ -86,11 +86,11 @@ struct PopoverView: View {
                     .frame(width: 20, height: 20)
             }
 
-            TextField("Search commands", text: $store.query)
+            TextField("Search entries", text: $store.query)
                 .textFieldStyle(.roundedBorder)
                 .focused($searchIsFocused)
                 .onChange(of: store.query) {
-                    store.selectedCommandIndex = 0
+                    store.selectedEntryIndex = 0
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .focusCheatSheetSearch)) { _ in
                     searchIsFocused = true
@@ -126,45 +126,44 @@ struct PopoverView: View {
         .padding(14)
     }
 
-    private var commandList: some View {
+    private var entryList: some View {
         ScrollViewReader { proxy in
             List(store.visibleRows) { row in
                 switch row {
                 case .section(let section):
                     SectionHeaderRow(title: section.title)
 
-                case .command(let item, let index):
-                    CommandRow(
-                        command: item,
-                        segments: store.resolvedCommandSegments(for: item),
-                        descriptionSegments: store.resolvedDescriptionSegments(for: item),
+                case .entry(let item, let index):
+                    EntryRow(
+                        entry: item,
+                        values: store.effectiveValues(for: item),
                         titleFontSize: CGFloat(titleFontSize),
                         descriptionFontSize: CGFloat(descriptionFontSize),
-                        commandFontSize: CGFloat(commandFontSize),
-                        isSelected: store.isCommandSelected(item, at: index),
-                        wasCopied: item.id == store.copiedCommandID,
-                        onSelect: { store.selectedCommandIndex = index }
+                        payloadFontSize: CGFloat(payloadFontSize),
+                        isSelected: store.isEntrySelected(item, at: index),
+                        wasCopied: item.id == store.copiedEntryID,
+                        onSelect: { store.selectedEntryIndex = index }
                     )
                     .id(item.id)
                     .background(
                         SelectedRowAnchor(
                             store: store,
-                            isSelected: store.isCommandSelected(item, at: index)
+                            isSelected: store.isEntrySelected(item, at: index)
                         )
                     )
                     .contentShape(Rectangle())
                     // No double-click action: it would swallow the double-click
                     // that selects a word in the selectable text below.
                     .onTapGesture {
-                        store.selectedCommandIndex = index
+                        store.selectedEntryIndex = index
                     }
                     .contextMenu {
-                        copyOptionButtons(for: item)
+                        actionButtons(for: item)
                     }
                     .listRowBackground(
-                        item.id == store.copiedCommandID
+                        item.id == store.copiedEntryID
                             ? Color.green.opacity(0.24)
-                            : store.isCommandSelected(item, at: index)
+                            : store.isEntrySelected(item, at: index)
                                 ? Color.accentColor.opacity(0.12)
                                 : Color.clear
                     )
@@ -180,15 +179,15 @@ struct PopoverView: View {
                     ContentUnavailableView.search(text: store.query)
                 }
             }
-            .onChange(of: store.selectedCommandIndex) {
-                if let id = store.selectedCommand?.id {
+            .onChange(of: store.selectedEntryIndex) {
+                if let id = store.selectedEntry?.id {
                     withAnimation(.easeOut(duration: 0.12)) {
                         proxy.scrollTo(id, anchor: .center)
                     }
                 }
             }
             .onChange(of: store.query) {
-                guard let id = store.visibleCommands.first?.id else { return }
+                guard let id = store.visibleEntries.first?.id else { return }
 
                 // The selected index may already be zero, in which case its
                 // onChange handler does not fire. Wait for the filtered rows
@@ -203,28 +202,20 @@ struct PopoverView: View {
     }
 
     @ViewBuilder
-    private func copyOptionButtons(for command: CheatCommand) -> some View {
-        if command.isLink {
-            Button("Open Link") {
-                store.openLink(command)
-            }
+    private func actionButtons(for entry: CheatSheetEntry) -> some View {
+        Button(entry.actions.primary.title) {
+            store.perform(entry.actions.primary, for: entry)
+        }
 
+        if !entry.actions.secondary.isEmpty {
             Divider()
-        }
 
-        Button("Copy Title") {
-            store.copyTitle(of: command)
+            ForEach(Array(entry.actions.secondary.enumerated()), id: \.offset) { _, action in
+                Button(action.title) {
+                    store.perform(action, for: entry)
+                }
+            }
         }
-
-        Button("Copy Description") {
-            store.copyDescription(of: command, asMarkdown: false)
-        }
-        .disabled(command.rawDescription.isEmpty)
-
-        Button("Copy Description as Markdown") {
-            store.copyDescription(of: command, asMarkdown: true)
-        }
-        .disabled(command.rawDescription.isEmpty)
     }
 
     private var emptyState: some View {
@@ -437,13 +428,12 @@ private struct MoreOptionsButton: NSViewRepresentable {
     }
 }
 
-private struct CommandRow: View {
-    let command: CheatCommand
-    let segments: [TextVariables.Segment]
-    let descriptionSegments: [TextVariables.Segment]
+private struct EntryRow: View {
+    let entry: CheatSheetEntry
+    let values: [String: String]
     let titleFontSize: CGFloat
     let descriptionFontSize: CGFloat
-    let commandFontSize: CGFloat
+    let payloadFontSize: CGFloat
     let isSelected: Bool
     let wasCopied: Bool
     let onSelect: () -> Void
@@ -452,16 +442,16 @@ private struct CommandRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 SelectableText(
-                    attributedString: CommandTextStyle.title(command.title, size: titleFontSize),
+                    attributedString: EntryTextStyle.title(entry.title, size: titleFontSize),
                     maximumNumberOfLines: 1,
                     onMouseDown: onSelect
                 )
                 .fixedSize()
-                if command.hasVariables {
-                    VariableCountBadge(count: command.variables.count)
+                if entry.hasVariables {
+                    VariableCountBadge(count: entry.variables.count)
                 }
-                if command.isLink {
-                    Label("Link", systemImage: "link")
+                if case .url = entry {
+                    Label("URL", systemImage: "link")
                         .font(.caption2)
                         .foregroundStyle(.tint)
                 }
@@ -473,31 +463,49 @@ private struct CommandRow: View {
                 }
             }
 
-            if !command.rawDescription.isEmpty {
-                SelectableText(
-                    attributedString: CommandTextStyle.markdownRenderedDescription(
-                        descriptionSegments,
-                        size: descriptionFontSize
-                    ),
-                    onMouseDown: onSelect
-                )
-            }
-
-            if !command.isDescriptionOnly {
-                SelectableText(
-                    attributedString: CommandTextStyle.command(segments, size: commandFontSize),
-                    maximumNumberOfLines: 4,
-                    onMouseDown: onSelect
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-                .background(
-                    Color(nsColor: .textBackgroundColor),
-                    in: RoundedRectangle(cornerRadius: 6)
-                )
+            switch entry {
+            case .note(let note):
+                descriptionText(note.rawContent)
+            case .command(let command):
+                if let rawDescription = command.rawDescription {
+                    descriptionText(rawDescription)
+                }
+                payloadText(command.rawCommand)
+            case .url(let url):
+                if let rawDescription = url.rawDescription {
+                    descriptionText(rawDescription)
+                }
+                payloadText(url.rawURL)
             }
         }
         .padding(.vertical, 5)
+    }
+
+    private func descriptionText(_ raw: String) -> some View {
+        SelectableText(
+            attributedString: EntryTextStyle.markdownRenderedDescription(
+                TextVariables.segments(of: raw, values: values),
+                size: descriptionFontSize
+            ),
+            onMouseDown: onSelect
+        )
+    }
+
+    private func payloadText(_ raw: String) -> some View {
+        SelectableText(
+            attributedString: EntryTextStyle.payload(
+                TextVariables.segments(of: raw, values: values),
+                size: payloadFontSize
+            ),
+            maximumNumberOfLines: 4,
+            onMouseDown: onSelect
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(8)
+        .background(
+            Color(nsColor: .textBackgroundColor),
+            in: RoundedRectangle(cornerRadius: 6)
+        )
     }
 }
 

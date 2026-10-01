@@ -21,8 +21,8 @@ enum TextVariables {
     )
 
     /// The distinct variables of raw text, in the order they first appear.
-    static func variables(in raw: String) -> [CommandVariable] {
-        var ordered: [CommandVariable] = []
+    static func variables(in raw: String) -> [EntryVariable] {
+        var ordered: [EntryVariable] = []
         var indexByName: [String: Int] = [:]
 
         for placeholder in placeholders(in: raw) {
@@ -30,7 +30,7 @@ enum TextVariables {
                 // Even though we saw the variable before, this might be the first time
                 // we set the default value for it.
                 if ordered[existing].defaultValue.isEmpty {
-                    ordered[existing] = CommandVariable(
+                    ordered[existing] = EntryVariable(
                         name: placeholder.name,
                         defaultValue: placeholder.defaultValue
                     )
@@ -40,7 +40,7 @@ enum TextVariables {
 
             indexByName[placeholder.name] = ordered.count
             ordered.append(
-                CommandVariable(name: placeholder.name, defaultValue: placeholder.defaultValue)
+                EntryVariable(name: placeholder.name, defaultValue: placeholder.defaultValue)
             )
         }
 

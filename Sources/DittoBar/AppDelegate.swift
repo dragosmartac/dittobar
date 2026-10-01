@@ -8,16 +8,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
     private var copyOptionsMenu: NSMenu!
-    private var openLinkMenuItem: NSMenuItem!
-    private var openLinkSeparatorItem: NSMenuItem!
-    private var copyDescriptionMenuItem: NSMenuItem!
-    private var copyMarkdownDescriptionMenuItem: NSMenuItem!
+    private var displayedEntryActions: [EntryAction] = []
     private var hotKeyManager: HotKeyManager?
     private var keyMonitor: Any?
     private var previouslyActiveApplication: NSRunningApplication?
     private var restoreFocusWhenPopoverCloses = false
     private var isCopyOptionsPresented = false
-    private var copyOptionsCommand: CheatCommand?
+    private var copyOptionsEntry: CheatSheetEntry?
 
     private static let popoverScreenHeightFraction: CGFloat = 0.85
 
@@ -119,46 +116,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func configureCopyOptionsMenu() {
         let menu = NSMenu(title: "Copy Options")
         menu.autoenablesItems = false
-
-        let openLinkItem = NSMenuItem(
-            title: "Open Link",
-            action: #selector(openSelectedLink),
-            keyEquivalent: ""
-        )
-        openLinkItem.target = self
-        menu.addItem(openLinkItem)
-        openLinkMenuItem = openLinkItem
-
-        let openLinkSeparator = NSMenuItem.separator()
-        menu.addItem(openLinkSeparator)
-        openLinkSeparatorItem = openLinkSeparator
-
-        let titleItem = NSMenuItem(
-            title: "Copy Title",
-            action: #selector(copySelectedTitle),
-            keyEquivalent: ""
-        )
-        titleItem.target = self
-        menu.addItem(titleItem)
-
-        let descriptionItem = NSMenuItem(
-            title: "Copy Description",
-            action: #selector(copySelectedDescription),
-            keyEquivalent: ""
-        )
-        descriptionItem.target = self
-        menu.addItem(descriptionItem)
-        copyDescriptionMenuItem = descriptionItem
-
-        let markdownItem = NSMenuItem(
-            title: "Copy Description as Markdown",
-            action: #selector(copySelectedDescriptionAsMarkdown),
-            keyEquivalent: ""
-        )
-        markdownItem.target = self
-        menu.addItem(markdownItem)
-        copyMarkdownDescriptionMenuItem = markdownItem
-
         copyOptionsMenu = menu
     }
 
@@ -176,39 +133,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         NSApp.terminate(nil)
     }
 
-    @objc private func copySelectedTitle() {
-        guard let command = copyOptionsCommand else { return }
-        store.copyTitle(of: command)
+    @objc private func performSelectedEntryAction(_ sender: NSMenuItem) {
+        guard let entry = copyOptionsEntry,
+              displayedEntryActions.indices.contains(sender.tag) else { return }
+        store.perform(displayedEntryActions[sender.tag], for: entry)
     }
 
-    @objc private func openSelectedLink() {
-        guard let command = copyOptionsCommand else { return }
-        store.openLink(command)
-    }
-
-    @objc private func copySelectedDescription() {
-        guard let command = copyOptionsCommand else { return }
-        store.copyDescription(of: command, asMarkdown: false)
-    }
-
-    @objc private func copySelectedDescriptionAsMarkdown() {
-        guard let command = copyOptionsCommand else { return }
-        store.copyDescription(of: command, asMarkdown: true)
-    }
-
-    private func showCopyOptionsMenu(for command: CheatCommand) {
+    private func showCopyOptionsMenu(for entry: CheatSheetEntry) {
         guard popover.isShown,
               let fallbackView = popover.contentViewController?.view else {
             isCopyOptionsPresented = false
-            copyOptionsCommand = nil
-            store.restorePinnedCommandSelection()
+            copyOptionsEntry = nil
+            store.restorePinnedEntrySelection()
             return
         }
 
-        openLinkMenuItem.isHidden = !command.isLink
-        openLinkSeparatorItem.isHidden = !command.isLink
-        copyDescriptionMenuItem.isEnabled = !command.rawDescription.isEmpty
-        copyMarkdownDescriptionMenuItem.isEnabled = !command.rawDescription.isEmpty
+        rebuildCopyOptionsMenu(for: entry)
 
         let anchorView = store.selectedRowAnchorView?.window == fallbackView.window
             ? store.selectedRowAnchorView ?? fallbackView
@@ -225,9 +165,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             at: anchorPoint,
             in: anchorView
         )
-        store.restorePinnedCommandSelection()
+        store.restorePinnedEntrySelection()
         isCopyOptionsPresented = false
-        copyOptionsCommand = nil
+        copyOptionsEntry = nil
+    }
+
+    private func rebuildCopyOptionsMenu(for entry: CheatSheetEntry) {
+        copyOptionsMenu.removeAllItems()
+        displayedEntryActions = entry.actions.all
+
+        for (index, action) in displayedEntryActions.enumerated() {
+            if index == 1 {
+                copyOptionsMenu.addItem(.separator())
+            }
+            let item = NSMenuItem(
+                title: action.title,
+                action: #selector(performSelectedEntryAction(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.tag = index
+            copyOptionsMenu.addItem(item)
+        }
     }
 
     private func togglePopover(restoringFocusOnClose: Bool) {
@@ -278,9 +237,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // This lets someone switch to another app to look up or copy a value,
         // then reopen the popover and continue exactly where they left off.
         // The form's own Cancel button and Escape handling still discard it.
-        store.restorePinnedCommandSelection()
+        store.restorePinnedEntrySelection()
         isCopyOptionsPresented = false
-        copyOptionsCommand = nil
+        copyOptionsEntry = nil
 
         defer {
             restoreFocusWhenPopoverCloses = false
@@ -391,17 +350,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // copies without opening the variable form.
         if event.keyCode == 36 || event.keyCode == 76 {
             if modifiers == .option {
-                guard let command = store.selectedCommand else { return nil }
-                copyOptionsCommand = command
-                store.pinCommandSelection(command)
+                guard let entry = store.selectedEntry else { return nil }
+                copyOptionsEntry = entry
+                store.pinEntrySelection(entry)
                 isCopyOptionsPresented = true
                 DispatchQueue.main.async { [weak self] in
-                    self?.showCopyOptionsMenu(for: command)
+                    self?.showCopyOptionsMenu(for: entry)
                 }
             } else if modifiers.contains(.command) {
-                store.copySelectedCommandSkippingForm()
+                store.performPrimaryActionForSelectedEntry(skippingVariableForm: true)
             } else {
-                store.copySelectedCommand()
+                store.performPrimaryActionForSelectedEntry()
             }
             return nil
         }

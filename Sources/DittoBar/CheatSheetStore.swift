@@ -6,15 +6,15 @@ import SwiftUI
 final class CheatSheetStore: ObservableObject {
     @Published private(set) var sheets: [CheatSheet] = []
     @Published var selectedSheetIndex = 0
-    @Published var selectedCommandIndex = 0
+    @Published var selectedEntryIndex = 0
     @Published var query = ""
-    @Published private(set) var copiedCommandID: String?
+    @Published private(set) var copiedEntryID: String?
     @Published var editorErrorMessage: String?
     @Published var isNewSheetPromptPresented = false
     @Published var newSheetName = ""
     @Published var variableForm: VariableFormState?
     @Published var isSettingsPresented = false
-    @Published private var pinnedCommandID: String?
+    @Published private var pinnedEntryID: String?
 
     let folderURL: URL
     var onRequestClose: (() -> Void)?
@@ -46,30 +46,36 @@ final class CheatSheetStore: ObservableObject {
         return sheets[selectedSheetIndex]
     }
 
-    var visibleCommands: [CheatCommand] {
-        guard let commands = selectedSheet?.commands else { return [] }
+    var visibleEntries: [CheatSheetEntry] {
+        guard let entries = selectedSheet?.entries else { return [] }
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedQuery.isEmpty else { return commands }
+        guard !trimmedQuery.isEmpty else { return entries }
 
-        return commands.filter {
-            ($0.sectionTitle?.localizedCaseInsensitiveContains(trimmedQuery) ?? false)
-                || $0.title.localizedCaseInsensitiveContains(trimmedQuery)
-                || $0.rawDescription.localizedCaseInsensitiveContains(trimmedQuery)
-                || $0.rawCommand.localizedCaseInsensitiveContains(trimmedQuery)
-                || copyText(for: $0).localizedCaseInsensitiveContains(trimmedQuery)
-                || TextVariables.resolve($0.rawDescription, values: effectiveValues(for: $0))
-                    .localizedCaseInsensitiveContains(trimmedQuery)
+        return entries.filter { entry in
+            if entry.sectionTitle?.localizedCaseInsensitiveContains(trimmedQuery) == true
+                || entry.title.localizedCaseInsensitiveContains(trimmedQuery) {
+                return true
+            }
+
+            let values = effectiveValues(for: entry)
+            return rawTexts(for: entry).contains { raw in
+                let resolved = TextVariables.resolve(raw, values: values)
+                return raw.localizedCaseInsensitiveContains(trimmedQuery)
+                    || resolved.localizedCaseInsensitiveContains(trimmedQuery)
+                    || MarkdownText.stripped(resolved)
+                        .localizedCaseInsensitiveContains(trimmedQuery)
+            }
         }
     }
 
-    /// Section headers and commands in display order. Headers remain independent
-    /// rows, including when a section has no commands yet.
+    /// Section headers and entries in display order. Headers remain independent
+    /// rows, including when a section has no entries yet.
     var visibleRows: [CheatSheetRow] {
         guard let sheet = selectedSheet else { return [] }
 
-        let commands = visibleCommands
+        let entries = visibleEntries
         let visibleIndexByID = Dictionary(
-            uniqueKeysWithValues: commands.enumerated().map { ($0.element.id, $0.offset) }
+            uniqueKeysWithValues: entries.enumerated().map { ($0.element.id, $0.offset) }
         )
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let isSearching = !trimmedQuery.isEmpty
@@ -77,73 +83,73 @@ final class CheatSheetStore: ObservableObject {
 
         for (index, section) in sheet.sections.enumerated() {
             let nextOffset = index + 1 < sheet.sections.count
-                ? sheet.sections[index + 1].commandOffset
-                : sheet.commands.count
-            let start = min(section.commandOffset, sheet.commands.count)
-            let end = min(max(start, nextOffset), sheet.commands.count)
-            let containsVisibleCommand = sheet.commands[start..<end].contains {
+                ? sheet.sections[index + 1].entryOffset
+                : sheet.entries.count
+            let start = min(section.entryOffset, sheet.entries.count)
+            let end = min(max(start, nextOffset), sheet.entries.count)
+            let containsVisibleEntry = sheet.entries[start..<end].contains {
                 visibleIndexByID[$0.id] != nil
             }
 
             if !isSearching
                 || section.title.localizedCaseInsensitiveContains(trimmedQuery)
-                || containsVisibleCommand {
+                || containsVisibleEntry {
                 visibleSectionIDs.insert(section.id)
             }
         }
 
         var rows: [CheatSheetRow] = []
-        for commandOffset in 0...sheet.commands.count {
+        for entryOffset in 0...sheet.entries.count {
             for section in sheet.sections
-                where section.commandOffset == commandOffset
+                where section.entryOffset == entryOffset
                     && visibleSectionIDs.contains(section.id) {
                 rows.append(.section(section))
             }
 
-            guard commandOffset < sheet.commands.count else { continue }
-            let command = sheet.commands[commandOffset]
-            if let visibleIndex = visibleIndexByID[command.id] {
-                rows.append(.command(command, visibleIndex: visibleIndex))
+            guard entryOffset < sheet.entries.count else { continue }
+            let entry = sheet.entries[entryOffset]
+            if let visibleIndex = visibleIndexByID[entry.id] {
+                rows.append(.entry(entry, visibleIndex: visibleIndex))
             }
         }
         return rows
     }
 
-    var selectedCommand: CheatCommand? {
-        let commands = visibleCommands
-        if let pinnedCommandID,
-           let command = commands.first(where: { $0.id == pinnedCommandID }) {
-            return command
+    var selectedEntry: CheatSheetEntry? {
+        let entries = visibleEntries
+        if let pinnedEntryID,
+           let entry = entries.first(where: { $0.id == pinnedEntryID }) {
+            return entry
         }
-        guard commands.indices.contains(selectedCommandIndex) else { return nil }
-        return commands[selectedCommandIndex]
+        guard entries.indices.contains(selectedEntryIndex) else { return nil }
+        return entries[selectedEntryIndex]
     }
 
-    func isCommandSelected(_ command: CheatCommand, at index: Int) -> Bool {
-        if let pinnedCommandID {
-            return command.id == pinnedCommandID
+    func isEntrySelected(_ entry: CheatSheetEntry, at index: Int) -> Bool {
+        if let pinnedEntryID {
+            return entry.id == pinnedEntryID
         }
-        return index == selectedCommandIndex
+        return index == selectedEntryIndex
     }
 
     /// Native menu tracking can temporarily disturb SwiftUI list selection.
-    /// Keep both rendering and command lookup tied to the entry that opened it.
-    func pinCommandSelection(_ command: CheatCommand) {
-        pinnedCommandID = command.id
+    /// Keep both rendering and entry lookup tied to the entry that opened it.
+    func pinEntrySelection(_ entry: CheatSheetEntry) {
+        pinnedEntryID = entry.id
     }
 
-    func restorePinnedCommandSelection() {
-        guard let pinnedCommandID else { return }
-        if let index = visibleCommands.firstIndex(where: { $0.id == pinnedCommandID }) {
-            selectedCommandIndex = index
+    func restorePinnedEntrySelection() {
+        guard let pinnedEntryID else { return }
+        if let index = visibleEntries.firstIndex(where: { $0.id == pinnedEntryID }) {
+            selectedEntryIndex = index
         }
-        self.pinnedCommandID = nil
+        self.pinnedEntryID = nil
     }
 
     func selectSheet(at index: Int) {
         guard sheets.indices.contains(index) else { return }
         selectedSheetIndex = index
-        selectedCommandIndex = 0
+        selectedEntryIndex = 0
     }
 
     func moveSheetSelection(by offset: Int) {
@@ -153,24 +159,24 @@ final class CheatSheetStore: ObservableObject {
     }
 
     func moveSelection(by offset: Int) {
-        let count = visibleCommands.count
+        let count = visibleEntries.count
         guard count > 0 else {
-            selectedCommandIndex = 0
+            selectedEntryIndex = 0
             return
         }
-        selectedCommandIndex = (selectedCommandIndex + offset + count) % count
+        selectedEntryIndex = (selectedEntryIndex + offset + count) % count
     }
 
     // MARK: - Variables
 
     var isVariableFormPresented: Bool { variableForm != nil }
 
-    /// The values a command starts with: its Markdown defaults, overridden by
+    /// The values an entry starts with: its Markdown defaults, overridden by
     /// whatever was last entered for the variables it still declares.
-    func effectiveValues(for command: CheatCommand) -> [String: String] {
-        var values = command.defaultValues
-        let remembered = CommandVariableStorage.values(for: command.storageKey)
-        for variable in command.variables {
+    func effectiveValues(for entry: CheatSheetEntry) -> [String: String] {
+        var values = entry.defaultValues
+        let remembered = EntryVariableStorage.values(for: entry.storageKey)
+        for variable in entry.variables {
             if let value = remembered[variable.name] {
                 values[variable.name] = value
             }
@@ -178,39 +184,23 @@ final class CheatSheetStore: ObservableObject {
         return values
     }
 
-    func copyText(for command: CheatCommand) -> String {
-        let resolved = TextVariables.resolve(
-            command.rawCopyText,
-            values: effectiveValues(for: command)
-        )
-        return command.isDescriptionOnly ? MarkdownText.stripped(resolved) : resolved
-    }
-
-    func resolvedCommandSegments(for command: CheatCommand) -> [TextVariables.Segment] {
-        TextVariables.segments(of: command.rawCommand, values: effectiveValues(for: command))
-    }
-
-    func resolvedDescriptionSegments(for command: CheatCommand) -> [TextVariables.Segment] {
-        TextVariables.segments(of: command.rawDescription, values: effectiveValues(for: command))
-    }
-
     private func presentVariableForm(
-        for command: CheatCommand,
+        for entry: CheatSheetEntry,
         raw: String,
-        variables: [CommandVariable],
-        outputFormat: CopyOutputFormat,
-        action: VariableFormAction = .copy
+        variables: [EntryVariable],
+        textForm: EntryTextForm,
+        action: EntryAction
     ) {
         guard !variables.isEmpty else { return }
         variableForm = VariableFormState(
-            commandID: command.id,
-            storageKey: command.storageKey,
-            title: command.title,
+            entryID: entry.id,
+            storageKey: entry.storageKey,
+            title: entry.title,
             raw: raw,
-            outputFormat: outputFormat,
+            textForm: textForm,
             action: action,
             variables: variables,
-            values: effectiveValues(for: command)
+            values: effectiveValues(for: entry)
         )
     }
 
@@ -228,17 +218,16 @@ final class CheatSheetStore: ObservableObject {
 
     func confirmVariableForm() {
         guard let form = variableForm else { return }
-        let remembered = CommandVariableStorage.values(for: form.storageKey)
-        CommandVariableStorage.save(
+        let remembered = EntryVariableStorage.values(for: form.storageKey)
+        EntryVariableStorage.save(
             remembered.merging(form.values) { _, newValue in newValue },
             for: form.storageKey
         )
         variableForm = nil
-        switch form.action {
-        case .copy:
-            writeToPasteboard(form.output, flashing: form.commandID)
-        case .openLink:
-            openLink(form.output)
+        if form.action == .openURL {
+            openURL(form.output)
+        } else {
+            writeToPasteboard(form.output, flashing: form.entryID)
         }
     }
 
@@ -249,79 +238,140 @@ final class CheatSheetStore: ObservableObject {
         )
     }
 
-    // MARK: - Copying
+    // MARK: - Entry actions
 
-    /// Commands with variables open the form; everything else copies directly.
-    func copySelectedCommand() {
-        guard let selectedCommand else { return }
-        if selectedCommand.hasVariables {
-            presentVariableForm(
-                for: selectedCommand,
-                raw: selectedCommand.rawCopyText,
-                variables: selectedCommand.variables,
-                outputFormat: selectedCommand.isDescriptionOnly
-                    ? .markdownStrippedDescription
-                    : .resolvedCommand
-            )
-            return
-        }
-        writeToPasteboard(copyText(for: selectedCommand), flashing: selectedCommand.id)
-    }
-
-    /// Copies straight away, using the current variable values and skipping the form.
-    func copySelectedCommandSkippingForm() {
-        guard let selectedCommand else { return }
-        writeToPasteboard(copyText(for: selectedCommand), flashing: selectedCommand.id)
-    }
-
-    func copyTitle(of command: CheatCommand) {
-        writeToPasteboard(command.title, flashing: command.id)
-    }
-
-    func copyDescription(of command: CheatCommand, asMarkdown: Bool) {
-        guard !command.rawDescription.isEmpty else { return }
-
-        let variables = TextVariables.variables(in: command.rawDescription)
-        let outputFormat: CopyOutputFormat = asMarkdown
-            ? .resolvedDescription
-            : .markdownStrippedDescription
-
-        if !variables.isEmpty {
-            presentVariableForm(
-                for: command,
-                raw: command.rawDescription,
-                variables: variables,
-                outputFormat: outputFormat
-            )
-            return
-        }
-
-        let resolved = TextVariables.resolve(
-            command.rawDescription,
-            values: effectiveValues(for: command)
+    func performPrimaryActionForSelectedEntry(skippingVariableForm: Bool = false) {
+        guard let selectedEntry else { return }
+        perform(
+            selectedEntry.actions.primary,
+            for: selectedEntry,
+            skippingVariableForm: skippingVariableForm
         )
-        let value = asMarkdown ? resolved : MarkdownText.stripped(resolved)
-        writeToPasteboard(value, flashing: command.id)
     }
 
-    func openLink(_ command: CheatCommand) {
-        guard command.isLink else { return }
+    func perform(
+        _ action: EntryAction,
+        for entry: CheatSheetEntry,
+        skippingVariableForm: Bool = false
+    ) {
+        guard entry.actions.all.contains(action) else {
+            assertionFailure("Unavailable action \(action) for entry \(entry.id)")
+            return
+        }
 
-        if command.hasVariables {
-            presentVariableForm(
-                for: command,
+        switch (action, entry) {
+        case (.copyTitle, _):
+            writeToPasteboard(entry.title, flashing: entry.id)
+
+        case (.copyCommand, .command(let command)):
+            performTextAction(
+                action,
+                for: entry,
                 raw: command.rawCommand,
                 variables: command.variables,
-                outputFormat: .resolvedCommand,
-                action: .openLink
+                textForm: .resolved,
+                skippingVariableForm: skippingVariableForm
+            )
+
+        case (.copyNoteContent(let textForm), .note(let note)):
+            performTextAction(
+                action,
+                for: entry,
+                raw: note.rawContent,
+                variables: note.variables,
+                textForm: textForm,
+                skippingVariableForm: skippingVariableForm
+            )
+
+        case (.copyURL, .url(let url)):
+            performTextAction(
+                action,
+                for: entry,
+                raw: url.rawURL,
+                variables: url.variables,
+                textForm: .resolved,
+                skippingVariableForm: skippingVariableForm
+            )
+
+        case (.copyDescription(let textForm), .command(let command)):
+            guard let rawDescription = command.rawDescription else { return }
+            performTextAction(
+                action,
+                for: entry,
+                raw: rawDescription,
+                variables: TextVariables.variables(in: rawDescription),
+                textForm: textForm,
+                skippingVariableForm: skippingVariableForm
+            )
+
+        case (.copyDescription(let textForm), .url(let url)):
+            guard let rawDescription = url.rawDescription else { return }
+            performTextAction(
+                action,
+                for: entry,
+                raw: rawDescription,
+                variables: TextVariables.variables(in: rawDescription),
+                textForm: textForm,
+                skippingVariableForm: skippingVariableForm
+            )
+
+        case (.openURL, .url(let url)):
+            performTextAction(
+                action,
+                for: entry,
+                raw: url.rawURL,
+                variables: url.variables,
+                textForm: .resolved,
+                skippingVariableForm: skippingVariableForm
+            )
+
+        default:
+            assertionFailure("Mismatched action \(action) for entry \(entry.id)")
+        }
+    }
+
+    private func performTextAction(
+        _ action: EntryAction,
+        for entry: CheatSheetEntry,
+        raw: String,
+        variables: [EntryVariable],
+        textForm: EntryTextForm,
+        skippingVariableForm: Bool
+    ) {
+        if !skippingVariableForm, !variables.isEmpty {
+            presentVariableForm(
+                for: entry,
+                raw: raw,
+                variables: variables,
+                textForm: textForm,
+                action: action
             )
             return
         }
 
-        openLink(copyText(for: command))
+        let resolved = TextVariables.resolve(raw, values: effectiveValues(for: entry))
+        let output = textForm == .markdownStripped
+            ? MarkdownText.stripped(resolved)
+            : resolved
+        if action == .openURL {
+            openURL(output)
+        } else {
+            writeToPasteboard(output, flashing: entry.id)
+        }
     }
 
-    private func openLink(_ value: String) {
+    private func rawTexts(for entry: CheatSheetEntry) -> [String] {
+        switch entry {
+        case .note(let note):
+            return [note.rawContent]
+        case .command(let command):
+            return [command.rawDescription, command.rawCommand].compactMap { $0 }
+        case .url(let url):
+            return [url.rawDescription, url.rawURL].compactMap { $0 }
+        }
+    }
+
+    private func openURL(_ value: String) {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: trimmedValue), url.scheme != nil else {
             editorErrorMessage = "\"\(trimmedValue)\" is not a valid URL."
@@ -329,22 +379,22 @@ final class CheatSheetStore: ObservableObject {
         }
 
         guard NSWorkspace.shared.open(url) else {
-            editorErrorMessage = "The link could not be opened."
+            editorErrorMessage = "The URL could not be opened."
             return
         }
         onRequestClose?()
     }
 
-    private func writeToPasteboard(_ value: String, flashing commandID: String) {
+    private func writeToPasteboard(_ value: String, flashing entryID: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(value, forType: .string)
-        copiedCommandID = commandID
+        copiedEntryID = entryID
 
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(1))
-            if self?.copiedCommandID == commandID {
-                self?.copiedCommandID = nil
+            if self?.copiedEntryID == entryID {
+                self?.copiedEntryID = nil
             }
         }
     }
@@ -467,7 +517,7 @@ final class CheatSheetStore: ObservableObject {
         } else {
             selectedSheetIndex = min(selectedSheetIndex, max(0, sheets.count - 1))
         }
-        selectedCommandIndex = min(selectedCommandIndex, max(0, visibleCommands.count - 1))
+        selectedEntryIndex = min(selectedEntryIndex, max(0, visibleEntries.count - 1))
     }
 
     private func createInitialFilesIfNeeded(fileManager: FileManager) {

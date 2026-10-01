@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// The fill-in-the-variables form, shown over the command list.
+/// The fill-in-the-variables form, shown over the entry list.
 /// Return completes the requested action and dismisses; Escape cancels.
 struct VariableFormView: View {
     @ObservedObject var store: CheatSheetStore
     @FocusState private var focusedVariable: String?
-    @AppStorage(DisplayPreferences.commandFontSizeKey)
-    private var commandFontSize = DisplayPreferences.defaultCommandFontSize
+    @AppStorage(DisplayPreferences.payloadFontSizeKey)
+    private var payloadFontSize = DisplayPreferences.defaultPayloadFontSize
     @AppStorage(DisplayPreferences.descriptionFontSizeKey)
     private var descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
 
@@ -21,7 +21,7 @@ struct VariableFormView: View {
                     .frame(maxWidth: 620)
                     .padding(24)
             }
-            .task(id: form.commandID) {
+            .task(id: form.entryID) {
                 // Clearing first guarantees a state change even if focus was
                 // left on a field of the same name by a previous form.
                 focusedVariable = nil
@@ -32,7 +32,7 @@ struct VariableFormView: View {
                 // `try?` swallows cancellation, so check it explicitly rather
                 // than moving focus for a form that has already been dismissed.
                 guard !Task.isCancelled,
-                      store.variableForm?.commandID == form.commandID else { return }
+                      store.variableForm?.entryID == form.entryID else { return }
 
                 focusedVariable = form.variables.first?.name
             }
@@ -115,7 +115,7 @@ struct VariableFormView: View {
     }
 
     private func previewText(for form: VariableFormState) -> Text {
-        if form.outputFormat == .markdownStrippedDescription {
+        if form.textForm == .markdownStripped {
             return Text(verbatim: form.output)
                 .font(.system(size: CGFloat(descriptionFontSize)))
         }
@@ -126,7 +126,7 @@ struct VariableFormView: View {
                     .foregroundStyle(segment.isVariable ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
                     .bold(segment.isVariable)
             }
-            .font(.system(size: CGFloat(commandFontSize), design: .monospaced))
+            .font(.system(size: CGFloat(payloadFontSize), design: .monospaced))
     }
 
     private func actions(for form: VariableFormState) -> some View {
@@ -148,7 +148,7 @@ struct VariableFormView: View {
             // confirming the form before it can be typed into. Return is
             // already handled by .onSubmit on the fields; ⌘Return is a
             // distinct shortcut the replayed plain Return cannot match.
-            Button(form.action == .openLink ? "Open Link" : "Copy") {
+            Button(form.action == .openURL ? "Open URL" : "Copy") {
                 store.confirmVariableForm()
             }
             .keyboardShortcut(.return, modifiers: .command)

@@ -1,6 +1,14 @@
 import Foundation
 
 enum CheatSheetParser {
+    private struct EntryDraft {
+        let title: String
+        let sectionTitle: String?
+        let rawDescription: String
+        let rawFencedContent: String?
+        let fenceLanguage: String?
+    }
+
     static func parse(_ source: String, fileURL: URL) -> CheatSheet {
         let fileName = fileURL.lastPathComponent
         let lines = source.components(separatedBy: .newlines)
@@ -8,33 +16,30 @@ enum CheatSheetParser {
 
         var sheetTitle = fallbackTitle
         var entryTitle: String?
-        var groupTitle: String?
+        var sectionTitle: String?
         var descriptionLines: [String] = []
-        var commands: [CheatCommand] = []
+        var entries: [CheatSheetEntry] = []
         var sections: [CheatSheetSection] = []
         var isInsideComment = false
         var index = 0
 
-        func appendEntry(
-            title: String,
-            sectionTitle: String?,
-            rawDescription: String,
-            rawCommand: String,
-            language: String
-        ) {
-            let identifier = "\(fileName):\(commands.count):\(title)"
-            commands.append(
-                CheatCommand(
-                    id: identifier,
-                    storageKey: "\(fileName)#\(title)",
-                    title: title,
-                    sectionTitle: sectionTitle,
-                    rawDescription: rawDescription,
-                    rawCommand: rawCommand,
-                    language: language,
-                    variables: TextVariables.variables(in: "\(rawDescription)\n\(rawCommand)")
-                )
+        func appendEntry(rawFencedContent: String? = nil, fenceLanguage: String? = nil) {
+            defer {
+                entryTitle = nil
+                descriptionLines = []
+            }
+
+            guard let title = entryTitle else { return }
+            let draft = EntryDraft(
+                title: title,
+                sectionTitle: sectionTitle,
+                rawDescription: descriptionLines.joined(separator: " "),
+                rawFencedContent: rawFencedContent,
+                fenceLanguage: fenceLanguage
             )
+            if let entry = makeEntry(from: draft, fileName: fileName, entryOffset: entries.count) {
+                entries.append(entry)
+            }
         }
 
         func appendSection(title: String) {
@@ -42,28 +47,8 @@ enum CheatSheetParser {
                 CheatSheetSection(
                     id: "\(fileName):section:\(sections.count):\(title)",
                     title: title,
-                    commandOffset: commands.count
+                    entryOffset: entries.count
                 )
-            )
-        }
-
-        func finishDescriptionOnlyEntry() {
-            defer {
-                entryTitle = nil
-                descriptionLines = []
-            }
-
-            guard let title = entryTitle else { return }
-            let rawDescription = descriptionLines
-                .joined(separator: " ")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !rawDescription.isEmpty else { return }
-            appendEntry(
-                title: title,
-                sectionTitle: groupTitle,
-                rawDescription: rawDescription,
-                rawCommand: "",
-                language: ""
             )
         }
 
@@ -89,25 +74,25 @@ enum CheatSheetParser {
             }
 
             if line.hasPrefix("# ") {
-                finishDescriptionOnlyEntry()
-                groupTitle = nil
+                appendEntry()
+                sectionTitle = nil
                 sheetTitle = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
                 index += 1
                 continue
             }
 
             if line.hasPrefix("## ") {
-                finishDescriptionOnlyEntry()
+                appendEntry()
                 let title = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
                 appendSection(title: title)
-                groupTitle = title
+                sectionTitle = title
                 descriptionLines = []
                 index += 1
                 continue
             }
 
             if line.hasPrefix("### ") {
-                finishDescriptionOnlyEntry()
+                appendEntry()
                 entryTitle = String(line.dropFirst(4)).trimmingCharacters(in: .whitespaces)
                 descriptionLines = []
                 index += 1
@@ -116,35 +101,18 @@ enum CheatSheetParser {
 
             if line.hasPrefix("```") {
                 let language = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                var codeLines: [String] = []
+                var contentLines: [String] = []
                 index += 1
 
                 while index < lines.count, !lines[index].hasPrefix("```") {
-                    codeLines.append(lines[index])
+                    contentLines.append(lines[index])
                     index += 1
                 }
 
-                if let title = entryTitle {
-                    let rawCommand = codeLines.joined(separator: "\n")
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !rawCommand.isEmpty {
-                        let rawDescription = descriptionLines
-                            .joined(separator: " ")
-                            .trimmingCharacters(in: .whitespacesAndNewlines)
-                        appendEntry(
-                            title: title,
-                            sectionTitle: groupTitle,
-                            rawDescription: rawDescription,
-                            rawCommand: rawCommand,
-                            language: language
-                        )
-                    } else {
-                        finishDescriptionOnlyEntry()
-                    }
-                }
-
-                entryTitle = nil
-                descriptionLines = []
+                appendEntry(
+                    rawFencedContent: contentLines.joined(separator: "\n"),
+                    fenceLanguage: language
+                )
                 index += 1
                 continue
             }
@@ -155,14 +123,71 @@ enum CheatSheetParser {
             index += 1
         }
 
-        finishDescriptionOnlyEntry()
+        appendEntry()
 
         return CheatSheet(
             id: fileName,
             title: sheetTitle,
-            commands: commands,
+            entries: entries,
             sections: sections,
             sourceURL: fileURL
+        )
+    }
+
+    private static func makeEntry(
+        from draft: EntryDraft,
+        fileName: String,
+        entryOffset: Int
+    ) -> CheatSheetEntry? {
+        let rawDescription = draft.rawDescription
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawFencedContent = draft.rawFencedContent?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let metadata = EntryMetadata(
+            id: "\(fileName):\(entryOffset):\(draft.title)",
+            storageKey: "\(fileName)#\(draft.title)",
+            title: draft.title,
+            sectionTitle: draft.sectionTitle
+        )
+
+        if let rawFencedContent, !rawFencedContent.isEmpty {
+            let description = rawDescription.isEmpty ? nil : rawDescription
+            let variableSource = [description, rawFencedContent]
+                .compactMap { $0 }
+                .joined(separator: "\n")
+            let variables = TextVariables.variables(in: variableSource)
+
+            if draft.fenceLanguage?.caseInsensitiveCompare("url") == .orderedSame {
+                return .url(
+                    URLEntry(
+                        metadata: metadata,
+                        rawDescription: description,
+                        rawURL: rawFencedContent,
+                        variables: variables
+                    )
+                )
+            }
+
+            let language = draft.fenceLanguage?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return .command(
+                CommandEntry(
+                    metadata: metadata,
+                    rawDescription: description,
+                    rawCommand: rawFencedContent,
+                    language: language?.isEmpty == true ? nil : language,
+                    variables: variables
+                )
+            )
+        }
+
+        guard !rawDescription.isEmpty else { return nil }
+        return .note(
+            NoteEntry(
+                metadata: metadata,
+                rawContent: rawDescription,
+                variables: TextVariables.variables(in: rawDescription)
+            )
         )
     }
 

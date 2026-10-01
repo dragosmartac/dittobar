@@ -96,7 +96,7 @@ private final class SelectionNotifyingTextField: NSTextField {
 /// Explicit sizes rather than `NSFont.preferredFont(forTextStyle:)` — on macOS
 /// those text styles do not line up with SwiftUI's `.headline` / `.caption`,
 /// which made the rows render at inconsistent sizes.
-enum CommandTextStyle {
+enum EntryTextStyle {
     static func title(_ text: String, size: CGFloat) -> NSAttributedString {
         NSAttributedString(
             string: text,
@@ -123,7 +123,7 @@ enum CommandTextStyle {
     }
 
     /// Substituted variable values are tinted and bold, as in the SwiftUI version.
-    static func command(
+    static func payload(
         _ segments: [TextVariables.Segment],
         size: CGFloat
     ) -> NSAttributedString {

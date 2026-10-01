@@ -21,19 +21,17 @@ struct TextVariablesTests {
         let variables = TextVariables.variables(in: raw)
 
         #expect(variables == [
-            CommandVariable(name: "service.name", defaultValue: "payments api"),
-            CommandVariable(name: "environment-name", defaultValue: "")
+            EntryVariable(name: "service.name", defaultValue: "payments api"),
+            EntryVariable(name: "environment-name", defaultValue: "")
         ])
     }
 
     @Test func usesLaterDefaultForRepeatedVariable() {
-        let raw = "deploy {{service}} and verify {{service=payments}}"
+        let variables = TextVariables.variables(
+            in: "deploy {{service}} and verify {{service=payments}}"
+        )
 
-        let variables = TextVariables.variables(in: raw)
-
-        #expect(variables == [
-            CommandVariable(name: "service", defaultValue: "payments")
-        ])
+        #expect(variables == [EntryVariable(name: "service", defaultValue: "payments")])
     }
 
     @Test func createsSegmentsAroundVariable() {
@@ -62,10 +60,7 @@ struct TextVariablesTests {
     }
 
     @Test func createsSegmentsForTextStartingWithVariable() {
-        let segments = TextVariables.segments(
-            of: "{{service=payments}} now",
-            values: [:]
-        )
+        let segments = TextVariables.segments(of: "{{service=payments}} now", values: [:])
 
         #expect(segments == [
             TextVariables.Segment(text: "payments", variableName: "service"),
@@ -74,10 +69,7 @@ struct TextVariablesTests {
     }
 
     @Test func createsSegmentsForTextEndingWithVariable() {
-        let segments = TextVariables.segments(
-            of: "deploy {{service=payments}}",
-            values: [:]
-        )
+        let segments = TextVariables.segments(of: "deploy {{service=payments}}", values: [:])
 
         #expect(segments == [
             TextVariables.Segment(text: "deploy ", variableName: nil),
@@ -86,10 +78,7 @@ struct TextVariablesTests {
     }
 
     @Test func createsSegmentForVariableOnlyText() {
-        let segments = TextVariables.segments(
-            of: "{{service=payments}}",
-            values: [:]
-        )
+        let segments = TextVariables.segments(of: "{{service=payments}}", values: [:])
 
         #expect(segments == [
             TextVariables.Segment(text: "payments", variableName: "service")
@@ -97,13 +86,8 @@ struct TextVariablesTests {
     }
 
     @Test func createsSegmentForTextWithoutVariables() {
-        let segments = TextVariables.segments(
-            of: "deploy now",
-            values: [:]
-        )
+        let segments = TextVariables.segments(of: "deploy now", values: [:])
 
-        #expect(segments == [
-            TextVariables.Segment(text: "deploy now", variableName: nil)
-        ])
+        #expect(segments == [TextVariables.Segment(text: "deploy now", variableName: nil)])
     }
 }

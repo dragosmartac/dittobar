@@ -1,8 +1,8 @@
 import Foundation
 
-/// Remembers the values last entered for each command's variables, so a
-/// command reopens with what you used last rather than the Markdown defaults.
-enum CommandVariableStorage {
+/// Remembers the values last entered for each entry's variables, so an entry
+/// reopens with what you used last rather than the Markdown defaults.
+enum EntryVariableStorage {
     private static let key = "commandVariableValues"
 
     static func values(for storageKey: String, defaults: UserDefaults = .standard) -> [String: String] {

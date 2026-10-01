@@ -15,11 +15,11 @@ enum StarterContent {
 
       Entry types:
       1. Command
-         It must contain a ```sh ...``` block.
+         Any non-empty fenced block except ```url ...```.
       2. URL
-         It must contain a ```url ...``` block.
-      3. Description-only
-         Description text without a code block.
+         A non-empty ```url ...``` block.
+      3. Note
+         Content without a non-empty fenced block.
 
     Description formatting
 

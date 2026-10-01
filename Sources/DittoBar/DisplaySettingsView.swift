@@ -11,8 +11,8 @@ struct DisplaySettingsView: View {
     private var titleFontSize = DisplayPreferences.defaultTitleFontSize
     @AppStorage(DisplayPreferences.descriptionFontSizeKey)
     private var descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
-    @AppStorage(DisplayPreferences.commandFontSizeKey)
-    private var commandFontSize = DisplayPreferences.defaultCommandFontSize
+    @AppStorage(DisplayPreferences.payloadFontSizeKey)
+    private var payloadFontSize = DisplayPreferences.defaultPayloadFontSize
     @AppStorage(DisplayPreferences.popoverWidthFractionKey)
     private var popoverWidthFraction = DisplayPreferences.defaultPopoverWidthFraction
     @AppStorage(EditorPreferences.selectedEditorKey)
@@ -126,7 +126,7 @@ struct DisplaySettingsView: View {
             Text("Text Sizes")
                 .font(.title2.bold())
 
-            Text("Adjust the text shown in each command row. Changes are applied immediately.")
+            Text("Adjust the text shown in each entry row. Changes are applied immediately.")
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 14) {
@@ -141,9 +141,9 @@ struct DisplaySettingsView: View {
                     range: DisplayPreferences.descriptionFontSizeRange
                 )
                 FontSizeControl(
-                    title: "Command",
-                    value: $commandFontSize,
-                    range: DisplayPreferences.commandFontSizeRange
+                    title: "Payload",
+                    value: $payloadFontSize,
+                    range: DisplayPreferences.payloadFontSizeRange
                 )
             }
         }
@@ -189,7 +189,7 @@ struct DisplaySettingsView: View {
         case .textSizes:
             titleFontSize == DisplayPreferences.defaultTitleFontSize
                 && descriptionFontSize == DisplayPreferences.defaultDescriptionFontSize
-                && commandFontSize == DisplayPreferences.defaultCommandFontSize
+                && payloadFontSize == DisplayPreferences.defaultPayloadFontSize
         case .editor:
             selectedEditor == EditorPreferences.defaultEditor.rawValue
                 && customEditorPath.isEmpty
@@ -203,7 +203,7 @@ struct DisplaySettingsView: View {
         case .textSizes:
             titleFontSize = DisplayPreferences.defaultTitleFontSize
             descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
-            commandFontSize = DisplayPreferences.defaultCommandFontSize
+            payloadFontSize = DisplayPreferences.defaultPayloadFontSize
         case .editor:
             selectedEditor = EditorPreferences.defaultEditor.rawValue
             customEditorPath = ""

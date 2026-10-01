@@ -1,6 +1,6 @@
 # Ditto Bar
 
-Your repeatable commands, URLs and more one keystroke away - Markdown cheat sheets in the macOS menu bar.
+Your repeatable commands, URLs, and notes one keystroke away—Markdown cheat sheets in the macOS menu bar.
 
 ## Run it
 
@@ -26,12 +26,12 @@ open "dist/DittoBar.app"
 | `Option-Space` | Open or close the popover globally |
 | `Command-1` … `Command-9` | Select a cheat-sheet tab |
 | `Command-Option-Left` / `Command-Option-Right` | Select the previous or next cheat-sheet tab |
-| `Tab` / `Shift-Tab` | Select the next or previous command |
-| `Up` / `Down` | Select the previous or next command |
-| `Return` | Copy the selected command, or open its variable form |
-| `Option-Return` | Open entry options (including **Open Link** for URL entries) |
-| `Command-Return` | Copy the selected command without opening the variable form |
-| `Command-C` | Copy the text you have selected (titles, descriptions, and commands are all selectable) |
+| `Tab` / `Shift-Tab` | Select the next or previous entry |
+| `Up` / `Down` | Select the previous or next entry |
+| `Return` | Perform the selected entry's primary copy action, or open its variable form |
+| `Option-Return` | Open the selected entry's action menu |
+| `Command-Return` | Perform the primary copy action without opening the variable form |
+| `Command-C` | Copy text selected inside an entry |
 | `Command-E` | Open the current Markdown file in the configured editor |
 | `Command-F` | Focus search |
 | `Command-,` | Open text-size settings |
@@ -40,13 +40,15 @@ open "dist/DittoBar.app"
 | `C` | Copy the full cheat-sheets directory path while More Options is open |
 | `Escape` | Close the popover |
 
-Popover width, editor, and the title, description, and command font sizes can be changed
+Popover width, editor, and the title, description, and payload font sizes can be changed
 from **More Options → Settings**. The choices are saved automatically. The editor can use
 the system default, Visual Studio Code, TextEdit, or any custom application.
 
-Right-click any entry to copy its title, its rendered plain-text description, or its
-description with the original Markdown formatting. The same choices are available with
-`Option-Return`. URL entries also offer **Open Link** in both menus.
+Right-click any entry, or press `Option-Return`, to show its primary and secondary
+actions. Every entry supports copying its title. Commands and URLs with descriptions
+support copying the description with Markdown stripped or retained. Notes support
+copying their content with Markdown stripped or retained, and URL entries also support
+**Open URL**.
 
 ## Edit cheat sheets
 
@@ -71,7 +73,7 @@ git commit --amend --no-edit
 ````
 
 To divide a page into visual sections, use an H2 for each section and H3 headings for
-the entries inside it. Section headings are not selectable commands:
+the entries inside it. Section headings are not selectable entries:
 
 ````markdown
 # Dashboards
@@ -93,13 +95,13 @@ https://dashboards.example.com/services/production
 ```
 ````
 
-An H3 with description text but no fenced code block is also shown as an entry. Pressing
-Return on that entry copies its description as plain text (with Markdown formatting removed).
+An H3 with content but no fenced code block becomes a note entry. Pressing Return copies
+its content as plain text with Markdown formatting removed.
 
-Descriptions support inline Markdown, including `` `code` ``, `**bold**`, `*italic*`,
-`~~strikethrough~~`, and `[links](https://example.com)`.
+Descriptions and note content support inline Markdown, including `` `code` ``, `**bold**`,
+`*italic*`, `~~strikethrough~~`, and `[links](https://example.com)`.
 
-Use a `url` fence for a link entry. It supports a description and variables just like a
+Use a `url` fence for a URL entry. It supports a description and variables just like a
 command. Return copies the URL; Option-Return offers to open it in the default application:
 
 ````markdown
@@ -138,18 +140,18 @@ Copying that command with `Return` opens a form instead of copying straight away
 | `Command-Return` | The same, and works even when no field has focus |
 | `Escape` | Close the form without copying |
 
-The live preview tints every substituted value, and the command list shows each command
-with its current values already filled in. If the menu-bar popover closes while the form
+The live preview tints every substituted value, and the entry list shows each entry with
+its current values already filled in. If the menu-bar popover closes while the form
 is open, reopening it restores the form and all values entered so far.
 
 Other details:
 
 - `{{name}}` without an `=` declares a field that starts empty.
-- Repeating a name reuses one field, so `{{branch}}` twice in a command is edited once.
-  This spans the description and the command: the same `{{diff}}` in both is one field.
-- Only the command is copied. A variable in a description keeps the note in step with
-  the command — useful for recording the output dataset a run will produce.
-- Values you enter are remembered per command and pre-fill the form next time.
+- Repeating a name reuses one field. For commands and URLs, this spans the description
+  and payload: the same `{{diff}}` in both is one field.
+- An entry's primary action copies its command, note content, or URL. A variable in a
+  description keeps it in step with the payload.
+- Values you enter are remembered per entry and pre-fill the form next time.
   **Reset to Defaults** restores what the Markdown says.
 - `Command-Return` skips the form and copies using the current values.
 
@@ -160,7 +162,7 @@ file can carry its own instructions:
 
 ```markdown
 <!--
-Notes to self. Nothing in here becomes a command.
+Notes to self. Nothing in here becomes an entry.
 -->
 ```
 
