@@ -25,6 +25,7 @@ struct CheatCommand: Identifiable, Equatable {
     var isLink: Bool { language.caseInsensitiveCompare("url") == .orderedSame }
     var copyTemplate: String { isDescriptionOnly ? detail : command }
 
+    // This is computed on each access. We might consider to change this functionality
     var defaultValues: [String: String] {
         Dictionary(uniqueKeysWithValues: variables.map { ($0.name, $0.defaultValue) })
     }

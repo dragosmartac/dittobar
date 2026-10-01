@@ -32,9 +32,7 @@ enum CheatSheetParser {
                     detail: detail,
                     command: command,
                     language: language,
-                    // Command first, so forms focus a field that affects the
-                    // normal copied value before description-only variables.
-                    variables: CommandTemplate.variables(in: "\(command)\n\(detail)")
+                    variables: CommandTemplate.variables(in: "\(detail)\n\(command)")
                 )
             )
         }

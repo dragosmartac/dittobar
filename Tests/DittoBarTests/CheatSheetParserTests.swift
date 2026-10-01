@@ -119,4 +119,32 @@ struct CheatSheetParserTests {
             "https://example.com/support"
         ])
     }
+
+    @Test func parsesVariablesInMarkdownOrder() {
+        let source = """
+        # Deployment
+
+        ### Deploy service
+        Deploy {{service=payments}} from {{region=eu-west-1}}.
+
+        ```sh
+        deploy {{service=checkout}} --region {{region=us-east-1}} --tag {{tag=latest stable}}
+        ```
+        """
+
+        let sheet = CheatSheetParser.parse(
+            source,
+            fileURL: URL(fileURLWithPath: "/tmp/deployment.md")
+        )
+
+        #expect(sheet.commands[0].title == "Deploy service")
+        #expect(sheet.commands[0].hasVariables)
+        #expect(sheet.commands[0].variables.count == 3)
+        #expect(sheet.commands[0].variables[0].name == "service")
+        #expect(sheet.commands[0].variables[0].defaultValue == "payments")
+        #expect(sheet.commands[0].variables[1].name == "region")
+        #expect(sheet.commands[0].variables[1].defaultValue == "eu-west-1")
+        #expect(sheet.commands[0].variables[2].name == "tag")
+        #expect(sheet.commands[0].variables[2].defaultValue == "latest stable")
+    }
 }
