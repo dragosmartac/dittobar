@@ -35,4 +35,75 @@ struct CommandTemplateTests {
             CommandVariable(name: "service", defaultValue: "payments")
         ])
     }
+
+    @Test func createsSegmentsAroundVariable() {
+        let segments = CommandTemplate.segments(
+            of: "deploy {{service=payments}} now",
+            values: ["service": "billing"]
+        )
+
+        #expect(segments == [
+            CommandTemplate.Segment(text: "deploy ", variableName: nil),
+            CommandTemplate.Segment(text: "billing", variableName: "service"),
+            CommandTemplate.Segment(text: " now", variableName: nil)
+        ])
+    }
+
+    @Test func createsSegmentsForAdjacentVariables() {
+        let segments = CommandTemplate.segments(
+            of: "{{first=one}}{{second=two}}",
+            values: [:]
+        )
+
+        #expect(segments == [
+            CommandTemplate.Segment(text: "one", variableName: "first"),
+            CommandTemplate.Segment(text: "two", variableName: "second")
+        ])
+    }
+
+    @Test func createsSegmentsForTemplateStartingWithVariable() {
+        let segments = CommandTemplate.segments(
+            of: "{{service=payments}} now",
+            values: [:]
+        )
+
+        #expect(segments == [
+            CommandTemplate.Segment(text: "payments", variableName: "service"),
+            CommandTemplate.Segment(text: " now", variableName: nil)
+        ])
+    }
+
+    @Test func createsSegmentsForTemplateEndingWithVariable() {
+        let segments = CommandTemplate.segments(
+            of: "deploy {{service=payments}}",
+            values: [:]
+        )
+
+        #expect(segments == [
+            CommandTemplate.Segment(text: "deploy ", variableName: nil),
+            CommandTemplate.Segment(text: "payments", variableName: "service")
+        ])
+    }
+
+    @Test func createsSegmentForVariableOnlyTemplate() {
+        let segments = CommandTemplate.segments(
+            of: "{{service=payments}}",
+            values: [:]
+        )
+
+        #expect(segments == [
+            CommandTemplate.Segment(text: "payments", variableName: "service")
+        ])
+    }
+
+    @Test func createsSegmentForTemplateWithoutVariables() {
+        let segments = CommandTemplate.segments(
+            of: "deploy now",
+            values: [:]
+        )
+
+        #expect(segments == [
+            CommandTemplate.Segment(text: "deploy now", variableName: nil)
+        ])
+    }
 }
