@@ -26,14 +26,17 @@ final class CheatSheetStore: ObservableObject {
     <!--
     How this file works
 
-      # Title             the name shown on the tab
-      ## Section name     an optional visual group within the page
-      ### Command name    one entry inside that section
-      ```sh … ```         the command itself, in a fenced code block
-      ```url … ```        a link; ⌥Return includes an option to open it
+      # Title         The name displayed in the list of tabs
+      ## Section      An optional separator inside the tab
+      ### Entry       An interactive component within the tab
 
-      An entry with description text but no code block is also supported.
-      Return copies its description as plain text.
+      Entry types:
+      1. Command
+         It must contain a ```sh ...``` block.
+      2. URL
+         It must contain a ```url ...``` block.
+      3. Description-only
+         Description text without a code block.
 
     Description formatting
 
@@ -42,21 +45,11 @@ final class CheatSheetStore: ObservableObject {
 
     Variables
 
-      Write {{name=default}} in a code block, or in a description, to make
-      that part editable. Copying such a command opens a form instead: Tab
-      moves between fields, Return copies, Escape cancels. Repeat a name to
-      reuse one field — the same {{diff}} in a description and a command is
-      edited once. Write {{name}} with no default to start empty. Values you
-      type are remembered per entry. For command entries, only the command is
-      copied; description variables just keep the note in step.
+      To create a variable, use the following syntax in a code block or
+      in a description: {{name=default}}.
 
-    Keys
-
-      Return     copy the selected command (opens the form if it has variables)
-      ⌥Return    choose whether to open a link or copy title/description
-      ⌘Return    copy it without opening the form
-      ⌘C         copy whatever text you have selected here
-      ⌘E         open this file in your configured editor
+      The default value is optional. You can reuse a variable by writing
+      {{name}} wherever needed. You only need to define its default value once.
 
     Anything inside an HTML comment, like this block, is ignored. The app
     reloads this file automatically when you save it.
