@@ -1,5 +1,3 @@
-import Foundation
-
 /// Placeholders are written inline in the Markdown code block as
 /// `{{name}}` or `{{name=default value}}`. Repeating a name reuses the
 /// same field, so one edit updates every occurrence in the command.
@@ -13,13 +11,13 @@ enum CommandTemplate {
     }
 
     private struct Placeholder {
-        let range: NSRange
+        let range: Range<String.Index>
         let name: String
         let defaultValue: String
     }
 
-    private static let expression = try! NSRegularExpression(
-        pattern: #"\{\{\s*([A-Za-z0-9_][A-Za-z0-9_.\-]*)\s*(?:=([^{}]*))?\}\}"#
+    private static let expression = try! Regex(
+        #"\{\{\s*([A-Za-z0-9_][A-Za-z0-9_.-]*)\s*(?:=([^{}]*))?\}\}"#
     )
 
     /// The distinct variables of a template, in the order they first appear.
@@ -53,28 +51,22 @@ enum CommandTemplate {
     }
 
     static func segments(of template: String, values: [String: String]) -> [Segment] {
-        let source = template as NSString
         var segments: [Segment] = []
-        var location = 0
+        var location = template.startIndex
 
         for placeholder in placeholders(in: template) {
-            if placeholder.range.location > location {
-                let literal = source.substring(
-                    with: NSRange(
-                        location: location,
-                        length: placeholder.range.location - location
-                    )
-                )
+            if placeholder.range.lowerBound > location {
+                let literal = String(template[location..<placeholder.range.lowerBound])
                 segments.append(Segment(text: literal, variableName: nil))
             }
 
             let value = values[placeholder.name] ?? placeholder.defaultValue
             segments.append(Segment(text: value, variableName: placeholder.name))
-            location = placeholder.range.location + placeholder.range.length
+            location = placeholder.range.upperBound
         }
 
-        if location < source.length {
-            let tail = source.substring(from: location)
+        if location < template.endIndex {
+            let tail = String(template[location...])
             segments.append(Segment(text: tail, variableName: nil))
         }
 
@@ -82,20 +74,11 @@ enum CommandTemplate {
     }
 
     private static func placeholders(in template: String) -> [Placeholder] {
-        let source = template as NSString
-        let matches = expression.matches(
-            in: template,
-            range: NSRange(location: 0, length: source.length)
-        )
-
-        return matches.map { match in
-            let defaultRange = match.range(at: 2)
-            return Placeholder(
+        template.matches(of: expression).map { match in
+            Placeholder(
                 range: match.range,
-                name: source.substring(with: match.range(at: 1)),
-                defaultValue: defaultRange.location == NSNotFound
-                    ? ""
-                    : source.substring(with: defaultRange)
+                name: String(match.output[1].substring!),
+                defaultValue: match.output[2].substring.map(String.init) ?? ""
             )
         }
     }
