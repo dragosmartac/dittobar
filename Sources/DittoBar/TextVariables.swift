@@ -1,8 +1,8 @@
-/// Placeholders are written inline in the Markdown code block as
+/// Placeholders are written inline in an entry's raw text as
 /// `{{name}}` or `{{name=default value}}`. Repeating a name reuses the
-/// same field, so one edit updates every occurrence in the command.
-enum CommandTemplate {
-    /// A rendered run of text, tagged with the variable it came from.
+/// same field, so one edit updates every occurrence in the text.
+enum TextVariables {
+    /// A resolved run of text, tagged with the variable it came from.
     struct Segment: Equatable {
         let text: String
         let variableName: String?
@@ -20,12 +20,12 @@ enum CommandTemplate {
         #"\{\{\s*([A-Za-z0-9_][A-Za-z0-9_.-]*)\s*(?:=([^{}]*))?\}\}"#
     )
 
-    /// The distinct variables of a template, in the order they first appear.
-    static func variables(in template: String) -> [CommandVariable] {
+    /// The distinct variables of raw text, in the order they first appear.
+    static func variables(in raw: String) -> [CommandVariable] {
         var ordered: [CommandVariable] = []
         var indexByName: [String: Int] = [:]
 
-        for placeholder in placeholders(in: template) {
+        for placeholder in placeholders(in: raw) {
             if let existing = indexByName[placeholder.name] {
                 // Even though we saw the variable before, this might be the first time
                 // we set the default value for it.
@@ -47,17 +47,17 @@ enum CommandTemplate {
         return ordered
     }
 
-    static func render(_ template: String, values: [String: String]) -> String {
-        segments(of: template, values: values).map(\.text).joined()
+    static func resolve(_ raw: String, values: [String: String]) -> String {
+        segments(of: raw, values: values).map(\.text).joined()
     }
 
-    static func segments(of template: String, values: [String: String]) -> [Segment] {
+    static func segments(of raw: String, values: [String: String]) -> [Segment] {
         var segments: [Segment] = []
-        var location = template.startIndex
+        var location = raw.startIndex
 
-        for placeholder in placeholders(in: template) {
+        for placeholder in placeholders(in: raw) {
             if placeholder.range.lowerBound > location {
-                let literal = String(template[location..<placeholder.range.lowerBound])
+                let literal = String(raw[location..<placeholder.range.lowerBound])
                 segments.append(Segment(text: literal, variableName: nil))
             }
 
@@ -66,16 +66,16 @@ enum CommandTemplate {
             location = placeholder.range.upperBound
         }
 
-        if location < template.endIndex {
-            let tail = String(template[location...])
+        if location < raw.endIndex {
+            let tail = String(raw[location...])
             segments.append(Segment(text: tail, variableName: nil))
         }
 
         return segments
     }
 
-    static func placeholders(in template: String) -> [Placeholder] {
-        template.matches(of: expression).map { match in
+    static func placeholders(in raw: String) -> [Placeholder] {
+        raw.matches(of: expression).map { match in
             Placeholder(
                 range: match.range,
                 name: String(match.output[1].substring!),

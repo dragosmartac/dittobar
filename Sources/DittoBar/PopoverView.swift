@@ -136,7 +136,7 @@ struct PopoverView: View {
                 case .command(let item, let index):
                     CommandRow(
                         command: item,
-                        segments: store.resolvedSegments(for: item),
+                        segments: store.resolvedCommandSegments(for: item),
                         descriptionSegments: store.resolvedDescriptionSegments(for: item),
                         titleFontSize: CGFloat(titleFontSize),
                         descriptionFontSize: CGFloat(descriptionFontSize),
@@ -219,12 +219,12 @@ struct PopoverView: View {
         Button("Copy Description") {
             store.copyDescription(of: command, asMarkdown: false)
         }
-        .disabled(command.description.isEmpty)
+        .disabled(command.rawDescription.isEmpty)
 
         Button("Copy Description as Markdown") {
             store.copyDescription(of: command, asMarkdown: true)
         }
-        .disabled(command.description.isEmpty)
+        .disabled(command.rawDescription.isEmpty)
     }
 
     private var emptyState: some View {
@@ -439,8 +439,8 @@ private struct MoreOptionsButton: NSViewRepresentable {
 
 private struct CommandRow: View {
     let command: CheatCommand
-    let segments: [CommandTemplate.Segment]
-    let descriptionSegments: [CommandTemplate.Segment]
+    let segments: [TextVariables.Segment]
+    let descriptionSegments: [TextVariables.Segment]
     let titleFontSize: CGFloat
     let descriptionFontSize: CGFloat
     let commandFontSize: CGFloat
@@ -473,9 +473,9 @@ private struct CommandRow: View {
                 }
             }
 
-            if !command.description.isEmpty {
+            if !command.rawDescription.isEmpty {
                 SelectableText(
-                    attributedString: CommandTextStyle.description(
+                    attributedString: CommandTextStyle.markdownRenderedDescription(
                         descriptionSegments,
                         size: descriptionFontSize
                     ),

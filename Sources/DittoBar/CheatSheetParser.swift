@@ -18,8 +18,8 @@ enum CheatSheetParser {
         func appendEntry(
             title: String,
             sectionTitle: String?,
-            description: String,
-            command: String,
+            rawDescription: String,
+            rawCommand: String,
             language: String
         ) {
             let identifier = "\(fileName):\(commands.count):\(title)"
@@ -29,10 +29,10 @@ enum CheatSheetParser {
                     storageKey: "\(fileName)#\(title)",
                     title: title,
                     sectionTitle: sectionTitle,
-                    description: description,
-                    command: command,
+                    rawDescription: rawDescription,
+                    rawCommand: rawCommand,
                     language: language,
-                    variables: CommandTemplate.variables(in: "\(description)\n\(command)")
+                    variables: TextVariables.variables(in: "\(rawDescription)\n\(rawCommand)")
                 )
             )
         }
@@ -54,15 +54,15 @@ enum CheatSheetParser {
             }
 
             guard let title = entryTitle else { return }
-            let description = descriptionLines
+            let rawDescription = descriptionLines
                 .joined(separator: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !description.isEmpty else { return }
+            guard !rawDescription.isEmpty else { return }
             appendEntry(
                 title: title,
                 sectionTitle: groupTitle,
-                description: description,
-                command: "",
+                rawDescription: rawDescription,
+                rawCommand: "",
                 language: ""
             )
         }
@@ -125,17 +125,17 @@ enum CheatSheetParser {
                 }
 
                 if let title = entryTitle {
-                    let command = codeLines.joined(separator: "\n")
+                    let rawCommand = codeLines.joined(separator: "\n")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !command.isEmpty {
-                        let description = descriptionLines
+                    if !rawCommand.isEmpty {
+                        let rawDescription = descriptionLines
                             .joined(separator: " ")
                             .trimmingCharacters(in: .whitespacesAndNewlines)
                         appendEntry(
                             title: title,
                             sectionTitle: groupTitle,
-                            description: description,
-                            command: command,
+                            rawDescription: rawDescription,
+                            rawCommand: rawCommand,
                             language: language
                         )
                     } else {

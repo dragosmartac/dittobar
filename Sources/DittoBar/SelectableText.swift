@@ -110,11 +110,11 @@ enum CommandTextStyle {
     /// Descriptions support inline Markdown and variables. Private-use marker
     /// characters let the Markdown parser remove its delimiters without losing
     /// which rendered ranges came from variable placeholders.
-    static func description(
-        _ segments: [CommandTemplate.Segment],
+    static func markdownRenderedDescription(
+        _ segments: [TextVariables.Segment],
         size: CGFloat
     ) -> NSAttributedString {
-        markdownDescription(segments, size: size) ?? build(
+        renderMarkdown(segments, size: size) ?? build(
             segments,
             plain: NSFont.systemFont(ofSize: size),
             emphasised: NSFont.systemFont(ofSize: size, weight: .semibold),
@@ -124,7 +124,7 @@ enum CommandTextStyle {
 
     /// Substituted variable values are tinted and bold, as in the SwiftUI version.
     static func command(
-        _ segments: [CommandTemplate.Segment],
+        _ segments: [TextVariables.Segment],
         size: CGFloat
     ) -> NSAttributedString {
         return build(
@@ -135,8 +135,8 @@ enum CommandTextStyle {
         )
     }
 
-    private static func markdownDescription(
-        _ segments: [CommandTemplate.Segment],
+    private static func renderMarkdown(
+        _ segments: [TextVariables.Segment],
         size: CGFloat
     ) -> NSAttributedString? {
         let variableStart = "\u{E000}"
@@ -232,7 +232,7 @@ enum CommandTextStyle {
     }
 
     private static func build(
-        _ segments: [CommandTemplate.Segment],
+        _ segments: [TextVariables.Segment],
         plain: NSFont,
         emphasised: NSFont,
         plainColor: NSColor

@@ -27,8 +27,8 @@ struct CheatSheetParserTests {
         #expect(command.storageKey == "git_tools.md#Show status")
         #expect(command.title == "Show status")
         #expect(command.sectionTitle == "Basics")
-        #expect(command.description == "Displays the working tree status.")
-        #expect(command.command == "git status")
+        #expect(command.rawDescription == "Displays the working tree status.")
+        #expect(command.rawCommand == "git status")
         #expect(command.language == "sh")
         #expect(!command.isDescriptionOnly)
         #expect(!command.isLink)
@@ -55,13 +55,13 @@ struct CheatSheetParserTests {
 
         let link = sheet.commands[0]
         #expect(link.isLink)
-        #expect(link.command == "https://example.com/{{topic=swift}}")
+        #expect(link.rawCommand == "https://example.com/{{topic=swift}}")
         #expect(link.variables == [CommandVariable(name: "topic", defaultValue: "swift")])
 
         let note = sheet.commands[1]
         #expect(note.isDescriptionOnly)
-        #expect(note.description == "Read the release notes before upgrading.")
-        #expect(note.copyTemplate == note.description)
+        #expect(note.rawDescription == "Read the release notes before upgrading.")
+        #expect(note.rawCopyText == note.rawDescription)
     }
 
     @Test func parsesFileWithoutTitle() {
@@ -111,9 +111,9 @@ struct CheatSheetParserTests {
         #expect(sheet.commands.map(\.sectionTitle) == ["Section 1", "Section 2", "Section 2"])
         #expect(sheet.commands.map(\.isDescriptionOnly) == [true, false, false])
         #expect(sheet.commands.map(\.isLink) == [false, true, true])
-        #expect(sheet.commands[0].description == "Read the release notes before upgrading.")
-        #expect(sheet.commands[1].description == "Entry description.")
-        #expect(sheet.commands.map(\.command) == [
+        #expect(sheet.commands[0].rawDescription == "Read the release notes before upgrading.")
+        #expect(sheet.commands[1].rawDescription == "Entry description.")
+        #expect(sheet.commands.map(\.rawCommand) == [
             "",
             "https://example.com/docs",
             "https://example.com/support"

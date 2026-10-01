@@ -14,16 +14,16 @@ struct CheatCommand: Identifiable, Equatable {
     let title: String
     /// Optional visual group within a cheat-sheet page.
     let sectionTitle: String?
-    let description: String
-    /// The raw template; may contain `{{name=default}}` placeholders.
-    let command: String
+    let rawDescription: String
+    /// May contain `{{name=default}}` placeholders.
+    let rawCommand: String
     let language: String
     let variables: [CommandVariable]
 
     var hasVariables: Bool { !variables.isEmpty }
-    var isDescriptionOnly: Bool { command.isEmpty }
+    var isDescriptionOnly: Bool { rawCommand.isEmpty }
     var isLink: Bool { language.caseInsensitiveCompare("url") == .orderedSame }
-    var copyTemplate: String { isDescriptionOnly ? description : command }
+    var rawCopyText: String { isDescriptionOnly ? rawDescription : rawCommand }
 
     // This is computed on each access. We might consider to change this functionality
     var defaultValues: [String: String] {
@@ -61,9 +61,9 @@ enum CheatSheetRow: Identifiable, Equatable {
 }
 
 enum CopyOutputFormat: Equatable {
-    case command
-    case plainDescription
-    case markdownDescription
+    case resolvedCommand
+    case markdownStrippedDescription
+    case resolvedDescription
 }
 
 enum VariableFormAction: Equatable {
@@ -76,19 +76,19 @@ struct VariableFormState: Equatable {
     let commandID: String
     let storageKey: String
     let title: String
-    let template: String
+    let raw: String
     let outputFormat: CopyOutputFormat
     let action: VariableFormAction
     let variables: [CommandVariable]
     var values: [String: String]
 
-    var rendered: String {
-        let text = CommandTemplate.render(template, values: values)
-        return outputFormat == .plainDescription ? MarkdownText.plainText(text) : text
+    var output: String {
+        let text = TextVariables.resolve(raw, values: values)
+        return outputFormat == .markdownStrippedDescription ? MarkdownText.stripped(text) : text
     }
 
-    var segments: [CommandTemplate.Segment] {
-        CommandTemplate.segments(of: template, values: values)
+    var segments: [TextVariables.Segment] {
+        TextVariables.segments(of: raw, values: values)
     }
 
     var matchesDefaults: Bool {

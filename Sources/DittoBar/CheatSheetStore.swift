@@ -54,10 +54,10 @@ final class CheatSheetStore: ObservableObject {
         return commands.filter {
             ($0.sectionTitle?.localizedCaseInsensitiveContains(trimmedQuery) ?? false)
                 || $0.title.localizedCaseInsensitiveContains(trimmedQuery)
-                || $0.description.localizedCaseInsensitiveContains(trimmedQuery)
-                || $0.command.localizedCaseInsensitiveContains(trimmedQuery)
-                || resolvedCopyText(for: $0).localizedCaseInsensitiveContains(trimmedQuery)
-                || CommandTemplate.render($0.description, values: effectiveValues(for: $0))
+                || $0.rawDescription.localizedCaseInsensitiveContains(trimmedQuery)
+                || $0.rawCommand.localizedCaseInsensitiveContains(trimmedQuery)
+                || copyText(for: $0).localizedCaseInsensitiveContains(trimmedQuery)
+                || TextVariables.resolve($0.rawDescription, values: effectiveValues(for: $0))
                     .localizedCaseInsensitiveContains(trimmedQuery)
         }
     }
@@ -178,25 +178,25 @@ final class CheatSheetStore: ObservableObject {
         return values
     }
 
-    func resolvedCopyText(for command: CheatCommand) -> String {
-        let rendered = CommandTemplate.render(
-            command.copyTemplate,
+    func copyText(for command: CheatCommand) -> String {
+        let resolved = TextVariables.resolve(
+            command.rawCopyText,
             values: effectiveValues(for: command)
         )
-        return command.isDescriptionOnly ? MarkdownText.plainText(rendered) : rendered
+        return command.isDescriptionOnly ? MarkdownText.stripped(resolved) : resolved
     }
 
-    func resolvedSegments(for command: CheatCommand) -> [CommandTemplate.Segment] {
-        CommandTemplate.segments(of: command.command, values: effectiveValues(for: command))
+    func resolvedCommandSegments(for command: CheatCommand) -> [TextVariables.Segment] {
+        TextVariables.segments(of: command.rawCommand, values: effectiveValues(for: command))
     }
 
-    func resolvedDescriptionSegments(for command: CheatCommand) -> [CommandTemplate.Segment] {
-        CommandTemplate.segments(of: command.description, values: effectiveValues(for: command))
+    func resolvedDescriptionSegments(for command: CheatCommand) -> [TextVariables.Segment] {
+        TextVariables.segments(of: command.rawDescription, values: effectiveValues(for: command))
     }
 
     private func presentVariableForm(
         for command: CheatCommand,
-        template: String,
+        raw: String,
         variables: [CommandVariable],
         outputFormat: CopyOutputFormat,
         action: VariableFormAction = .copy
@@ -206,7 +206,7 @@ final class CheatSheetStore: ObservableObject {
             commandID: command.id,
             storageKey: command.storageKey,
             title: command.title,
-            template: template,
+            raw: raw,
             outputFormat: outputFormat,
             action: action,
             variables: variables,
@@ -236,9 +236,9 @@ final class CheatSheetStore: ObservableObject {
         variableForm = nil
         switch form.action {
         case .copy:
-            writeToPasteboard(form.rendered, flashing: form.commandID)
+            writeToPasteboard(form.output, flashing: form.commandID)
         case .openLink:
-            openLink(form.rendered)
+            openLink(form.output)
         }
     }
 
@@ -257,21 +257,21 @@ final class CheatSheetStore: ObservableObject {
         if selectedCommand.hasVariables {
             presentVariableForm(
                 for: selectedCommand,
-                template: selectedCommand.copyTemplate,
+                raw: selectedCommand.rawCopyText,
                 variables: selectedCommand.variables,
                 outputFormat: selectedCommand.isDescriptionOnly
-                    ? .plainDescription
-                    : .command
+                    ? .markdownStrippedDescription
+                    : .resolvedCommand
             )
             return
         }
-        writeToPasteboard(resolvedCopyText(for: selectedCommand), flashing: selectedCommand.id)
+        writeToPasteboard(copyText(for: selectedCommand), flashing: selectedCommand.id)
     }
 
     /// Copies straight away, using the current variable values and skipping the form.
     func copySelectedCommandSkippingForm() {
         guard let selectedCommand else { return }
-        writeToPasteboard(resolvedCopyText(for: selectedCommand), flashing: selectedCommand.id)
+        writeToPasteboard(copyText(for: selectedCommand), flashing: selectedCommand.id)
     }
 
     func copyTitle(of command: CheatCommand) {
@@ -279,28 +279,28 @@ final class CheatSheetStore: ObservableObject {
     }
 
     func copyDescription(of command: CheatCommand, asMarkdown: Bool) {
-        guard !command.description.isEmpty else { return }
+        guard !command.rawDescription.isEmpty else { return }
 
-        let variables = CommandTemplate.variables(in: command.description)
+        let variables = TextVariables.variables(in: command.rawDescription)
         let outputFormat: CopyOutputFormat = asMarkdown
-            ? .markdownDescription
-            : .plainDescription
+            ? .resolvedDescription
+            : .markdownStrippedDescription
 
         if !variables.isEmpty {
             presentVariableForm(
                 for: command,
-                template: command.description,
+                raw: command.rawDescription,
                 variables: variables,
                 outputFormat: outputFormat
             )
             return
         }
 
-        let rendered = CommandTemplate.render(
-            command.description,
+        let resolved = TextVariables.resolve(
+            command.rawDescription,
             values: effectiveValues(for: command)
         )
-        let value = asMarkdown ? rendered : MarkdownText.plainText(rendered)
+        let value = asMarkdown ? resolved : MarkdownText.stripped(resolved)
         writeToPasteboard(value, flashing: command.id)
     }
 
@@ -310,15 +310,15 @@ final class CheatSheetStore: ObservableObject {
         if command.hasVariables {
             presentVariableForm(
                 for: command,
-                template: command.command,
+                raw: command.rawCommand,
                 variables: command.variables,
-                outputFormat: .command,
+                outputFormat: .resolvedCommand,
                 action: .openLink
             )
             return
         }
 
-        openLink(resolvedCopyText(for: command))
+        openLink(copyText(for: command))
     }
 
     private func openLink(_ value: String) {
