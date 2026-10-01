@@ -27,7 +27,7 @@ struct CheatSheetParserTests {
         #expect(command.storageKey == "git_tools.md#Show status")
         #expect(command.title == "Show status")
         #expect(command.sectionTitle == "Basics")
-        #expect(command.detail == "Displays the working tree status.")
+        #expect(command.description == "Displays the working tree status.")
         #expect(command.command == "git status")
         #expect(command.language == "sh")
         #expect(!command.isDescriptionOnly)
@@ -60,8 +60,8 @@ struct CheatSheetParserTests {
 
         let note = sheet.commands[1]
         #expect(note.isDescriptionOnly)
-        #expect(note.detail == "Read the release notes before upgrading.")
-        #expect(note.copyTemplate == note.detail)
+        #expect(note.description == "Read the release notes before upgrading.")
+        #expect(note.copyTemplate == note.description)
     }
 
     @Test func parsesFileWithoutTitle() {
@@ -111,8 +111,8 @@ struct CheatSheetParserTests {
         #expect(sheet.commands.map(\.sectionTitle) == ["Section 1", "Section 2", "Section 2"])
         #expect(sheet.commands.map(\.isDescriptionOnly) == [true, false, false])
         #expect(sheet.commands.map(\.isLink) == [false, true, true])
-        #expect(sheet.commands[0].detail == "Read the release notes before upgrading.")
-        #expect(sheet.commands[1].detail == "Entry description.")
+        #expect(sheet.commands[0].description == "Read the release notes before upgrading.")
+        #expect(sheet.commands[1].description == "Entry description.")
         #expect(sheet.commands.map(\.command) == [
             "",
             "https://example.com/docs",

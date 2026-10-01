@@ -54,10 +54,10 @@ final class CheatSheetStore: ObservableObject {
         return commands.filter {
             ($0.sectionTitle?.localizedCaseInsensitiveContains(trimmedQuery) ?? false)
                 || $0.title.localizedCaseInsensitiveContains(trimmedQuery)
-                || $0.detail.localizedCaseInsensitiveContains(trimmedQuery)
+                || $0.description.localizedCaseInsensitiveContains(trimmedQuery)
                 || $0.command.localizedCaseInsensitiveContains(trimmedQuery)
                 || resolvedCopyText(for: $0).localizedCaseInsensitiveContains(trimmedQuery)
-                || CommandTemplate.render($0.detail, values: effectiveValues(for: $0))
+                || CommandTemplate.render($0.description, values: effectiveValues(for: $0))
                     .localizedCaseInsensitiveContains(trimmedQuery)
         }
     }
@@ -190,8 +190,8 @@ final class CheatSheetStore: ObservableObject {
         CommandTemplate.segments(of: command.command, values: effectiveValues(for: command))
     }
 
-    func resolvedDetailSegments(for command: CheatCommand) -> [CommandTemplate.Segment] {
-        CommandTemplate.segments(of: command.detail, values: effectiveValues(for: command))
+    func resolvedDescriptionSegments(for command: CheatCommand) -> [CommandTemplate.Segment] {
+        CommandTemplate.segments(of: command.description, values: effectiveValues(for: command))
     }
 
     private func presentVariableForm(
@@ -279,9 +279,9 @@ final class CheatSheetStore: ObservableObject {
     }
 
     func copyDescription(of command: CheatCommand, asMarkdown: Bool) {
-        guard !command.detail.isEmpty else { return }
+        guard !command.description.isEmpty else { return }
 
-        let variables = CommandTemplate.variables(in: command.detail)
+        let variables = CommandTemplate.variables(in: command.description)
         let outputFormat: CopyOutputFormat = asMarkdown
             ? .markdownDescription
             : .plainDescription
@@ -289,7 +289,7 @@ final class CheatSheetStore: ObservableObject {
         if !variables.isEmpty {
             presentVariableForm(
                 for: command,
-                template: command.detail,
+                template: command.description,
                 variables: variables,
                 outputFormat: outputFormat
             )
@@ -297,7 +297,7 @@ final class CheatSheetStore: ObservableObject {
         }
 
         let rendered = CommandTemplate.render(
-            command.detail,
+            command.description,
             values: effectiveValues(for: command)
         )
         let value = asMarkdown ? rendered : MarkdownText.plainText(rendered)

@@ -207,8 +207,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         openLinkMenuItem.isHidden = !command.isLink
         openLinkSeparatorItem.isHidden = !command.isLink
-        copyDescriptionMenuItem.isEnabled = !command.detail.isEmpty
-        copyMarkdownDescriptionMenuItem.isEnabled = !command.detail.isEmpty
+        copyDescriptionMenuItem.isEnabled = !command.description.isEmpty
+        copyMarkdownDescriptionMenuItem.isEnabled = !command.description.isEmpty
 
         let anchorView = store.selectedRowAnchorView?.window == fallbackView.window
             ? store.selectedRowAnchorView ?? fallbackView

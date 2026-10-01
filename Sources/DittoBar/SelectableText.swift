@@ -110,11 +110,11 @@ enum CommandTextStyle {
     /// Descriptions support inline Markdown and variables. Private-use marker
     /// characters let the Markdown parser remove its delimiters without losing
     /// which rendered ranges came from variable placeholders.
-    static func detail(
+    static func description(
         _ segments: [CommandTemplate.Segment],
         size: CGFloat
     ) -> NSAttributedString {
-        markdownDetail(segments, size: size) ?? build(
+        markdownDescription(segments, size: size) ?? build(
             segments,
             plain: NSFont.systemFont(ofSize: size),
             emphasised: NSFont.systemFont(ofSize: size, weight: .semibold),
@@ -135,7 +135,7 @@ enum CommandTextStyle {
         )
     }
 
-    private static func markdownDetail(
+    private static func markdownDescription(
         _ segments: [CommandTemplate.Segment],
         size: CGFloat
     ) -> NSAttributedString? {

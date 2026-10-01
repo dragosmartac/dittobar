@@ -18,7 +18,7 @@ enum CheatSheetParser {
         func appendEntry(
             title: String,
             sectionTitle: String?,
-            detail: String,
+            description: String,
             command: String,
             language: String
         ) {
@@ -29,10 +29,10 @@ enum CheatSheetParser {
                     storageKey: "\(fileName)#\(title)",
                     title: title,
                     sectionTitle: sectionTitle,
-                    detail: detail,
+                    description: description,
                     command: command,
                     language: language,
-                    variables: CommandTemplate.variables(in: "\(detail)\n\(command)")
+                    variables: CommandTemplate.variables(in: "\(description)\n\(command)")
                 )
             )
         }
@@ -54,14 +54,14 @@ enum CheatSheetParser {
             }
 
             guard let title = entryTitle else { return }
-            let detail = descriptionLines
+            let description = descriptionLines
                 .joined(separator: " ")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !detail.isEmpty else { return }
+            guard !description.isEmpty else { return }
             appendEntry(
                 title: title,
                 sectionTitle: groupTitle,
-                detail: detail,
+                description: description,
                 command: "",
                 language: ""
             )
@@ -128,13 +128,13 @@ enum CheatSheetParser {
                     let command = codeLines.joined(separator: "\n")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                     if !command.isEmpty {
-                        let detail = descriptionLines
+                        let description = descriptionLines
                             .joined(separator: " ")
                             .trimmingCharacters(in: .whitespacesAndNewlines)
                         appendEntry(
                             title: title,
                             sectionTitle: groupTitle,
-                            detail: detail,
+                            description: description,
                             command: command,
                             language: language
                         )

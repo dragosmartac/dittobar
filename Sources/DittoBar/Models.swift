@@ -14,7 +14,7 @@ struct CheatCommand: Identifiable, Equatable {
     let title: String
     /// Optional visual group within a cheat-sheet page.
     let sectionTitle: String?
-    let detail: String
+    let description: String
     /// The raw template; may contain `{{name=default}}` placeholders.
     let command: String
     let language: String
@@ -23,7 +23,7 @@ struct CheatCommand: Identifiable, Equatable {
     var hasVariables: Bool { !variables.isEmpty }
     var isDescriptionOnly: Bool { command.isEmpty }
     var isLink: Bool { language.caseInsensitiveCompare("url") == .orderedSame }
-    var copyTemplate: String { isDescriptionOnly ? detail : command }
+    var copyTemplate: String { isDescriptionOnly ? description : command }
 
     // This is computed on each access. We might consider to change this functionality
     var defaultValues: [String: String] {
