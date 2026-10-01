@@ -10,7 +10,7 @@ enum CommandTemplate {
         var isVariable: Bool { variableName != nil }
     }
 
-    private struct Placeholder {
+    struct Placeholder {
         let range: Range<String.Index>
         let name: String
         let defaultValue: String
@@ -27,7 +27,8 @@ enum CommandTemplate {
 
         for placeholder in placeholders(in: template) {
             if let existing = indexByName[placeholder.name] {
-                // A later occurrence may supply the default the first one omitted.
+                // Even though we saw the variable before, this might be the first time
+                // we set the default value for it.
                 if ordered[existing].defaultValue.isEmpty {
                     ordered[existing] = CommandVariable(
                         name: placeholder.name,
@@ -73,7 +74,7 @@ enum CommandTemplate {
         return segments
     }
 
-    private static func placeholders(in template: String) -> [Placeholder] {
+    static func placeholders(in template: String) -> [Placeholder] {
         template.matches(of: expression).map { match in
             Placeholder(
                 range: match.range,
