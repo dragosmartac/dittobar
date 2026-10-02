@@ -46,73 +46,28 @@ final class CheatSheetStore: ObservableObject {
         return sheets[selectedSheetIndex]
     }
 
-    var visibleEntries: [CheatSheetEntry] {
-        guard let entries = selectedSheet?.entries else { return [] }
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedQuery.isEmpty else { return entries }
-
-        return entries.filter { entry in
-            if entry.sectionTitle?.localizedCaseInsensitiveContains(trimmedQuery) == true
-                || entry.title.localizedCaseInsensitiveContains(trimmedQuery) {
-                return true
-            }
-
-            let values = effectiveValues(for: entry)
-            return rawTexts(for: entry).contains { raw in
-                let resolved = TextVariables.resolve(raw, values: values)
-                return raw.localizedCaseInsensitiveContains(trimmedQuery)
-                    || resolved.localizedCaseInsensitiveContains(trimmedQuery)
-                    || MarkdownText.stripped(resolved)
-                        .localizedCaseInsensitiveContains(trimmedQuery)
-            }
+    var visibleItems: [CheatSheetItem] {
+        guard let sheet = selectedSheet else { return [] }
+        return CheatSheetSearch.filteredItems(in: sheet, matching: query) { entry in
+            effectiveValues(for: entry)
         }
     }
 
-    /// Section headers and entries in display order. Headers remain independent
-    /// rows, including when a section has no entries yet.
+    var visibleEntries: [CheatSheetEntry] {
+        visibleItems.compactMap(\.entry)
+    }
+
     var visibleRows: [CheatSheetRow] {
-        guard let sheet = selectedSheet else { return [] }
-
-        let entries = visibleEntries
-        let visibleIndexByID = Dictionary(
-            uniqueKeysWithValues: entries.enumerated().map { ($0.element.id, $0.offset) }
-        )
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isSearching = !trimmedQuery.isEmpty
-        var visibleSectionIDs = Set<String>()
-
-        for (index, section) in sheet.sections.enumerated() {
-            let nextOffset = index + 1 < sheet.sections.count
-                ? sheet.sections[index + 1].entryOffset
-                : sheet.entries.count
-            let start = min(section.entryOffset, sheet.entries.count)
-            let end = min(max(start, nextOffset), sheet.entries.count)
-            let containsVisibleEntry = sheet.entries[start..<end].contains {
-                visibleIndexByID[$0.id] != nil
-            }
-
-            if !isSearching
-                || section.title.localizedCaseInsensitiveContains(trimmedQuery)
-                || containsVisibleEntry {
-                visibleSectionIDs.insert(section.id)
+        var visibleEntryIndex = 0
+        return visibleItems.map { item in
+            switch item {
+            case .section(let section):
+                return .section(section)
+            case .entry(let entry):
+                defer { visibleEntryIndex += 1 }
+                return .entry(entry, visibleIndex: visibleEntryIndex)
             }
         }
-
-        var rows: [CheatSheetRow] = []
-        for entryOffset in 0...sheet.entries.count {
-            for section in sheet.sections
-                where section.entryOffset == entryOffset
-                    && visibleSectionIDs.contains(section.id) {
-                rows.append(.section(section))
-            }
-
-            guard entryOffset < sheet.entries.count else { continue }
-            let entry = sheet.entries[entryOffset]
-            if let visibleIndex = visibleIndexByID[entry.id] {
-                rows.append(.entry(entry, visibleIndex: visibleIndex))
-            }
-        }
-        return rows
     }
 
     var selectedEntry: CheatSheetEntry? {
@@ -357,17 +312,6 @@ final class CheatSheetStore: ObservableObject {
             openURL(output)
         } else {
             writeToPasteboard(output, flashing: entry.id)
-        }
-    }
-
-    private func rawTexts(for entry: CheatSheetEntry) -> [String] {
-        switch entry {
-        case .note(let note):
-            return [note.rawContent]
-        case .command(let command):
-            return [command.rawDescription, command.rawCommand].compactMap { $0 }
-        case .url(let url):
-            return [url.rawDescription, url.rawURL].compactMap { $0 }
         }
     }
 

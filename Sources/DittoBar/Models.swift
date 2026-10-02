@@ -5,8 +5,6 @@ struct EntryMetadata: Equatable {
     /// Stable across reordering, so remembered variable values survive edits.
     let storageKey: String
     let title: String
-    /// Optional visual group within a cheat-sheet page.
-    let sectionTitle: String?
 }
 
 struct EntryVariable: Identifiable, Equatable {
@@ -100,7 +98,6 @@ enum CheatSheetEntry: Identifiable, Equatable {
     var id: String { metadata.id }
     var storageKey: String { metadata.storageKey }
     var title: String { metadata.title }
-    var sectionTitle: String? { metadata.sectionTitle }
 
     var variables: [EntryVariable] {
         switch self {
@@ -153,15 +150,36 @@ enum CheatSheetEntry: Identifiable, Equatable {
 struct CheatSheetSection: Identifiable, Equatable {
     let id: String
     let title: String
-    /// Position in the unfiltered entry list where this header appears.
-    let entryOffset: Int
+}
+
+enum CheatSheetItem: Identifiable, Equatable {
+    case section(CheatSheetSection)
+    case entry(CheatSheetEntry)
+
+    var id: String {
+        switch self {
+        case .section(let section):
+            return "section:\(section.id)"
+        case .entry(let entry):
+            return "entry:\(entry.id)"
+        }
+    }
+
+    var section: CheatSheetSection? {
+        guard case .section(let section) = self else { return nil }
+        return section
+    }
+
+    var entry: CheatSheetEntry? {
+        guard case .entry(let entry) = self else { return nil }
+        return entry
+    }
 }
 
 struct CheatSheet: Identifiable, Equatable {
     let id: String
     let title: String
-    let entries: [CheatSheetEntry]
-    let sections: [CheatSheetSection]
+    let items: [CheatSheetItem]
     let sourceURL: URL
 }
 

@@ -58,8 +58,9 @@ Use the More Options menu to open the folder or copy its full path. Files live a
 ~/Library/Application Support/DittoBar/CheatSheets/
 ```
 
-Each Markdown file becomes a tab. Use an H1 for the tab name and H3 headings followed
-by fenced code blocks for entries. Optional H2 headings divide entries into sections:
+Each Markdown file becomes a tab. Before any entries or sections, use one optional H1
+for the tab name. Use H3 headings followed by fenced code blocks for entries. Optional
+H2 headings divide entries into sections:
 
 ````markdown
 # Git

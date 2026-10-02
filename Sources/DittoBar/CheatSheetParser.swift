@@ -3,7 +3,6 @@ import Foundation
 enum CheatSheetParser {
     private struct EntryDraft {
         let title: String
-        let sectionTitle: String?
         let rawDescription: String
         let rawFencedContent: String?
         let fenceLanguage: String?
@@ -15,11 +14,12 @@ enum CheatSheetParser {
         let fallbackTitle = Self.fallbackTitle(for: fileURL)
 
         var sheetTitle = fallbackTitle
+        var hasParsedSheetTitle = false
         var entryTitle: String?
-        var sectionTitle: String?
         var descriptionLines: [String] = []
-        var entries: [CheatSheetEntry] = []
-        var sections: [CheatSheetSection] = []
+        var items: [CheatSheetItem] = []
+        var entryCount = 0
+        var sectionCount = 0
         var isInsideComment = false
         var index = 0
 
@@ -32,24 +32,26 @@ enum CheatSheetParser {
             guard let title = entryTitle else { return }
             let draft = EntryDraft(
                 title: title,
-                sectionTitle: sectionTitle,
                 rawDescription: descriptionLines.joined(separator: " "),
                 rawFencedContent: rawFencedContent,
                 fenceLanguage: fenceLanguage
             )
-            if let entry = makeEntry(from: draft, fileName: fileName, entryOffset: entries.count) {
-                entries.append(entry)
+            if let entry = makeEntry(from: draft, fileName: fileName, entryIndex: entryCount) {
+                items.append(.entry(entry))
+                entryCount += 1
             }
         }
 
         func appendSection(title: String) {
-            sections.append(
-                CheatSheetSection(
-                    id: "\(fileName):section:\(sections.count):\(title)",
-                    title: title,
-                    entryOffset: entries.count
+            items.append(
+                .section(
+                    CheatSheetSection(
+                        id: "\(fileName):section:\(sectionCount):\(title)",
+                        title: title
+                    )
                 )
             )
+            sectionCount += 1
         }
 
         while index < lines.count {
@@ -75,8 +77,10 @@ enum CheatSheetParser {
 
             if line.hasPrefix("# ") {
                 appendEntry()
-                sectionTitle = nil
-                sheetTitle = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                if !hasParsedSheetTitle, items.isEmpty {
+                    sheetTitle = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                    hasParsedSheetTitle = true
+                }
                 index += 1
                 continue
             }
@@ -85,7 +89,6 @@ enum CheatSheetParser {
                 appendEntry()
                 let title = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
                 appendSection(title: title)
-                sectionTitle = title
                 descriptionLines = []
                 index += 1
                 continue
@@ -128,8 +131,7 @@ enum CheatSheetParser {
         return CheatSheet(
             id: fileName,
             title: sheetTitle,
-            entries: entries,
-            sections: sections,
+            items: items,
             sourceURL: fileURL
         )
     }
@@ -137,17 +139,16 @@ enum CheatSheetParser {
     private static func makeEntry(
         from draft: EntryDraft,
         fileName: String,
-        entryOffset: Int
+        entryIndex: Int
     ) -> CheatSheetEntry? {
         let rawDescription = draft.rawDescription
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let rawFencedContent = draft.rawFencedContent?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let metadata = EntryMetadata(
-            id: "\(fileName):\(entryOffset):\(draft.title)",
+            id: "\(fileName):\(entryIndex):\(draft.title)",
             storageKey: "\(fileName)#\(draft.title)",
-            title: draft.title,
-            sectionTitle: draft.sectionTitle
+            title: draft.title
         )
 
         if let rawFencedContent, !rawFencedContent.isEmpty {

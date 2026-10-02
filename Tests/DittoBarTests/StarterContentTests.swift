@@ -19,7 +19,7 @@ struct StarterContentTests {
             // The instructions comment contains headings and fences; a matching
             // title shows the parser skipped it rather than reading it as content.
             #expect(sheet.title == title)
-            #expect(!sheet.entries.isEmpty)
+            #expect(sheet.items.contains { $0.entry != nil })
             #expect(source.hasPrefix(StarterContent.instructions))
         }
     }
