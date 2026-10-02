@@ -183,20 +183,6 @@ struct CheatSheet: Identifiable, Equatable {
     let sourceURL: URL
 }
 
-enum CheatSheetRow: Identifiable, Equatable {
-    case section(CheatSheetSection)
-    case entry(CheatSheetEntry, visibleIndex: Int)
-
-    var id: String {
-        switch self {
-        case .section(let section):
-            return "section:\(section.id)"
-        case .entry(let entry, _):
-            return "entry:\(entry.id)"
-        }
-    }
-}
-
 /// The in-flight state of the variable form.
 struct VariableFormState: Equatable {
     let entryID: String

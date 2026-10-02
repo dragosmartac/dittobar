@@ -4,16 +4,16 @@ import Testing
 
 @MainActor
 struct CheatSheetStoreSearchTests {
-    @Test func emptyQueryPreservesEntrySectionAndVisibleIndexOrder() throws {
+    @Test func emptyQueryPreservesEntryAndSectionOrder() throws {
         try withStore { store in
-            #expect(rowDescriptions(store.visibleRows) == [
-                "entry:0:Before sections",
+            #expect(itemDescriptions(store.visibleItems) == [
+                "entry:Before sections",
                 "section:First empty section",
                 "section:Second empty section",
                 "section:Git tools",
-                "entry:1:Clone repository",
-                "entry:2:Deploy service",
-                "entry:3:Formatted note",
+                "entry:Clone repository",
+                "entry:Deploy service",
+                "entry:Formatted note",
                 "section:Trailing empty section"
             ])
             #expect(store.visibleEntries.map(\.title) == [
@@ -29,9 +29,9 @@ struct CheatSheetStoreSearchTests {
         try withStore { store in
             store.query = "  cLoNe RePoSiToRy  "
 
-            #expect(rowDescriptions(store.visibleRows) == [
+            #expect(itemDescriptions(store.visibleItems) == [
                 "section:Git tools",
-                "entry:0:Clone repository"
+                "entry:Clone repository"
             ])
             #expect(store.visibleEntries.map(\.title) == ["Clone repository"])
         }
@@ -41,11 +41,11 @@ struct CheatSheetStoreSearchTests {
         try withStore { store in
             store.query = "git tools"
 
-            #expect(rowDescriptions(store.visibleRows) == [
+            #expect(itemDescriptions(store.visibleItems) == [
                 "section:Git tools",
-                "entry:0:Clone repository",
-                "entry:1:Deploy service",
-                "entry:2:Formatted note"
+                "entry:Clone repository",
+                "entry:Deploy service",
+                "entry:Formatted note"
             ])
             #expect(store.visibleEntries.map(\.title) == [
                 "Clone repository",
@@ -59,17 +59,17 @@ struct CheatSheetStoreSearchTests {
         try withStore { store in
             store.query = "first empty section"
 
-            #expect(rowDescriptions(store.visibleRows) == ["section:First empty section"])
+            #expect(itemDescriptions(store.visibleItems) == ["section:First empty section"])
             #expect(store.visibleEntries.isEmpty)
         }
     }
 
-    @Test func noMatchReturnsNoEntriesOrRows() throws {
+    @Test func noMatchReturnsNoEntriesOrItems() throws {
         try withStore { store in
             store.query = "does not exist"
 
             #expect(store.visibleEntries.isEmpty)
-            #expect(store.visibleRows.isEmpty)
+            #expect(store.visibleItems.isEmpty)
         }
     }
 
@@ -102,13 +102,13 @@ struct CheatSheetStoreSearchTests {
         }
     }
 
-    private func rowDescriptions(_ rows: [CheatSheetRow]) -> [String] {
-        rows.map { row in
-            switch row {
+    private func itemDescriptions(_ items: [CheatSheetItem]) -> [String] {
+        items.map { item in
+            switch item {
             case .section(let section):
                 return "section:\(section.title)"
-            case .entry(let entry, let visibleIndex):
-                return "entry:\(visibleIndex):\(entry.title)"
+            case .entry(let entry):
+                return "entry:\(entry.title)"
             }
         }
     }

@@ -57,19 +57,6 @@ final class CheatSheetStore: ObservableObject {
         visibleItems.compactMap(\.entry)
     }
 
-    var visibleRows: [CheatSheetRow] {
-        var visibleEntryIndex = 0
-        return visibleItems.map { item in
-            switch item {
-            case .section(let section):
-                return .section(section)
-            case .entry(let entry):
-                defer { visibleEntryIndex += 1 }
-                return .entry(entry, visibleIndex: visibleEntryIndex)
-            }
-        }
-    }
-
     var selectedEntry: CheatSheetEntry? {
         let entries = visibleEntries
         if let pinnedEntryID,
@@ -80,11 +67,15 @@ final class CheatSheetStore: ObservableObject {
         return entries[selectedEntryIndex]
     }
 
-    func isEntrySelected(_ entry: CheatSheetEntry, at index: Int) -> Bool {
-        if let pinnedEntryID {
-            return entry.id == pinnedEntryID
+    var selectedEntryID: String? {
+        pinnedEntryID ?? selectedEntry?.id
+    }
+
+    func selectEntry(_ entry: CheatSheetEntry) {
+        guard let index = visibleEntries.firstIndex(where: { $0.id == entry.id }) else {
+            return
         }
-        return index == selectedEntryIndex
+        selectedEntryIndex = index
     }
 
     /// Native menu tracking can temporarily disturb SwiftUI list selection.

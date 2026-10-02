@@ -127,43 +127,45 @@ struct PopoverView: View {
     }
 
     private var entryList: some View {
-        ScrollViewReader { proxy in
-            List(store.visibleRows) { row in
-                switch row {
+        let selectedEntryID = store.selectedEntryID
+
+        return ScrollViewReader { proxy in
+            List(store.visibleItems) { item in
+                switch item {
                 case .section(let section):
                     SectionHeaderRow(title: section.title)
 
-                case .entry(let item, let index):
+                case .entry(let entry):
                     EntryRow(
-                        entry: item,
-                        values: store.effectiveValues(for: item),
+                        entry: entry,
+                        values: store.effectiveValues(for: entry),
                         titleFontSize: CGFloat(titleFontSize),
                         descriptionFontSize: CGFloat(descriptionFontSize),
                         payloadFontSize: CGFloat(payloadFontSize),
-                        isSelected: store.isEntrySelected(item, at: index),
-                        wasCopied: item.id == store.copiedEntryID,
-                        onSelect: { store.selectedEntryIndex = index }
+                        isSelected: entry.id == selectedEntryID,
+                        wasCopied: entry.id == store.copiedEntryID,
+                        onSelect: { store.selectEntry(entry) }
                     )
-                    .id(item.id)
+                    .id(entry.id)
                     .background(
                         SelectedRowAnchor(
                             store: store,
-                            isSelected: store.isEntrySelected(item, at: index)
+                            isSelected: entry.id == selectedEntryID
                         )
                     )
                     .contentShape(Rectangle())
                     // No double-click action: it would swallow the double-click
                     // that selects a word in the selectable text below.
                     .onTapGesture {
-                        store.selectedEntryIndex = index
+                        store.selectEntry(entry)
                     }
                     .contextMenu {
-                        actionButtons(for: item)
+                        actionButtons(for: entry)
                     }
                     .listRowBackground(
-                        item.id == store.copiedEntryID
+                        entry.id == store.copiedEntryID
                             ? Color.green.opacity(0.24)
-                            : store.isEntrySelected(item, at: index)
+                            : entry.id == selectedEntryID
                                 ? Color.accentColor.opacity(0.12)
                                 : Color.clear
                     )
@@ -175,7 +177,7 @@ struct PopoverView: View {
             }
             .listStyle(.inset)
             .overlay {
-                if store.visibleRows.isEmpty {
+                if store.visibleItems.isEmpty {
                     ContentUnavailableView.search(text: store.query)
                 }
             }
