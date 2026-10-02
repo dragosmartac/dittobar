@@ -183,6 +183,21 @@ struct CheatSheetParserTests {
             "Trailing empty section"
         ])
         #expect(sheet.sections.map(\.entryOffset) == [1, 1, 1, 2])
+        #expect(sheet.items.map { item in
+            switch item {
+            case .section(let section):
+                return "section:\(section.title)"
+            case .entry(let entry):
+                return "entry:\(entry.title)"
+            }
+        } == [
+            "entry:Before sections",
+            "section:First empty section",
+            "section:Second empty section",
+            "section:Populated section",
+            "entry:Inside section",
+            "section:Trailing empty section"
+        ])
     }
 
     @Test func parsesVariablesInMarkdownOrder() throws {

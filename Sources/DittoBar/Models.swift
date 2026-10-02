@@ -157,12 +157,70 @@ struct CheatSheetSection: Identifiable, Equatable {
     let entryOffset: Int
 }
 
+enum CheatSheetItem: Identifiable, Equatable {
+    case section(CheatSheetSection)
+    case entry(CheatSheetEntry)
+
+    var id: String {
+        switch self {
+        case .section(let section):
+            return "section:\(section.id)"
+        case .entry(let entry):
+            return "entry:\(entry.id)"
+        }
+    }
+}
+
 struct CheatSheet: Identifiable, Equatable {
     let id: String
     let title: String
-    let entries: [CheatSheetEntry]
-    let sections: [CheatSheetSection]
+    let items: [CheatSheetItem]
     let sourceURL: URL
+
+    var entries: [CheatSheetEntry] {
+        items.compactMap { item in
+            guard case .entry(let entry) = item else { return nil }
+            return entry
+        }
+    }
+
+    var sections: [CheatSheetSection] {
+        items.compactMap { item in
+            guard case .section(let section) = item else { return nil }
+            return section
+        }
+    }
+
+    init(id: String, title: String, items: [CheatSheetItem], sourceURL: URL) {
+        self.id = id
+        self.title = title
+        self.items = items
+        self.sourceURL = sourceURL
+    }
+
+    /// Temporary migration initializer. The parser will emit ordered items
+    /// directly once it has moved away from parallel entry and section arrays.
+    init(
+        id: String,
+        title: String,
+        entries: [CheatSheetEntry],
+        sections: [CheatSheetSection],
+        sourceURL: URL
+    ) {
+        var items: [CheatSheetItem] = []
+        items.reserveCapacity(entries.count + sections.count)
+
+        for entryOffset in 0...entries.count {
+            for section in sections where section.entryOffset == entryOffset {
+                items.append(.section(section))
+            }
+            if entryOffset < entries.count {
+                items.append(.entry(entries[entryOffset]))
+            }
+        }
+
+        self.init(id: id, title: title, items: items, sourceURL: sourceURL)
+    }
 }
 
 enum CheatSheetRow: Identifiable, Equatable {
