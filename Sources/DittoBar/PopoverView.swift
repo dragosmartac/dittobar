@@ -9,6 +9,8 @@ extension Notification.Name {
 struct PopoverView: View {
     @ObservedObject var store: CheatSheetStore
     @FocusState private var searchIsFocused: Bool
+    @AppStorage(DisplayPreferences.sectionTitleFontSizeKey)
+    private var sectionTitleFontSize = DisplayPreferences.defaultSectionTitleFontSize
     @AppStorage(DisplayPreferences.titleFontSizeKey)
     private var titleFontSize = DisplayPreferences.defaultTitleFontSize
     @AppStorage(DisplayPreferences.descriptionFontSizeKey)
@@ -133,7 +135,7 @@ struct PopoverView: View {
             List(store.visibleItems) { item in
                 switch item {
                 case .section(let section):
-                    SectionHeaderRow(title: section.title)
+                    SectionHeaderRow(title: section.title, fontSize: CGFloat(sectionTitleFontSize))
 
                 case .entry(let entry):
                     EntryRow(
@@ -513,10 +515,11 @@ private struct EntryRow: View {
 
 private struct SectionHeaderRow: View {
     let title: String
+    let fontSize: CGFloat
 
     var body: some View {
         Text(title)
-            .font(.headline)
+            .font(.system(size: fontSize, weight: .semibold))
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 10)

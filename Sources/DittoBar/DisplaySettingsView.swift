@@ -7,6 +7,8 @@ struct DisplaySettingsView: View {
     @State private var selectedTab: SettingsTab? = .layout
     @State private var isChoosingCustomEditor = false
 
+    @AppStorage(DisplayPreferences.sectionTitleFontSizeKey)
+    private var sectionTitleFontSize = DisplayPreferences.defaultSectionTitleFontSize
     @AppStorage(DisplayPreferences.titleFontSizeKey)
     private var titleFontSize = DisplayPreferences.defaultTitleFontSize
     @AppStorage(DisplayPreferences.descriptionFontSizeKey)
@@ -126,10 +128,15 @@ struct DisplaySettingsView: View {
             Text("Text Sizes")
                 .font(.title2.bold())
 
-            Text("Adjust the text shown in each entry row. Changes are applied immediately.")
+            Text("Adjust the text shown in the list. Changes are applied immediately.")
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 14) {
+                FontSizeControl(
+                    title: "Section Title",
+                    value: $sectionTitleFontSize,
+                    range: DisplayPreferences.sectionTitleFontSizeRange
+                )
                 FontSizeControl(
                     title: "Title",
                     value: $titleFontSize,
@@ -187,7 +194,8 @@ struct DisplaySettingsView: View {
         case .layout:
             popoverWidthFraction == DisplayPreferences.defaultPopoverWidthFraction
         case .textSizes:
-            titleFontSize == DisplayPreferences.defaultTitleFontSize
+            sectionTitleFontSize == DisplayPreferences.defaultSectionTitleFontSize
+                && titleFontSize == DisplayPreferences.defaultTitleFontSize
                 && descriptionFontSize == DisplayPreferences.defaultDescriptionFontSize
                 && payloadFontSize == DisplayPreferences.defaultPayloadFontSize
         case .editor:
@@ -201,6 +209,7 @@ struct DisplaySettingsView: View {
         case .layout:
             popoverWidthFraction = DisplayPreferences.defaultPopoverWidthFraction
         case .textSizes:
+            sectionTitleFontSize = DisplayPreferences.defaultSectionTitleFontSize
             titleFontSize = DisplayPreferences.defaultTitleFontSize
             descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
             payloadFontSize = DisplayPreferences.defaultPayloadFontSize
