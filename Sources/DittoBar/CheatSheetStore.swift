@@ -54,10 +54,7 @@ final class CheatSheetStore: ObservableObject {
     }
 
     var visibleEntries: [CheatSheetEntry] {
-        visibleItems.compactMap { item in
-            guard case .entry(let entry) = item else { return nil }
-            return entry
-        }
+        visibleItems.compactMap(\.entry)
     }
 
     var visibleRows: [CheatSheetRow] {
