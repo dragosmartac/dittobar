@@ -176,11 +176,25 @@ struct CheatSheetParserTests {
 
         #expect(sheet.entries.map(\.title) == ["Before sections", "Inside section"])
         #expect(sheet.entries.map(\.sectionTitle) == [nil, "Populated section"])
+        #expect(sheet.entries.map(\.id) == [
+            "mixed_structure.md:0:Before sections",
+            "mixed_structure.md:1:Inside section"
+        ])
+        #expect(sheet.entries.map(\.storageKey) == [
+            "mixed_structure.md#Before sections",
+            "mixed_structure.md#Inside section"
+        ])
         #expect(sheet.sections.map(\.title) == [
             "First empty section",
             "Second empty section",
             "Populated section",
             "Trailing empty section"
+        ])
+        #expect(sheet.sections.map(\.id) == [
+            "mixed_structure.md:section:0:First empty section",
+            "mixed_structure.md:section:1:Second empty section",
+            "mixed_structure.md:section:2:Populated section",
+            "mixed_structure.md:section:3:Trailing empty section"
         ])
         #expect(sheet.sections.map(\.entryOffset) == [1, 1, 1, 2])
         #expect(sheet.items.map { item in
