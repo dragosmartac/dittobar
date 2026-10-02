@@ -152,6 +152,39 @@ struct CheatSheetParserTests {
         ))
     }
 
+    @Test func preservesUnsectionedEntriesAndEmptySectionPositions() {
+        let source = """
+        # Mixed Structure
+
+        ### Before sections
+        This entry is not in a section.
+
+        ## First empty section
+        ## Second empty section
+
+        ## Populated section
+        ### Inside section
+        This entry belongs to the populated section.
+
+        ## Trailing empty section
+        """
+
+        let sheet = CheatSheetParser.parse(
+            source,
+            fileURL: URL(fileURLWithPath: "/tmp/mixed_structure.md")
+        )
+
+        #expect(sheet.entries.map(\.title) == ["Before sections", "Inside section"])
+        #expect(sheet.entries.map(\.sectionTitle) == [nil, "Populated section"])
+        #expect(sheet.sections.map(\.title) == [
+            "First empty section",
+            "Second empty section",
+            "Populated section",
+            "Trailing empty section"
+        ])
+        #expect(sheet.sections.map(\.entryOffset) == [1, 1, 1, 2])
+    }
+
     @Test func parsesVariablesInMarkdownOrder() throws {
         let source = """
         # Deployment
