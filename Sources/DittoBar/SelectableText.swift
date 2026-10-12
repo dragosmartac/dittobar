@@ -198,10 +198,9 @@ private final class InlineCodeTextFieldCell: NSTextFieldCell {
                 in: textContainer
             ) { rect, _ in
                 var pillRect = rect.offsetBy(dx: textRect.minX, dy: textRect.minY)
-                pillRect = pillRect.insetBy(
-                    dx: -Self.horizontalInset,
-                    dy: -Self.verticalInset
-                )
+                pillRect.origin.x -= Self.horizontalInset
+                pillRect.size.width += Self.horizontalInset * 1.5
+                pillRect = pillRect.insetBy(dx: 0, dy: -Self.verticalInset)
                 pillRect = pillRect.intersection(cellFrame)
 
                 let path = NSBezierPath(
@@ -339,11 +338,6 @@ enum EntryTextStyle {
 
                 if isCode {
                     attributes[.dittoInlineCode] = true
-                    // The custom cell draws the rounded pill. Keep a subtle
-                    // standard background while the field editor owns drawing
-                    // during text selection.
-                    attributes[.backgroundColor] = NSColor.labelColor
-                        .withAlphaComponent(0.07)
                 }
                 if isStruckThrough {
                     attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
@@ -361,7 +355,40 @@ enum EntryTextStyle {
             }
         }
 
+        widenWhitespaceAroundInlineCode(in: result, size: size)
         return result
+    }
+
+    /// A system-font space is visually cramped beside a bordered code pill.
+    /// Give adjacent whitespace the wider monospace advance without inserting
+    /// characters, so selecting and copying still returns the original text.
+    private static func widenWhitespaceAroundInlineCode(
+        in result: NSMutableAttributedString,
+        size: CGFloat
+    ) {
+        let fullRange = NSRange(location: 0, length: result.length)
+        var codeRanges: [NSRange] = []
+        result.enumerateAttribute(.dittoInlineCode, in: fullRange) { value, range, _ in
+            if value != nil {
+                codeRanges.append(range)
+            }
+        }
+
+        for codeRange in codeRanges {
+            for location in [codeRange.location - 1, NSMaxRange(codeRange)]
+            where location >= 0 && location < result.length {
+                let range = NSRange(location: location, length: 1)
+                let character = (result.string as NSString).substring(with: range)
+                guard character.rangeOfCharacter(from: .whitespacesAndNewlines) != nil else {
+                    continue
+                }
+                result.addAttribute(
+                    .font,
+                    value: NSFont.monospacedSystemFont(ofSize: size, weight: .regular),
+                    range: range
+                )
+            }
+        }
     }
 
     /// Markdown accepts relative link destinations, but descriptions do not
