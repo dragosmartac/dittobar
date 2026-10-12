@@ -113,16 +113,22 @@ enum EntryTextStyle {
     static func markdownRenderedDescription(
         _ segments: [TextVariables.Segment],
         size: CGFloat,
-        emphasized: Bool = false
+        emphasized: Bool = false,
+        baseColor: NSColor = .secondaryLabelColor
     ) -> NSAttributedString {
-        renderMarkdown(segments, size: size, emphasized: emphasized) ?? build(
+        renderMarkdown(
+            segments,
+            size: size,
+            emphasized: emphasized,
+            baseColor: baseColor
+        ) ?? build(
             segments,
             plain: NSFont.systemFont(
                 ofSize: size,
                 weight: emphasized ? .semibold : .regular
             ),
             emphasised: NSFont.systemFont(ofSize: size, weight: .semibold),
-            plainColor: .secondaryLabelColor
+            plainColor: baseColor
         )
     }
 
@@ -142,7 +148,8 @@ enum EntryTextStyle {
     private static func renderMarkdown(
         _ segments: [TextVariables.Segment],
         size: CGFloat,
-        emphasized: Bool
+        emphasized: Bool,
+        baseColor: NSColor
     ) -> NSAttributedString? {
         let variableStart = "\u{E000}"
         let variableEnd = "\u{E001}"
@@ -199,7 +206,7 @@ enum EntryTextStyle {
                     .font: font,
                     .foregroundColor: isVariable
                         ? NSColor.controlAccentColor
-                        : NSColor.secondaryLabelColor
+                        : baseColor
                 ]
 
                 if isCode {

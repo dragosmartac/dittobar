@@ -531,12 +531,17 @@ private struct MarkdownDescriptionView: View {
         }
     }
 
-    private func renderedText(_ raw: String, emphasized: Bool = false) -> some View {
+    private func renderedText(
+        _ raw: String,
+        emphasized: Bool = false,
+        baseColor: NSColor = .secondaryLabelColor
+    ) -> some View {
         SelectableText(
             attributedString: EntryTextStyle.markdownRenderedDescription(
                 TextVariables.segments(of: raw, values: values),
                 size: fontSize,
-                emphasized: emphasized
+                emphasized: emphasized,
+                baseColor: baseColor
             ),
             onMouseDown: onSelect
         )
@@ -544,27 +549,69 @@ private struct MarkdownDescriptionView: View {
 
     private func renderedTable(_ table: MarkdownText.Table) -> some View {
         ScrollView(.horizontal) {
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
+            Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
                 GridRow {
-                    ForEach(Array(table.header.enumerated()), id: \.offset) { _, cell in
-                        renderedText(cell, emphasized: true)
+                    ForEach(Array(table.header.enumerated()), id: \.offset) { column, cell in
+                        tableCell(
+                            cell,
+                            emphasized: true,
+                            background: Color(nsColor: .controlBackgroundColor),
+                            drawsTrailingRule: column < table.columnCount - 1
+                        )
                     }
                 }
 
                 Divider()
                     .gridCellColumns(table.columnCount)
 
-                ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
+                ForEach(Array(table.rows.enumerated()), id: \.offset) { rowIndex, row in
                     GridRow {
-                        ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
-                            renderedText(cell)
+                        ForEach(Array(row.enumerated()), id: \.offset) { column, cell in
+                            tableCell(
+                                cell,
+                                background: rowIndex.isMultiple(of: 2)
+                                    ? Color.clear
+                                    : Color(nsColor: .controlBackgroundColor).opacity(0.35),
+                                drawsTrailingRule: column < table.columnCount - 1
+                            )
                         }
                     }
+
+                    if rowIndex < table.rows.count - 1 {
+                        Divider()
+                            .gridCellColumns(table.columnCount)
+                    }
                 }
+            }
+            .background(Color(nsColor: .textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.8), lineWidth: 1)
             }
             .padding(.vertical, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func tableCell(
+        _ raw: String,
+        emphasized: Bool = false,
+        background: Color,
+        drawsTrailingRule: Bool
+    ) -> some View {
+        renderedText(raw, emphasized: emphasized, baseColor: .labelColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .background(background)
+            .overlay(alignment: .trailing) {
+                if drawsTrailingRule {
+                    Rectangle()
+                        .fill(Color(nsColor: .separatorColor).opacity(0.65))
+                        .frame(width: 1)
+                }
+            }
     }
 }
 
