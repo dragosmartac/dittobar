@@ -605,6 +605,11 @@ private struct MarkdownDescriptionView: View {
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(background)
+            .background {
+                if isInlineCodeOnly(raw) {
+                    Color.primary.opacity(0.035)
+                }
+            }
             .overlay(alignment: .trailing) {
                 if drawsTrailingRule {
                     Rectangle()
@@ -612,6 +617,14 @@ private struct MarkdownDescriptionView: View {
                         .frame(width: 1)
                 }
             }
+    }
+
+    private func isInlineCodeOnly(_ raw: String) -> Bool {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2,
+              trimmed.hasPrefix("`"),
+              trimmed.hasSuffix("`") else { return false }
+        return !trimmed.dropFirst().dropLast().contains("`")
     }
 }
 

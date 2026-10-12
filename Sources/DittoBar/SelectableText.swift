@@ -1,6 +1,10 @@
 import AppKit
 import SwiftUI
 
+private extension NSAttributedString.Key {
+    static let dittoInlineCode = NSAttributedString.Key("DittoInlineCode")
+}
+
 /// A selectable, non-editable AppKit label.
 ///
 /// SwiftUI's `.textSelection(.enabled)` draws a selection inside a `List` but
@@ -16,13 +20,19 @@ struct SelectableText: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSTextField {
         let field = SelectionNotifyingTextField(labelWithString: "")
+        field.cell = InlineCodeTextFieldCell(textCell: "")
         field.attributedStringValue = attributedString
         field.onMouseDown = onMouseDown
+        field.isBordered = false
+        field.isBezeled = false
+        field.drawsBackground = false
+        field.isEditable = false
         field.isSelectable = true
         // Clicking hands rendering to the field editor. Without rich-text
         // support it redraws everything in the field's base font, so the
         // styling visibly flattens on click. The field stays non-editable.
         field.allowsEditingTextAttributes = true
+        field.focusRingType = .none
         field.lineBreakMode = .byWordWrapping
         field.maximumNumberOfLines = maximumNumberOfLines
         field.cell?.usesSingleLineMode = false
@@ -70,13 +80,40 @@ struct SelectableText: NSViewRepresentable {
         }
 
         let fitting = nsView.cell?.cellSize(
-            forBounds: NSRect(x: 0, y: 0, width: bound, height: .greatestFiniteMagnitude)
+            forBounds: NSRect(
+                x: 0,
+                y: 0,
+                width: max(0, bound - inlineCodeHorizontalInset),
+                height: .greatestFiniteMagnitude
+            )
         ) ?? .zero
         let width = bound
 
         // Cap at the proposal so a short label does not shove its neighbours
         // out of an HStack, but still report the height wrapping needs.
-        return CGSize(width: min(ceil(fitting.width), width), height: ceil(fitting.height))
+        return CGSize(
+            width: min(ceil(fitting.width) + inlineCodeHorizontalInset, width),
+            height: ceil(fitting.height)
+        )
+    }
+
+    private var inlineCodeHorizontalInset: CGFloat {
+        guard containsInlineCode else { return 0 }
+        return InlineCodeTextFieldCell.horizontalInset * 2
+    }
+
+    private var containsInlineCode: Bool {
+        var found = false
+        attributedString.enumerateAttribute(
+            .dittoInlineCode,
+            in: NSRange(location: 0, length: attributedString.length)
+        ) { value, _, stop in
+            if value != nil {
+                found = true
+                stop.pointee = true
+            }
+        }
+        return found
     }
 }
 
@@ -88,6 +125,97 @@ private final class SelectionNotifyingTextField: NSTextField {
     override func mouseDown(with event: NSEvent) {
         onMouseDown?()
         super.mouseDown(with: event)
+    }
+}
+
+/// NSTextField supports attributed backgrounds, but they are square and hug
+/// the glyphs. Draw an adaptive rounded backdrop behind inline-code ranges so
+/// they read as code pills without adding characters that would affect copy.
+private final class InlineCodeTextFieldCell: NSTextFieldCell {
+    static let horizontalInset: CGFloat = 3
+    private static let verticalInset: CGFloat = 1.5
+
+    override func titleRect(forBounds rect: NSRect) -> NSRect {
+        var titleRect = super.titleRect(forBounds: rect)
+        guard containsInlineCode else { return titleRect }
+        titleRect.origin.x += Self.horizontalInset
+        titleRect.size.width = max(0, titleRect.width - Self.horizontalInset * 2)
+        return titleRect
+    }
+
+    override func drawInterior(withFrame cellFrame: NSRect, in controlView: NSView) {
+        drawInlineCodeBackgrounds(in: cellFrame, controlView: controlView)
+        super.drawInterior(withFrame: cellFrame, in: controlView)
+    }
+
+    private var containsInlineCode: Bool {
+        guard attributedStringValue.length > 0 else { return false }
+        var found = false
+        attributedStringValue.enumerateAttribute(
+            .dittoInlineCode,
+            in: NSRange(location: 0, length: attributedStringValue.length)
+        ) { value, _, stop in
+            if value != nil {
+                found = true
+                stop.pointee = true
+            }
+        }
+        return found
+    }
+
+    private func drawInlineCodeBackgrounds(in cellFrame: NSRect, controlView: NSView) {
+        guard containsInlineCode else { return }
+
+        let textRect = titleRect(forBounds: cellFrame)
+        let textStorage = NSTextStorage(attributedString: attributedStringValue)
+        let layoutManager = NSLayoutManager()
+        let textContainer = NSTextContainer(
+            containerSize: NSSize(
+                width: textRect.width,
+                height: .greatestFiniteMagnitude
+            )
+        )
+        textContainer.lineFragmentPadding = 0
+        textContainer.lineBreakMode = lineBreakMode
+        textContainer.maximumNumberOfLines = (controlView as? NSTextField)?
+            .maximumNumberOfLines ?? 0
+        layoutManager.addTextContainer(textContainer)
+        textStorage.addLayoutManager(layoutManager)
+        layoutManager.ensureLayout(for: textContainer)
+
+        attributedStringValue.enumerateAttribute(
+            .dittoInlineCode,
+            in: NSRange(location: 0, length: attributedStringValue.length)
+        ) { value, characterRange, _ in
+            guard value != nil else { return }
+            let glyphRange = layoutManager.glyphRange(
+                forCharacterRange: characterRange,
+                actualCharacterRange: nil
+            )
+            layoutManager.enumerateEnclosingRects(
+                forGlyphRange: glyphRange,
+                withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0),
+                in: textContainer
+            ) { rect, _ in
+                var pillRect = rect.offsetBy(dx: textRect.minX, dy: textRect.minY)
+                pillRect = pillRect.insetBy(
+                    dx: -Self.horizontalInset,
+                    dy: -Self.verticalInset
+                )
+                pillRect = pillRect.intersection(cellFrame)
+
+                let path = NSBezierPath(
+                    roundedRect: pillRect,
+                    xRadius: 4,
+                    yRadius: 4
+                )
+                NSColor.labelColor.withAlphaComponent(0.09).setFill()
+                path.fill()
+                NSColor.separatorColor.withAlphaComponent(0.75).setStroke()
+                path.lineWidth = 0.75
+                path.stroke()
+            }
+        }
     }
 }
 
@@ -210,8 +338,12 @@ enum EntryTextStyle {
                 ]
 
                 if isCode {
-                    attributes[.backgroundColor] = NSColor.quaternaryLabelColor
-                        .withAlphaComponent(0.14)
+                    attributes[.dittoInlineCode] = true
+                    // The custom cell draws the rounded pill. Keep a subtle
+                    // standard background while the field editor owns drawing
+                    // during text selection.
+                    attributes[.backgroundColor] = NSColor.labelColor
+                        .withAlphaComponent(0.07)
                 }
                 if isStruckThrough {
                     attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
