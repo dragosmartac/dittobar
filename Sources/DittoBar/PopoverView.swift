@@ -497,7 +497,10 @@ private struct EntryRow: View {
     private func noteText(_ raw: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                .fill(Color.accentColor.opacity(isSelected ? 0.8 : 0.55))
+                .fill(
+                    Color(nsColor: .secondaryLabelColor)
+                        .opacity(isSelected ? 0.75 : 0.5)
+                )
                 .frame(width: 3)
 
             MarkdownDescriptionView(
