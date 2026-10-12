@@ -469,7 +469,7 @@ private struct EntryRow: View {
 
             switch entry {
             case .note(let note):
-                descriptionText(note.rawContent)
+                noteText(note.rawContent)
             case .command(let command):
                 if let rawDescription = command.rawDescription {
                     descriptionText(rawDescription)
@@ -492,6 +492,32 @@ private struct EntryRow: View {
             fontSize: descriptionFontSize,
             onSelect: onSelect
         )
+    }
+
+    private func noteText(_ raw: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                .fill(Color.accentColor.opacity(isSelected ? 0.8 : 0.55))
+                .frame(width: 3)
+
+            MarkdownDescriptionView(
+                raw: raw,
+                values: values,
+                fontSize: descriptionFontSize,
+                onSelect: onSelect
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(
+            Color(nsColor: .controlBackgroundColor).opacity(0.5),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.45), lineWidth: 0.5)
+        }
     }
 
     private func payloadText(_ raw: String) -> some View {
