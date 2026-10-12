@@ -555,7 +555,7 @@ private struct MarkdownDescriptionView: View {
                         tableCell(
                             cell,
                             emphasized: true,
-                            background: Color(nsColor: .controlBackgroundColor),
+                            background: Color.gray.opacity(0.22),
                             drawsTrailingRule: column < table.columnCount - 1
                         )
                     }
