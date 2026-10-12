@@ -23,8 +23,8 @@ enum StarterContent {
 
     Description formatting
 
-      Descriptions support Markdown tables and inline Markdown: `code`,
-      **bold**, *italic*, ~~strikethrough~~, and [links](https://example.com).
+      Descriptions support Markdown tables, block quotes, and inline Markdown:
+      `code`, **bold**, *italic*, ~~strikethrough~~, and [links](https://example.com).
 
     Variables
 

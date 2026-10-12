@@ -36,6 +36,28 @@ struct MarkdownTextTests {
         #expect(MarkdownText.stripped(source) == "Shape\tExample\nBare name\tmysql.server")
     }
 
+    @Test func parsesAndStripsBlockQuotes() {
+        let source = """
+        Before.
+
+        > Quote with **emphasis** and {{service=api}}.
+        > A second line with `code`.
+
+        After.
+        """
+
+        #expect(MarkdownText.blocks(in: source) == [
+            .text("Before."),
+            .quote("Quote with **emphasis** and {{service=api}}.\nA second line with `code`."),
+            .text("After.")
+        ])
+        #expect(
+            MarkdownText.stripped(
+                TextVariables.resolve(source, values: ["service": "payments"])
+            ) == "Before.\nQuote with emphasis and payments.\nA second line with code.\nAfter."
+        )
+    }
+
     @Test func allowsPipesInsideCodeAndEscapedPipes() {
         let source = """
         | Kind | Value |

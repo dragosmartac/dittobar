@@ -3,6 +3,7 @@ import Foundation
 enum MarkdownText {
     enum Block: Equatable {
         case text(String)
+        case quote(String)
         case table(Table)
     }
 
@@ -18,6 +19,8 @@ enum MarkdownText {
         blocks(in: source).map { block in
             switch block {
             case .text(let text):
+                return strippedInline(text)
+            case .quote(let text):
                 return strippedInline(text)
             case .table(let table):
                 return ([table.header] + table.rows)
@@ -43,6 +46,25 @@ enum MarkdownText {
         }
 
         while index < lines.count {
+            if let firstLine = quoteContent(in: lines[index]) {
+                appendText()
+                var quoteLines = [firstLine]
+                index += 1
+
+                while index < lines.count,
+                      let line = quoteContent(in: lines[index]) {
+                    quoteLines.append(line)
+                    index += 1
+                }
+
+                let quote = quoteLines.joined(separator: "\n")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !quote.isEmpty {
+                    result.append(.quote(quote))
+                }
+                continue
+            }
+
             if index + 1 < lines.count,
                let header = tableCells(in: lines[index]),
                isTableSeparator(lines[index + 1], columnCount: header.count) {
@@ -66,6 +88,16 @@ enum MarkdownText {
 
         appendText()
         return result
+    }
+
+    private static func quoteContent(in line: String) -> String? {
+        var content = line.drop(while: { $0 == " " || $0 == "\t" })
+        guard content.first == ">" else { return nil }
+        content.removeFirst()
+        if content.first == " " {
+            content.removeFirst()
+        }
+        return String(content)
     }
 
     private static func strippedInline(_ source: String) -> String {

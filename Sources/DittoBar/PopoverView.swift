@@ -495,23 +495,14 @@ private struct EntryRow: View {
     }
 
     private func noteText(_ raw: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                .fill(
-                    Color(nsColor: .secondaryLabelColor)
-                        .opacity(isSelected ? 0.75 : 0.5)
-                )
-                .frame(width: 3)
-
-            MarkdownDescriptionView(
-                raw: raw,
-                values: values,
-                fontSize: descriptionFontSize,
-                usesExpandedParagraphLayout: true,
-                onSelect: onSelect
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        MarkdownDescriptionView(
+            raw: raw,
+            values: values,
+            fontSize: descriptionFontSize,
+            usesExpandedParagraphLayout: true,
+            onSelect: onSelect
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
         .background(
@@ -558,6 +549,8 @@ private struct MarkdownDescriptionView: View {
                         text,
                         lineSpacing: usesExpandedParagraphLayout ? 2.5 : 0
                     )
+                case .quote(let quote):
+                    renderedQuote(quote)
                 case .table(let table):
                     renderedTable(table)
                 }
@@ -641,6 +634,23 @@ private struct MarkdownDescriptionView: View {
             .padding(.vertical, 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func renderedQuote(_ raw: String) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                .fill(Color(nsColor: .tertiaryLabelColor))
+                .frame(width: 3)
+
+            renderedText(
+                raw,
+                baseColor: .secondaryLabelColor,
+                lineSpacing: usesExpandedParagraphLayout ? 2.5 : 0
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 3)
+        .padding(.leading, 2)
     }
 
     private func tableCell(

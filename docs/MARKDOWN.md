@@ -25,6 +25,14 @@ and inline formatting and variables work inside cells:
 | Full target | `{{target=//mysql/server:server}}` |
 ```
 
+Block quotes use the standard `>` prefix. Consecutive quoted lines share one neutral quote bar,
+and inline formatting and variables work inside them:
+
+```markdown
+> Deploy **{{service=api}}** only after validation.
+> Keep the rollback command nearby.
+```
+
 Additional notes:
 
 - Styles can nest and combine: `**bold with *italic* inside**`, `` **bold with `code` inside** ``,
@@ -53,9 +61,10 @@ Placeholders are resolved before Markdown is parsed, so formatting can wrap a pl
 
 ## Not supported
 
-Apart from tables, block formatting is not rendered. The following have no effect as formatting:
+Apart from tables and block quotes, block formatting is not rendered. The following have no
+effect as formatting:
 
-- `> quote`, `- item`, `1. item`, and `---` are ordinary description text, shown literally.
+- `- item`, `1. item`, and `---` are ordinary description text, shown literally.
 - Headings (`#`, `##`, `###`) and fenced code blocks (```` ``` ````) cannot appear inside a
   description or note at all: they close the current entry and start a sheet title, section,
   entry, or payload instead.
