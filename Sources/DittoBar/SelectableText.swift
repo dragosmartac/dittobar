@@ -241,9 +241,10 @@ enum EntryTextStyle {
         _ segments: [TextVariables.Segment],
         size: CGFloat,
         emphasized: Bool = false,
-        baseColor: NSColor = .secondaryLabelColor
+        baseColor: NSColor = .secondaryLabelColor,
+        lineSpacing: CGFloat = 0
     ) -> NSAttributedString {
-        renderMarkdown(
+        let rendered = renderMarkdown(
             segments,
             size: size,
             emphasized: emphasized,
@@ -257,6 +258,18 @@ enum EntryTextStyle {
             emphasised: NSFont.systemFont(ofSize: size, weight: .semibold),
             plainColor: baseColor
         )
+        guard lineSpacing > 0, rendered.length > 0 else { return rendered }
+
+        let result = NSMutableAttributedString(attributedString: rendered)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = lineSpacing
+        paragraphStyle.lineBreakMode = .byWordWrapping
+        result.addAttribute(
+            .paragraphStyle,
+            value: paragraphStyle,
+            range: NSRange(location: 0, length: result.length)
+        )
+        return result
     }
 
     /// Substituted variable values are tinted and bold, as in the SwiftUI version.

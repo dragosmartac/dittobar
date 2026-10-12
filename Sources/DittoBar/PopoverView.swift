@@ -504,6 +504,7 @@ private struct EntryRow: View {
                 raw: raw,
                 values: values,
                 fontSize: descriptionFontSize,
+                usesExpandedParagraphLayout: true,
                 onSelect: onSelect
             )
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -542,14 +543,18 @@ private struct MarkdownDescriptionView: View {
     let raw: String
     let values: [String: String]
     let fontSize: CGFloat
+    var usesExpandedParagraphLayout = false
     let onSelect: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(MarkdownText.blocks(in: raw).enumerated()), id: \.offset) { _, block in
+        VStack(alignment: .leading, spacing: usesExpandedParagraphLayout ? 14 : 6) {
+            ForEach(Array(renderBlocks.enumerated()), id: \.offset) { _, block in
                 switch block {
                 case .text(let text):
-                    renderedText(text)
+                    renderedText(
+                        text,
+                        lineSpacing: usesExpandedParagraphLayout ? 2.5 : 0
+                    )
                 case .table(let table):
                     renderedTable(table)
                 }
@@ -557,17 +562,32 @@ private struct MarkdownDescriptionView: View {
         }
     }
 
+    private var renderBlocks: [MarkdownText.Block] {
+        let blocks = MarkdownText.blocks(in: raw)
+        guard usesExpandedParagraphLayout else { return blocks }
+
+        return blocks.flatMap { block -> [MarkdownText.Block] in
+            guard case .text(let text) = block else { return [block] }
+            return text.components(separatedBy: "\n\n").compactMap { paragraph in
+                let trimmed = paragraph.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : .text(trimmed)
+            }
+        }
+    }
+
     private func renderedText(
         _ raw: String,
         emphasized: Bool = false,
-        baseColor: NSColor = .secondaryLabelColor
+        baseColor: NSColor = .secondaryLabelColor,
+        lineSpacing: CGFloat = 0
     ) -> some View {
         SelectableText(
             attributedString: EntryTextStyle.markdownRenderedDescription(
                 TextVariables.segments(of: raw, values: values),
                 size: fontSize,
                 emphasized: emphasized,
-                baseColor: baseColor
+                baseColor: baseColor,
+                lineSpacing: lineSpacing
             ),
             onMouseDown: onSelect
         )
