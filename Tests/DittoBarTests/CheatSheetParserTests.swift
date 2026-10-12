@@ -327,4 +327,35 @@ struct CheatSheetParserTests {
         }
         #expect(note.rawContent == "Keep this.")
     }
+
+    @Test func preservesTableInNoteContent() throws {
+        let source = """
+        ### Target shapes
+
+        | Shape | Example |
+        | --- | --- |
+        | Bare name | `mysql.server` |
+        | Full target | `{{target=//mysql/server:server}}` |
+        """
+
+        let sheet = CheatSheetParser.parse(
+            source,
+            fileURL: URL(fileURLWithPath: "/tmp/targets.md")
+        )
+
+        let entry = try #require(sheet.items.compactMap(\.entry).first)
+        guard case .note(let note) = entry else {
+            Issue.record("Expected a note entry")
+            return
+        }
+        #expect(note.rawContent == """
+        | Shape | Example |
+        | --- | --- |
+        | Bare name | `mysql.server` |
+        | Full target | `{{target=//mysql/server:server}}` |
+        """)
+        #expect(note.variables == [
+            EntryVariable(name: "target", defaultValue: "//mysql/server:server")
+        ])
+    }
 }

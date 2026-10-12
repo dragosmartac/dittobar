@@ -99,8 +99,8 @@ https://dashboards.example.com/services/production
 An H3 with content but no fenced code block becomes a note entry. Pressing Return copies
 its content as plain text with Markdown formatting removed.
 
-Descriptions and note content support inline Markdown, including `` `code` ``, `**bold**`,
-`*italic*`, `~~strikethrough~~`, and `[links](https://example.com)`.
+Descriptions and note content support Markdown tables and inline Markdown, including `` `code` ``,
+`**bold**`, `*italic*`, `~~strikethrough~~`, and `[links](https://example.com)`.
 
 Use a `url` fence for a URL entry. It supports a description and variables just like a
 command. Return copies the URL; Option-Return offers to open it in the default application:

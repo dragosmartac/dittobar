@@ -15,6 +15,16 @@ Some text components support Markdown rendering (e.g. descriptions in Command or
 | `<https://example.com>` | bare `https://example.com` | https://example.com |
 | `` `\*Not italic\*` `` | | \*Not italic\* |
 
+Descriptions and notes also support pipe tables. The header and separator rows are required,
+and inline formatting and variables work inside cells:
+
+```markdown
+| Shape | Example |
+| --- | --- |
+| Bare name | `mysql.server` |
+| Full target | `{{target=//mysql/server:server}}` |
+```
+
 Additional notes:
 
 - Styles can nest and combine: `**bold with *italic* inside**`, `` **bold with `code` inside** ``,
@@ -43,7 +53,7 @@ Placeholders are resolved before Markdown is parsed, so formatting can wrap a pl
 
 ## Not supported
 
-Only inline formatting is rendered. The following have no effect as formatting:
+Apart from tables, block formatting is not rendered. The following have no effect as formatting:
 
 - `> quote`, `- item`, `1. item`, and `---` are ordinary description text, shown literally.
 - Headings (`#`, `##`, `###`) and fenced code blocks (```` ``` ````) cannot appear inside a
@@ -61,4 +71,5 @@ Only inline formatting is rendered. The following have no effect as formatting:
   **Copy Content as Markdown** (resolved).
 - markdownStripped drops the markers: `**bold**` copies as `bold`, `` `code` `` as `code`,
   `[Text](url)` as `Text`, and `![alt](url)` as `alt`.
+- markdownStripped copies table rows as tab-separated text and omits the separator row.
 - Unclosed or invalid markers (`**oops`) are copied literally in both forms.

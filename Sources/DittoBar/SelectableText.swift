@@ -112,11 +112,15 @@ enum EntryTextStyle {
     /// which rendered ranges came from variable placeholders.
     static func markdownRenderedDescription(
         _ segments: [TextVariables.Segment],
-        size: CGFloat
+        size: CGFloat,
+        emphasized: Bool = false
     ) -> NSAttributedString {
-        renderMarkdown(segments, size: size) ?? build(
+        renderMarkdown(segments, size: size, emphasized: emphasized) ?? build(
             segments,
-            plain: NSFont.systemFont(ofSize: size),
+            plain: NSFont.systemFont(
+                ofSize: size,
+                weight: emphasized ? .semibold : .regular
+            ),
             emphasised: NSFont.systemFont(ofSize: size, weight: .semibold),
             plainColor: .secondaryLabelColor
         )
@@ -137,7 +141,8 @@ enum EntryTextStyle {
 
     private static func renderMarkdown(
         _ segments: [TextVariables.Segment],
-        size: CGFloat
+        size: CGFloat,
+        emphasized: Bool
     ) -> NSAttributedString? {
         let variableStart = "\u{E000}"
         let variableEnd = "\u{E001}"
@@ -178,11 +183,11 @@ enum EntryTextStyle {
                 var font = isCode
                     ? NSFont.monospacedSystemFont(
                         ofSize: size,
-                        weight: isVariable || isBold ? .semibold : .regular
+                        weight: emphasized || isVariable || isBold ? .semibold : .regular
                     )
                     : NSFont.systemFont(
                         ofSize: size,
-                        weight: isVariable || isBold ? .semibold : .regular
+                        weight: emphasized || isVariable || isBold ? .semibold : .regular
                     )
 
                 if isItalic {

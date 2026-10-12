@@ -486,12 +486,11 @@ private struct EntryRow: View {
     }
 
     private func descriptionText(_ raw: String) -> some View {
-        SelectableText(
-            attributedString: EntryTextStyle.markdownRenderedDescription(
-                TextVariables.segments(of: raw, values: values),
-                size: descriptionFontSize
-            ),
-            onMouseDown: onSelect
+        MarkdownDescriptionView(
+            raw: raw,
+            values: values,
+            fontSize: descriptionFontSize,
+            onSelect: onSelect
         )
     }
 
@@ -510,6 +509,62 @@ private struct EntryRow: View {
             Color(nsColor: .textBackgroundColor),
             in: RoundedRectangle(cornerRadius: 6)
         )
+    }
+}
+
+private struct MarkdownDescriptionView: View {
+    let raw: String
+    let values: [String: String]
+    let fontSize: CGFloat
+    let onSelect: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(MarkdownText.blocks(in: raw).enumerated()), id: \.offset) { _, block in
+                switch block {
+                case .text(let text):
+                    renderedText(text)
+                case .table(let table):
+                    renderedTable(table)
+                }
+            }
+        }
+    }
+
+    private func renderedText(_ raw: String, emphasized: Bool = false) -> some View {
+        SelectableText(
+            attributedString: EntryTextStyle.markdownRenderedDescription(
+                TextVariables.segments(of: raw, values: values),
+                size: fontSize,
+                emphasized: emphasized
+            ),
+            onMouseDown: onSelect
+        )
+    }
+
+    private func renderedTable(_ table: MarkdownText.Table) -> some View {
+        ScrollView(.horizontal) {
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
+                GridRow {
+                    ForEach(Array(table.header.enumerated()), id: \.offset) { _, cell in
+                        renderedText(cell, emphasized: true)
+                    }
+                }
+
+                Divider()
+                    .gridCellColumns(table.columnCount)
+
+                ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
+                    GridRow {
+                        ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                            renderedText(cell)
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

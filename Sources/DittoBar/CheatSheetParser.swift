@@ -32,7 +32,7 @@ enum CheatSheetParser {
             guard let title = entryTitle else { return }
             let draft = EntryDraft(
                 title: title,
-                rawDescription: descriptionLines.joined(separator: " "),
+                rawDescription: descriptionLines.joined(separator: "\n"),
                 rawFencedContent: rawFencedContent,
                 fenceLanguage: fenceLanguage
             )
@@ -120,7 +120,7 @@ enum CheatSheetParser {
                 continue
             }
 
-            if entryTitle != nil, !line.trimmingCharacters(in: .whitespaces).isEmpty {
+            if entryTitle != nil {
                 descriptionLines.append(line.trimmingCharacters(in: .whitespaces))
             }
             index += 1
