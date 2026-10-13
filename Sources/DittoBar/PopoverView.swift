@@ -258,12 +258,16 @@ struct PopoverView: View {
         }
 
         let clipView = scrollView.contentView
+        guard let estimatedTarget = edgeScrollBounds(ofRow: row, in: tableView, clipView: clipView) else {
+            return true
+        }
         // Rows that come into view mid-slide would be built and measured on
         // the fly, dropping frames. Build every row the slide passes first.
-        let estimatedTarget = centeredBounds(ofRow: row, in: tableView, clipView: clipView)
         tableView.prepareContent(in: clipView.bounds.union(estimatedTarget))
         // Measuring those rows can move the selected row, so aim again.
-        let origin = centeredBounds(ofRow: row, in: tableView, clipView: clipView).origin
+        guard let origin = edgeScrollBounds(ofRow: row, in: tableView, clipView: clipView)?.origin else {
+            return true
+        }
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = duration
@@ -273,14 +277,36 @@ struct PopoverView: View {
         return true
     }
 
-    private func centeredBounds(
+    /// How close the selected row may come to the top or bottom edge before
+    /// the list scrolls, so a little of what comes next stays visible.
+    private static let edgeScrollMargin: CGFloat = 60
+
+    /// The bounds that bring the row back to `edgeScrollMargin` inside the
+    /// visible area, or nil when it is already there. Scrolling only near the
+    /// edges keeps the list still while the selection moves through the
+    /// visible rows.
+    private func edgeScrollBounds(
         ofRow row: Int,
         in tableView: NSTableView,
         clipView: NSClipView
-    ) -> NSRect {
-        var bounds = clipView.bounds
-        bounds.origin.y = tableView.rect(ofRow: row).midY - bounds.height / 2
-        return clipView.constrainBoundsRect(bounds)
+    ) -> NSRect? {
+        let bounds = clipView.bounds
+        let rowRect = tableView.rect(ofRow: row)
+        let margin = min(Self.edgeScrollMargin, bounds.height / 4)
+        let isAboveMargin = rowRect.minY < bounds.minY + margin
+        let isBelowMargin = rowRect.maxY > bounds.maxY - margin
+        guard isAboveMargin || isBelowMargin else { return nil }
+
+        var target = bounds
+        if isAboveMargin || rowRect.height > bounds.height - 2 * margin {
+            // Moving up, or a row too tall to fit: show its top.
+            target.origin.y = rowRect.minY - margin
+        } else {
+            target.origin.y = rowRect.maxY + margin - bounds.height
+        }
+        target = clipView.constrainBoundsRect(target)
+        // At either end of the list there may be nowhere left to scroll.
+        return target.origin == bounds.origin ? nil : target
     }
 
     @ViewBuilder
