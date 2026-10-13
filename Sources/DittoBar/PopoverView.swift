@@ -191,8 +191,22 @@ struct PopoverView: View {
                 let itemID = CheatSheetItem.entry(entry).id
                 let duration = scrollDuration(for: source, rowDistance: abs(newIndex - oldIndex))
 
-                if !animateListScroll(toItemID: itemID, duration: duration) {
-                    proxy.scrollTo(itemID, anchor: .center)
+                let scroll = {
+                    if !animateListScroll(toItemID: itemID, duration: duration) {
+                        proxy.scrollTo(itemID, anchor: .center)
+                    }
+                }
+
+                if duration == 0 {
+                    // Jump in the same frame as the highlight moves. Deferred,
+                    // the highlight and the jump land in separate frames, and
+                    // a held key makes them flicker.
+                    scroll()
+                } else {
+                    // Start the slide once SwiftUI finishes this update.
+                    // Started from inside it, the slide loses its first
+                    // frames to the rest of the update.
+                    DispatchQueue.main.async(execute: scroll)
                 }
             }
             .onChange(of: store.query) {
@@ -244,9 +258,12 @@ struct PopoverView: View {
         }
 
         let clipView = scrollView.contentView
-        var bounds = clipView.bounds
-        bounds.origin.y = tableView.rect(ofRow: row).midY - bounds.height / 2
-        let origin = clipView.constrainBoundsRect(bounds).origin
+        // Rows that come into view mid-slide would be built and measured on
+        // the fly, dropping frames. Build every row the slide passes first.
+        let estimatedTarget = centeredBounds(ofRow: row, in: tableView, clipView: clipView)
+        tableView.prepareContent(in: clipView.bounds.union(estimatedTarget))
+        // Measuring those rows can move the selected row, so aim again.
+        let origin = centeredBounds(ofRow: row, in: tableView, clipView: clipView).origin
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = duration
@@ -254,6 +271,16 @@ struct PopoverView: View {
             clipView.animator().setBoundsOrigin(origin)
         }
         return true
+    }
+
+    private func centeredBounds(
+        ofRow row: Int,
+        in tableView: NSTableView,
+        clipView: NSClipView
+    ) -> NSRect {
+        var bounds = clipView.bounds
+        bounds.origin.y = tableView.rect(ofRow: row).midY - bounds.height / 2
+        return clipView.constrainBoundsRect(bounds)
     }
 
     @ViewBuilder
