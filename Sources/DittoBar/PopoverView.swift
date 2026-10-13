@@ -568,16 +568,6 @@ private struct EntryRow: View, Equatable {
             onSelect: onSelect
         )
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background(
-            Color(nsColor: .controlBackgroundColor).opacity(0.5),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color(nsColor: .separatorColor).opacity(0.45), lineWidth: 0.5)
-        }
     }
 
     private func payloadText(_ raw: String) -> some View {
