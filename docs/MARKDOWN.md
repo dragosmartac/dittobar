@@ -33,6 +33,25 @@ and inline formatting and variables work inside them:
 > Keep the rollback command nearby.
 ```
 
+Lists use `-`, `*`, or `+` for bullets and `1.` or `1)` for numbers. Task items add
+`[ ]` or `[x]` after the marker and show a read-only checkbox. Indent an item at least two
+spaces (or a tab) past the previous item to nest it:
+
+```markdown
+- Deploy **{{service=api}}**
+  - [x] Run migrations
+  - [ ] Check dashboards
+1. Build
+2. Ship
+```
+
+- Ordered lists count up from the first item's number: `3.` followed by `9.` shows 3 and 4.
+- A line indented under an item continues that item; a blank line in between keeps a
+  paragraph break. An unindented line that is not an item ends the list.
+- Bullet lists can follow a text line directly. An ordered list needs a blank line before it
+  unless it starts at `1`, so prose such as `2024. Then…` on its own line stays text.
+- `---`, `***`, and `* * *` are not list items, and neither is a marker with no text.
+
 Additional notes:
 
 - Styles can nest and combine: `**bold with *italic* inside**`, `` **bold with `code` inside** ``,
@@ -61,10 +80,11 @@ Placeholders are resolved before Markdown is parsed, so formatting can wrap a pl
 
 ## Not supported
 
-Apart from tables and block quotes, block formatting is not rendered. The following have no
-effect as formatting:
+Apart from tables, block quotes, and lists, block formatting is not rendered. The following
+have no effect as formatting:
 
-- `- item`, `1. item`, and `---` are ordinary description text, shown literally.
+- `---` is ordinary description text, shown literally.
+- Block quotes and tables cannot be placed inside a list item.
 - Headings (`#`, `##`, `###`) and fenced code blocks (```` ``` ````) cannot appear inside a
   description or note at all: they close the current entry and start a sheet title, section,
   entry, or payload instead.
@@ -81,4 +101,6 @@ effect as formatting:
 - markdownStripped drops the markers: `**bold**` copies as `bold`, `` `code` `` as `code`,
   `[Text](url)` as `Text`, and `![alt](url)` as `alt`.
 - markdownStripped copies table rows as tab-separated text and omits the separator row.
+- markdownStripped copies list items with normalized markers (`•`, `◦`, `▪` by depth, `3.`,
+  `☐`, `☑`) and one tab of indentation per nesting level.
 - Unclosed or invalid markers (`**oops`) are copied literally in both forms.

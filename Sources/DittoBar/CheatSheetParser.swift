@@ -121,7 +121,8 @@ enum CheatSheetParser {
             }
 
             if entryTitle != nil {
-                descriptionLines.append(line.trimmingCharacters(in: .whitespaces))
+                // Leading whitespace nests list items, so only trim the end.
+                descriptionLines.append(String(line.reversed().drop(while: { $0 == " " || $0 == "\t" }).reversed()))
             }
             index += 1
         }

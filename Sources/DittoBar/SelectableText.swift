@@ -245,6 +245,20 @@ enum EntryTextStyle {
     private static var markdownRenderedCache: [MarkdownRenderedKey: NSAttributedString] = [:]
     private static let markdownRenderedCacheLimit = 2_000
 
+    struct ListItemSegments: Hashable {
+        let item: MarkdownText.ListItem
+        let segments: [TextVariables.Segment]
+    }
+
+    private struct MarkdownRenderedListKey: Hashable {
+        let items: [ListItemSegments]
+        let size: CGFloat
+        let baseColor: NSColor
+        let lineSpacing: CGFloat
+    }
+
+    private static var markdownRenderedListCache: [MarkdownRenderedListKey: NSAttributedString] = [:]
+
     static func title(_ text: String, size: CGFloat) -> NSAttributedString {
         NSAttributedString(
             string: text,
@@ -322,6 +336,178 @@ enum EntryTextStyle {
             value: paragraphStyle,
             range: NSRange(location: 0, length: result.length)
         )
+        return result
+    }
+
+    /// A whole list as one string, so a selection can span items. Each item
+    /// is a paragraph whose wrapped lines hang under its text, past the marker.
+    static func markdownRenderedList(
+        _ items: [ListItemSegments],
+        size: CGFloat,
+        baseColor: NSColor = .secondaryLabelColor,
+        lineSpacing: CGFloat = 0
+    ) -> NSAttributedString {
+        let key = MarkdownRenderedListKey(
+            items: items,
+            size: size,
+            baseColor: baseColor,
+            lineSpacing: lineSpacing
+        )
+        if let cached = markdownRenderedListCache[key] {
+            return cached
+        }
+
+        let result = uncachedMarkdownRenderedList(
+            items,
+            size: size,
+            baseColor: baseColor,
+            lineSpacing: lineSpacing
+        )
+        if markdownRenderedListCache.count >= markdownRenderedCacheLimit {
+            markdownRenderedListCache.removeAll()
+        }
+        markdownRenderedListCache[key] = result
+        return result
+    }
+
+    private static func uncachedMarkdownRenderedList(
+        _ items: [ListItemSegments],
+        size: CGFloat,
+        baseColor: NSColor,
+        lineSpacing: CGFloat
+    ) -> NSAttributedString {
+        let markerAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: size),
+            .foregroundColor: baseColor
+        ]
+
+        // A nested item's marker starts where its parent's text starts, and
+        // each depth's text starts past the widest marker at that depth.
+        let leadingInset = size * 0.4
+        let gap = size * 0.45
+        let maxDepth = items.map(\.item.depth).max() ?? 0
+        var markerColumns: [CGFloat] = []
+        var textColumns: [CGFloat] = []
+        for depth in 0...maxDepth {
+            let widest = items
+                .filter { $0.item.depth == depth }
+                .map { listMarker(for: $0.item, attributes: markerAttributes, size: size).size().width }
+                .max() ?? 0
+            let markerColumn = depth == 0 ? leadingInset : textColumns[depth - 1]
+            markerColumns.append(markerColumn)
+            textColumns.append(ceil(markerColumn + max(widest, size * 0.6) + gap))
+        }
+
+        func paragraphStyle(firstLineIndent: CGFloat, textColumn: CGFloat) -> NSParagraphStyle {
+            let style = NSMutableParagraphStyle()
+            style.firstLineHeadIndent = firstLineIndent
+            style.headIndent = textColumn
+            style.tabStops = [NSTextTab(textAlignment: .left, location: textColumn)]
+            style.lineSpacing = lineSpacing
+            style.paragraphSpacing = size * 0.2
+            style.lineBreakMode = .byWordWrapping
+            return style
+        }
+
+        let result = NSMutableAttributedString()
+        for (index, entry) in items.enumerated() {
+            let item = entry.item
+            let textColumn = textColumns[item.depth]
+            let rendered = renderMarkdown(
+                entry.segments,
+                size: size,
+                emphasized: false,
+                baseColor: baseColor
+            ) ?? build(
+                entry.segments,
+                plain: NSFont.systemFont(ofSize: size),
+                emphasised: NSFont.systemFont(ofSize: size, weight: .semibold),
+                plainColor: baseColor
+            )
+
+            let paragraph = NSMutableAttributedString(
+                attributedString: listMarker(for: item, attributes: markerAttributes, size: size)
+            )
+            paragraph.append(NSAttributedString(string: "\t", attributes: markerAttributes))
+            paragraph.append(rendered)
+            if index < items.count - 1 {
+                paragraph.append(NSAttributedString(string: "\n", attributes: markerAttributes))
+            }
+
+            // Continuation lines inside the item are paragraphs of their own;
+            // they start at the text column rather than under the marker.
+            let fullRange = NSRange(location: 0, length: paragraph.length)
+            paragraph.addAttribute(
+                .paragraphStyle,
+                value: paragraphStyle(firstLineIndent: textColumn, textColumn: textColumn),
+                range: fullRange
+            )
+            let firstLine = (paragraph.string as NSString).paragraphRange(
+                for: NSRange(location: 0, length: 0)
+            )
+            paragraph.addAttribute(
+                .paragraphStyle,
+                value: paragraphStyle(
+                    firstLineIndent: markerColumns[item.depth],
+                    textColumn: textColumn
+                ),
+                range: firstLine
+            )
+            result.append(paragraph)
+        }
+        return result
+    }
+
+    /// The `☐` and `☑` glyphs come from different fallback fonts and render
+    /// at different sizes, so task checkboxes are drawn as matching symbols.
+    private static func listMarker(
+        for item: MarkdownText.ListItem,
+        attributes: [NSAttributedString.Key: Any],
+        size: CGFloat
+    ) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        switch item.marker {
+        case .bullet where item.task == nil:
+            result.append(NSAttributedString(
+                string: MarkdownText.ListItem.bulletGlyph(depth: item.depth),
+                attributes: attributes
+            ))
+        case .bullet:
+            break
+        case .ordered(let number):
+            result.append(NSAttributedString(string: "\(number).", attributes: attributes))
+        }
+
+        guard let task = item.task else { return result }
+        if result.length > 0 {
+            result.append(NSAttributedString(string: " ", attributes: attributes))
+        }
+        let symbolName = task == .done ? "checkmark.square" : "square"
+        let color = attributes[.foregroundColor] as? NSColor ?? .secondaryLabelColor
+        let configuration = NSImage.SymbolConfiguration(pointSize: size * 1.15, weight: .regular)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+        guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration) else {
+            result.append(NSAttributedString(
+                string: task == .done ? "☑" : "☐",
+                attributes: attributes
+            ))
+            return result
+        }
+
+        // Center the symbol on the text's x-height rather than its baseline.
+        let font = attributes[.font] as? NSFont ?? NSFont.systemFont(ofSize: size)
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        attachment.bounds = NSRect(
+            x: 0,
+            y: (font.xHeight - image.size.height) / 2,
+            width: image.size.width,
+            height: image.size.height
+        )
+        let symbol = NSMutableAttributedString(attachment: attachment)
+        symbol.addAttributes(attributes, range: NSRange(location: 0, length: symbol.length))
+        result.append(symbol)
         return result
     }
 

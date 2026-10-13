@@ -669,6 +669,8 @@ private struct MarkdownDescriptionView: View {
                     renderedQuote(quote)
                 case .table(let table):
                     renderedTable(table)
+                case .list(let items):
+                    renderedList(items)
                 }
             }
         }
@@ -749,6 +751,24 @@ private struct MarkdownDescriptionView: View {
             }
             .padding(.vertical, 2)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func renderedList(_ items: [MarkdownText.ListItem]) -> some View {
+        SelectableText(
+            attributedString: EntryTextStyle.markdownRenderedList(
+                items.map { item in
+                    EntryTextStyle.ListItemSegments(
+                        item: item,
+                        segments: TextVariables.segments(of: item.text, values: values)
+                    )
+                },
+                size: fontSize,
+                baseColor: textColor,
+                lineSpacing: usesExpandedParagraphLayout ? 2.5 : 0
+            ),
+            onMouseDown: onSelect
+        )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 

@@ -102,4 +102,116 @@ struct MarkdownTextTests {
             ])) == "Shape\tExample\nFull target\t//mysql/other:server"
         )
     }
+
+    @Test func parsesBulletOrderedAndTaskLists() {
+        let source = """
+        Steps:
+        - First **bold**
+        * Second
+        + [ ] Open task
+        - [x] Done task
+
+        1. One
+        1. Two
+        7) Three
+        """
+
+        #expect(MarkdownText.blocks(in: source) == [
+            .text("Steps:"),
+            .list([
+                .init(text: "First **bold**"),
+                .init(text: "Second"),
+                .init(task: .open, text: "Open task"),
+                .init(task: .done, text: "Done task"),
+                .init(marker: .ordered(1), text: "One"),
+                .init(marker: .ordered(2), text: "Two"),
+                .init(marker: .ordered(3), text: "Three")
+            ])
+        ])
+    }
+
+    @Test func orderedListsStartAtTheFirstNumber() {
+        #expect(MarkdownText.blocks(in: "3. a\n9. b") == [
+            .list([
+                .init(marker: .ordered(3), text: "a"),
+                .init(marker: .ordered(4), text: "b")
+            ])
+        ])
+    }
+
+    @Test func nestsListItemsByIndentation() {
+        let source = """
+        - Parent
+          - Child
+            1. Grandchild
+            2. Grandchild two
+          - Child two
+        - Parent two
+        """
+
+        #expect(MarkdownText.blocks(in: source) == [
+            .list([
+                .init(text: "Parent"),
+                .init(depth: 1, text: "Child"),
+                .init(depth: 2, marker: .ordered(1), text: "Grandchild"),
+                .init(depth: 2, marker: .ordered(2), text: "Grandchild two"),
+                .init(depth: 1, text: "Child two"),
+                .init(text: "Parent two")
+            ])
+        ])
+    }
+
+    @Test func indentedLinesContinueTheItemAndOthersEndTheList() {
+        let source = """
+        - Item
+          continued here
+
+          new paragraph
+        - Next
+
+        After the list.
+        Not an item.
+        """
+
+        #expect(MarkdownText.blocks(in: source) == [
+            .list([
+                .init(text: "Item\ncontinued here\n\nnew paragraph"),
+                .init(text: "Next")
+            ]),
+            .text("After the list.\nNot an item.")
+        ])
+        #expect(MarkdownText.blocks(in: "- Item\nUnindented") == [
+            .list([.init(text: "Item")]),
+            .text("Unindented")
+        ])
+    }
+
+    @Test func leavesNonListLinesAsText() {
+        let source = """
+        Released in
+        2024. Then more.
+        -not an item
+        ---
+        * * *
+        -
+        """
+
+        #expect(MarkdownText.blocks(in: source) == [.text(source)])
+    }
+
+    @Test func stripsListsWithNormalizedMarkers() {
+        let source = """
+        - **Bold** item
+          - [ ] Open {{service=api}}
+            wrapped
+        3. Ordered `code`
+        4. [x] Done
+        """
+
+        #expect(
+            MarkdownText.stripped(
+                TextVariables.resolve(source, values: ["service": "payments"])
+            ) == "• Bold item\n\t☐ Open payments\n\t\twrapped\n3. Ordered code\n4. ☑ Done"
+        )
+    }
 }

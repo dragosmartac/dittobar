@@ -358,4 +358,23 @@ struct CheatSheetParserTests {
             EntryVariable(name: "target", defaultValue: "//mysql/server:server")
         ])
     }
+
+    @Test func keepsDescriptionIndentationForNestedLists() {
+        let source = """
+        ### Checklist
+        - Parent
+          - Child\u{20}\u{20}
+        """
+
+        let sheet = CheatSheetParser.parse(
+            source,
+            fileURL: URL(fileURLWithPath: "/tmp/lists.md")
+        )
+
+        guard case .note(let note) = sheet.items.compactMap(\.entry).first else {
+            Issue.record("Expected a note entry")
+            return
+        }
+        #expect(note.rawContent == "- Parent\n  - Child")
+    }
 }
