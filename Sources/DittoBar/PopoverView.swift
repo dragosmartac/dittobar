@@ -148,7 +148,7 @@ struct PopoverView: View {
                         wasCopied: entry.id == store.copiedEntryID,
                         onSelect: { store.selectEntry(entry) }
                     )
-                    .id(entry.id)
+                    .equatable()
                     .background(
                         SelectedRowAnchor(
                             store: store,
@@ -183,26 +183,77 @@ struct PopoverView: View {
                     ContentUnavailableView.search(text: store.query)
                 }
             }
-            .onChange(of: store.selectedEntryIndex) {
-                if let id = store.selectedEntry?.id {
-                    withAnimation(.easeOut(duration: 0.12)) {
-                        proxy.scrollTo(id, anchor: .center)
-                    }
+            .onChange(of: store.selectedEntryIndex) { oldIndex, newIndex in
+                let source = store.consumeEntrySelectionSource()
+                // A clicked row is already under the pointer; scrolling would
+                // slide it away.
+                guard source != .pointer, let entry = store.selectedEntry else { return }
+                let itemID = CheatSheetItem.entry(entry).id
+                let duration = scrollDuration(for: source, rowDistance: abs(newIndex - oldIndex))
+
+                if !animateListScroll(toItemID: itemID, duration: duration) {
+                    proxy.scrollTo(itemID, anchor: .center)
                 }
             }
             .onChange(of: store.query) {
-                guard let id = store.visibleEntries.first?.id else { return }
+                guard let entry = store.visibleEntries.first else { return }
 
                 // The selected index may already be zero, in which case its
                 // onChange handler does not fire. Wait for the filtered rows
                 // to be laid out, then center the first result explicitly.
                 DispatchQueue.main.async {
                     withAnimation(.easeOut(duration: 0.12)) {
-                        proxy.scrollTo(id, anchor: .center)
+                        proxy.scrollTo(CheatSheetItem.entry(entry).id, anchor: .center)
                     }
                 }
             }
         }
+    }
+
+    /// Returns 0 when the scroll should be instant.
+    private func scrollDuration(
+        for source: CheatSheetStore.EntrySelectionSource,
+        rowDistance: Int
+    ) -> TimeInterval {
+        // Keyboard moves are one row at a time, so a longer jump is a wrap
+        // between the last and first entries, which would race through the
+        // whole list if animated.
+        guard source == .keyboard || source == .keyboardRepeat,
+              rowDistance <= 1,
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            return 0
+        }
+        // Held keys repeat faster than any animation can finish, so each
+        // repeat would interrupt the previous scroll and the list would
+        // stutter. Follow the selection instantly instead.
+        return source == .keyboardRepeat ? 0 : 0.22
+    }
+
+    /// The List ignores `withAnimation` when scrolling on macOS, so animate
+    /// its backing table view directly. A zero duration still goes through
+    /// the animator so it replaces any scroll animation in flight. Returns
+    /// false when the table view cannot be found or does not match the
+    /// visible items.
+    private func animateListScroll(toItemID itemID: String, duration: TimeInterval) -> Bool {
+        let items = store.visibleItems
+        guard let row = items.firstIndex(where: { $0.id == itemID }),
+              let scrollView = store.selectedRowAnchorView?.enclosingScrollView,
+              let tableView = scrollView.documentView as? NSTableView,
+              tableView.numberOfRows == items.count else {
+            return false
+        }
+
+        let clipView = scrollView.contentView
+        var bounds = clipView.bounds
+        bounds.origin.y = tableView.rect(ofRow: row).midY - bounds.height / 2
+        let origin = clipView.constrainBoundsRect(bounds).origin
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = duration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            clipView.animator().setBoundsOrigin(origin)
+        }
+        return true
     }
 
     @ViewBuilder
@@ -432,7 +483,10 @@ private struct MoreOptionsButton: NSViewRepresentable {
     }
 }
 
-private struct EntryRow: View {
+/// Equatable so a selection change re-renders only the rows whose selection
+/// or copied state changed. Otherwise the `onSelect` closure, which SwiftUI
+/// cannot compare, makes every row re-parse its Markdown on each key press.
+private struct EntryRow: View, Equatable {
     let entry: CheatSheetEntry
     let values: [String: String]
     let titleFontSize: CGFloat
@@ -441,6 +495,17 @@ private struct EntryRow: View {
     let isSelected: Bool
     let wasCopied: Bool
     let onSelect: () -> Void
+
+    /// `onSelect` is left out: it always selects `entry`, which is compared.
+    static func == (lhs: EntryRow, rhs: EntryRow) -> Bool {
+        lhs.entry == rhs.entry
+            && lhs.values == rhs.values
+            && lhs.titleFontSize == rhs.titleFontSize
+            && lhs.descriptionFontSize == rhs.descriptionFontSize
+            && lhs.payloadFontSize == rhs.payloadFontSize
+            && lhs.isSelected == rhs.isSelected
+            && lhs.wasCopied == rhs.wasCopied
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {

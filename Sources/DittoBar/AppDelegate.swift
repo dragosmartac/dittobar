@@ -331,17 +331,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         if event.keyCode == 48 {
-            store.moveSelection(by: modifiers.contains(.shift) ? -1 : 1)
+            store.moveSelection(by: modifiers.contains(.shift) ? -1 : 1, isRepeat: event.isARepeat)
             return nil
         }
 
         if event.keyCode == 125 {
-            store.moveSelection(by: 1)
+            store.moveSelection(by: 1, isRepeat: event.isARepeat)
             return nil
         }
 
         if event.keyCode == 126 {
-            store.moveSelection(by: -1)
+            store.moveSelection(by: -1, isRepeat: event.isARepeat)
             return nil
         }
 

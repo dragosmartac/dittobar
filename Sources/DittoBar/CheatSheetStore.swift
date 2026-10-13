@@ -20,6 +20,17 @@ final class CheatSheetStore: ObservableObject {
     var onRequestClose: (() -> Void)?
     weak var selectedRowAnchorView: NSView?
 
+    /// What caused the latest change to `selectedEntryIndex`, so the list can
+    /// decide how to scroll to the new selection.
+    enum EntrySelectionSource {
+        case keyboard
+        case keyboardRepeat
+        case pointer
+        case other
+    }
+
+    private var entrySelectionSource = EntrySelectionSource.other
+
     private var watcher: DirectoryWatcher?
 
     init(fileManager: FileManager = .default) {
@@ -75,6 +86,21 @@ final class CheatSheetStore: ObservableObject {
         guard let index = visibleEntries.firstIndex(where: { $0.id == entry.id }) else {
             return
         }
+        setSelectedEntryIndex(index, source: .pointer)
+    }
+
+    /// Returns what caused the latest selection change and resets it, so
+    /// index changes made elsewhere are reported as `.other`.
+    func consumeEntrySelectionSource() -> EntrySelectionSource {
+        defer { entrySelectionSource = .other }
+        return entrySelectionSource
+    }
+
+    private func setSelectedEntryIndex(_ index: Int, source: EntrySelectionSource) {
+        // An unchanged index fires no onChange, which would leave the source
+        // set for an unrelated later change.
+        guard index != selectedEntryIndex else { return }
+        entrySelectionSource = source
         selectedEntryIndex = index
     }
 
@@ -104,13 +130,16 @@ final class CheatSheetStore: ObservableObject {
         selectSheet(at: index)
     }
 
-    func moveSelection(by offset: Int) {
+    func moveSelection(by offset: Int, isRepeat: Bool = false) {
         let count = visibleEntries.count
         guard count > 0 else {
             selectedEntryIndex = 0
             return
         }
-        selectedEntryIndex = (selectedEntryIndex + offset + count) % count
+        setSelectedEntryIndex(
+            (selectedEntryIndex + offset + count) % count,
+            source: isRepeat ? .keyboardRepeat : .keyboard
+        )
     }
 
     // MARK: - Variables
