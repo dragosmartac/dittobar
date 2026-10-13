@@ -130,8 +130,29 @@ struct PopoverView: View {
         .padding(14)
     }
 
+    private static let sectionEntryIndent: CGFloat = 14
+
+    /// Entries that follow a section title. Entries before the first section
+    /// of a cheat sheet are not indented.
+    private static func sectionedEntryIDs(in items: [CheatSheetItem]) -> Set<String> {
+        var ids = Set<String>()
+        var hasSeenSection = false
+        for item in items {
+            switch item {
+            case .section:
+                hasSeenSection = true
+            case .entry(let entry):
+                if hasSeenSection {
+                    ids.insert(entry.id)
+                }
+            }
+        }
+        return ids
+    }
+
     private var entryList: some View {
         let selectedEntryID = store.selectedEntryID
+        let sectionedEntryIDs = Self.sectionedEntryIDs(in: store.visibleItems)
 
         return ScrollViewReader { proxy in
             List(store.visibleItems) { item in
@@ -140,6 +161,7 @@ struct PopoverView: View {
                     SectionHeaderRow(title: section.title, fontSize: CGFloat(sectionTitleFontSize))
 
                 case .entry(let entry):
+                    let isInSection = sectionedEntryIDs.contains(entry.id)
                     EntryRow(
                         entry: entry,
                         values: store.effectiveValues(for: entry),
@@ -152,6 +174,7 @@ struct PopoverView: View {
                         onSelect: { store.selectEntry(entry) }
                     )
                     .equatable()
+                    .padding(.leading, isInSection ? Self.sectionEntryIndent : 0)
                     .background(
                         SelectedRowAnchor(
                             store: store,
@@ -177,6 +200,7 @@ struct PopoverView: View {
                     .listRowSeparator(.hidden)
                     .overlay(alignment: .bottom) {
                         Divider()
+                            .padding(.leading, isInSection ? Self.sectionEntryIndent : 0)
                     }
                 }
             }
@@ -809,8 +833,7 @@ private struct SectionHeaderRow: View {
 
     var body: some View {
         Text(title)
-            .font(.system(size: fontSize, weight: .semibold))
-            .foregroundStyle(.secondary)
+            .font(.system(size: fontSize, weight: .bold))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 10)
             .padding(.bottom, 2)

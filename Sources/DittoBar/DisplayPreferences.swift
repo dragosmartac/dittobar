@@ -9,7 +9,7 @@ enum DisplayPreferences {
     static let payloadFontSizeKey = "display.commandFontSize"
     static let popoverWidthFractionKey = "display.popoverWidthFraction"
 
-    static let defaultSectionTitleFontSize = Double(NSFont.systemFontSize)
+    static let defaultSectionTitleFontSize = Double(NSFont.systemFontSize) + 3
     static let defaultTitleFontSize = Double(NSFont.systemFontSize)
     static let defaultDescriptionFontSize = Double(NSFont.smallSystemFontSize)
     static let defaultNoteFontSize = Double(NSFont.systemFontSize)
