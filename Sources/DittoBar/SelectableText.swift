@@ -224,6 +224,11 @@ private final class InlineCodeTextFieldCell: NSTextFieldCell {
 /// those text styles do not line up with SwiftUI's `.headline` / `.caption`,
 /// which made the rows render at inconsistent sizes.
 enum EntryTextStyle {
+    /// Dimmer than the semibold title so the two stay distinct, but darker
+    /// than descriptions because notes are meant to be read at length. One
+    /// shared instance keeps the rendered-text cache key stable.
+    static let noteBodyColor = NSColor.labelColor.withAlphaComponent(0.75)
+
     private struct MarkdownRenderedKey: Hashable {
         let segments: [TextVariables.Segment]
         let size: CGFloat

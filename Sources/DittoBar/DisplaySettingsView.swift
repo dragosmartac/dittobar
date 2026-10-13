@@ -13,6 +13,8 @@ struct DisplaySettingsView: View {
     private var titleFontSize = DisplayPreferences.defaultTitleFontSize
     @AppStorage(DisplayPreferences.descriptionFontSizeKey)
     private var descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
+    @AppStorage(DisplayPreferences.noteFontSizeKey)
+    private var noteFontSize = DisplayPreferences.defaultNoteFontSize
     @AppStorage(DisplayPreferences.payloadFontSizeKey)
     private var payloadFontSize = DisplayPreferences.defaultPayloadFontSize
     @AppStorage(DisplayPreferences.popoverWidthFractionKey)
@@ -148,6 +150,11 @@ struct DisplaySettingsView: View {
                     range: DisplayPreferences.descriptionFontSizeRange
                 )
                 FontSizeControl(
+                    title: "Note",
+                    value: $noteFontSize,
+                    range: DisplayPreferences.noteFontSizeRange
+                )
+                FontSizeControl(
                     title: "Payload",
                     value: $payloadFontSize,
                     range: DisplayPreferences.payloadFontSizeRange
@@ -197,6 +204,7 @@ struct DisplaySettingsView: View {
             sectionTitleFontSize == DisplayPreferences.defaultSectionTitleFontSize
                 && titleFontSize == DisplayPreferences.defaultTitleFontSize
                 && descriptionFontSize == DisplayPreferences.defaultDescriptionFontSize
+                && noteFontSize == DisplayPreferences.defaultNoteFontSize
                 && payloadFontSize == DisplayPreferences.defaultPayloadFontSize
         case .editor:
             selectedEditor == EditorPreferences.defaultEditor.rawValue
@@ -212,6 +220,7 @@ struct DisplaySettingsView: View {
             sectionTitleFontSize = DisplayPreferences.defaultSectionTitleFontSize
             titleFontSize = DisplayPreferences.defaultTitleFontSize
             descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
+            noteFontSize = DisplayPreferences.defaultNoteFontSize
             payloadFontSize = DisplayPreferences.defaultPayloadFontSize
         case .editor:
             selectedEditor = EditorPreferences.defaultEditor.rawValue

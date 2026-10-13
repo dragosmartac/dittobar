@@ -9,10 +9,18 @@ struct DisplayPreferencesTests {
         )
     }
 
+    @Test func noteDefaultIsWithinRange() {
+        #expect(
+            DisplayPreferences.noteFontSizeRange
+                .contains(DisplayPreferences.defaultNoteFontSize)
+        )
+    }
+
     @Test func sectionTitleKeyIsDistinct() {
         let keys = [
             DisplayPreferences.titleFontSizeKey,
             DisplayPreferences.descriptionFontSizeKey,
+            DisplayPreferences.noteFontSizeKey,
             DisplayPreferences.payloadFontSizeKey,
             DisplayPreferences.sectionTitleFontSizeKey
         ]

@@ -15,6 +15,8 @@ struct PopoverView: View {
     private var titleFontSize = DisplayPreferences.defaultTitleFontSize
     @AppStorage(DisplayPreferences.descriptionFontSizeKey)
     private var descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
+    @AppStorage(DisplayPreferences.noteFontSizeKey)
+    private var noteFontSize = DisplayPreferences.defaultNoteFontSize
     @AppStorage(DisplayPreferences.payloadFontSizeKey)
     private var payloadFontSize = DisplayPreferences.defaultPayloadFontSize
 
@@ -143,6 +145,7 @@ struct PopoverView: View {
                         values: store.effectiveValues(for: entry),
                         titleFontSize: CGFloat(titleFontSize),
                         descriptionFontSize: CGFloat(descriptionFontSize),
+                        noteFontSize: CGFloat(noteFontSize),
                         payloadFontSize: CGFloat(payloadFontSize),
                         isSelected: entry.id == selectedEntryID,
                         wasCopied: entry.id == store.copiedEntryID,
@@ -544,6 +547,7 @@ private struct EntryRow: View, Equatable {
     let values: [String: String]
     let titleFontSize: CGFloat
     let descriptionFontSize: CGFloat
+    let noteFontSize: CGFloat
     let payloadFontSize: CGFloat
     let isSelected: Bool
     let wasCopied: Bool
@@ -555,6 +559,7 @@ private struct EntryRow: View, Equatable {
             && lhs.values == rhs.values
             && lhs.titleFontSize == rhs.titleFontSize
             && lhs.descriptionFontSize == rhs.descriptionFontSize
+            && lhs.noteFontSize == rhs.noteFontSize
             && lhs.payloadFontSize == rhs.payloadFontSize
             && lhs.isSelected == rhs.isSelected
             && lhs.wasCopied == rhs.wasCopied
@@ -616,7 +621,8 @@ private struct EntryRow: View, Equatable {
         MarkdownDescriptionView(
             raw: raw,
             values: values,
-            fontSize: descriptionFontSize,
+            fontSize: noteFontSize,
+            textColor: EntryTextStyle.noteBodyColor,
             usesExpandedParagraphLayout: true,
             onSelect: onSelect
         )
@@ -645,6 +651,7 @@ private struct MarkdownDescriptionView: View {
     let raw: String
     let values: [String: String]
     let fontSize: CGFloat
+    var textColor: NSColor = .secondaryLabelColor
     var usesExpandedParagraphLayout = false
     let onSelect: () -> Void
 
@@ -655,6 +662,7 @@ private struct MarkdownDescriptionView: View {
                 case .text(let text):
                     renderedText(
                         text,
+                        baseColor: textColor,
                         lineSpacing: usesExpandedParagraphLayout ? 2.5 : 0
                     )
                 case .quote(let quote):
