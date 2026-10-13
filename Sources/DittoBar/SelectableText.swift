@@ -134,6 +134,8 @@ private final class SelectionNotifyingTextField: NSTextField {
 private final class InlineCodeTextFieldCell: NSTextFieldCell {
     static let horizontalInset: CGFloat = 3
     private static let verticalInset: CGFloat = 1.5
+    /// Keeps pills on consecutive lines from touching.
+    static let minimumLineSpacing: CGFloat = verticalInset * 2 + 2
 
     override func titleRect(forBounds rect: NSRect) -> NSRect {
         var titleRect = super.titleRect(forBounds: rect)
@@ -188,19 +190,34 @@ private final class InlineCodeTextFieldCell: NSTextFieldCell {
             in: NSRange(location: 0, length: attributedStringValue.length)
         ) { value, characterRange, _ in
             guard value != nil else { return }
-            let glyphRange = layoutManager.glyphRange(
+            let codeGlyphs = layoutManager.glyphRange(
                 forCharacterRange: characterRange,
                 actualCharacterRange: nil
             )
-            layoutManager.enumerateEnclosingRects(
-                forGlyphRange: glyphRange,
-                withinSelectedGlyphRange: NSRange(location: NSNotFound, length: 0),
-                in: textContainer
-            ) { rect, _ in
-                var pillRect = rect.offsetBy(dx: textRect.minX, dy: textRect.minY)
+            let font = attributedStringValue.attribute(
+                .font,
+                at: characterRange.location,
+                effectiveRange: nil
+            ) as? NSFont ?? NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+
+            // Size each pill from the code font around its baseline. The line
+            // fragment also includes line spacing, so growing it would run
+            // into a pill on the next line.
+            layoutManager.enumerateLineFragments(forGlyphRange: codeGlyphs) { lineRect, _, _, lineGlyphs, _ in
+                let glyphs = NSIntersectionRange(lineGlyphs, codeGlyphs)
+                guard glyphs.length > 0 else { return }
+
+                let bounds = layoutManager.boundingRect(forGlyphRange: glyphs, in: textContainer)
+                let baseline = lineRect.minY + layoutManager.location(forGlyphAt: glyphs.location).y
+                var pillRect = NSRect(
+                    x: bounds.minX,
+                    y: baseline - font.ascender - Self.verticalInset,
+                    width: bounds.width,
+                    height: font.ascender - font.descender + Self.verticalInset * 2
+                )
+                pillRect = pillRect.offsetBy(dx: textRect.minX, dy: textRect.minY)
                 pillRect.origin.x -= Self.horizontalInset
                 pillRect.size.width += Self.horizontalInset * 1.5
-                pillRect = pillRect.insetBy(dx: 0, dy: -Self.verticalInset)
                 pillRect = pillRect.intersection(cellFrame)
 
                 let path = NSBezierPath(
@@ -228,6 +245,10 @@ enum EntryTextStyle {
     /// than descriptions because notes are meant to be read at length. One
     /// shared instance keeps the rendered-text cache key stable.
     static let noteBodyColor = NSColor.labelColor.withAlphaComponent(0.75)
+
+    /// Shared by all description and note text, so lines are spaced the same
+    /// everywhere and inline-code pills on consecutive lines never touch.
+    static let lineSpacing = InlineCodeTextFieldCell.minimumLineSpacing
 
     private struct MarkdownRenderedKey: Hashable {
         let segments: [TextVariables.Segment]
@@ -409,11 +430,8 @@ enum EntryTextStyle {
             return style
         }
 
-        let result = NSMutableAttributedString()
-        for (index, entry) in items.enumerated() {
-            let item = entry.item
-            let textColumn = textColumns[item.depth]
-            let rendered = renderMarkdown(
+        let renderedItems = items.map { entry in
+            renderMarkdown(
                 entry.segments,
                 size: size,
                 emphasized: false,
@@ -424,7 +442,13 @@ enum EntryTextStyle {
                 emphasised: NSFont.systemFont(ofSize: size, weight: .semibold),
                 plainColor: baseColor
             )
+        }
 
+        let result = NSMutableAttributedString()
+        for (index, entry) in items.enumerated() {
+            let item = entry.item
+            let textColumn = textColumns[item.depth]
+            let rendered = renderedItems[index]
             let paragraph = NSMutableAttributedString(
                 attributedString: listMarker(for: item, attributes: markerAttributes, size: size)
             )

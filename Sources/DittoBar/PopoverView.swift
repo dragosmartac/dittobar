@@ -660,11 +660,7 @@ private struct MarkdownDescriptionView: View {
             ForEach(Array(renderBlocks.enumerated()), id: \.offset) { _, block in
                 switch block {
                 case .text(let text):
-                    renderedText(
-                        text,
-                        baseColor: textColor,
-                        lineSpacing: usesExpandedParagraphLayout ? 2.5 : 0
-                    )
+                    renderedText(text, baseColor: textColor)
                 case .quote(let quote):
                     renderedQuote(quote)
                 case .table(let table):
@@ -692,8 +688,7 @@ private struct MarkdownDescriptionView: View {
     private func renderedText(
         _ raw: String,
         emphasized: Bool = false,
-        baseColor: NSColor = .secondaryLabelColor,
-        lineSpacing: CGFloat = 0
+        baseColor: NSColor = .secondaryLabelColor
     ) -> some View {
         SelectableText(
             attributedString: EntryTextStyle.markdownRenderedDescription(
@@ -701,7 +696,7 @@ private struct MarkdownDescriptionView: View {
                 size: fontSize,
                 emphasized: emphasized,
                 baseColor: baseColor,
-                lineSpacing: lineSpacing
+                lineSpacing: EntryTextStyle.lineSpacing
             ),
             onMouseDown: onSelect
         )
@@ -765,7 +760,7 @@ private struct MarkdownDescriptionView: View {
                 },
                 size: fontSize,
                 baseColor: textColor,
-                lineSpacing: usesExpandedParagraphLayout ? 2.5 : 0
+                lineSpacing: EntryTextStyle.lineSpacing
             ),
             onMouseDown: onSelect
         )
@@ -778,11 +773,7 @@ private struct MarkdownDescriptionView: View {
                 .fill(Color(nsColor: .tertiaryLabelColor))
                 .frame(width: 3)
 
-            renderedText(
-                raw,
-                baseColor: .secondaryLabelColor,
-                lineSpacing: usesExpandedParagraphLayout ? 2.5 : 0
-            )
+            renderedText(raw, baseColor: .secondaryLabelColor)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 3)
