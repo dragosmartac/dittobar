@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
-    private let popover = NSPopover()
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private var panel: CheatSheetPanel!
     private let store = CheatSheetStore()
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
@@ -11,22 +11,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var displayedEntryActions: [EntryAction] = []
     private var hotKeyManager: HotKeyManager?
     private var keyMonitor: Any?
+    private var outsideClickMonitor: Any?
     private var previouslyActiveApplication: NSRunningApplication?
-    private var restoreFocusWhenPopoverCloses = false
     private var isCopyOptionsPresented = false
     private var copyOptionsEntry: CheatSheetEntry?
 
-    private static let popoverScreenHeightFraction: CGFloat = 0.85
+    private static let panelScreenHeightFraction: CGFloat = 0.85
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureMainMenu()
-        configurePopover()
+        configurePanel()
         configureStatusItem()
         configureCopyOptionsMenu()
 
         hotKeyManager = HotKeyManager { [weak self] in
             DispatchQueue.main.async {
-                self?.togglePopover(restoringFocusOnClose: true)
+                self?.togglePanel(restoringFocusOnClose: true)
             }
         }
 
@@ -50,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
         }
+        stopMonitoringOutsideClicks()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -79,14 +80,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         NSApp.mainMenu = mainMenu
     }
 
-    private func configurePopover() {
-        popover.behavior = .transient
-        popover.animates = true
-        popover.contentSize = preferredPopoverSize(for: NSScreen.main)
-        popover.contentViewController = NSHostingController(rootView: PopoverView(store: store))
-        popover.delegate = self
+    private func configurePanel() {
+        panel = CheatSheetPanel(rootView: PopoverView(store: store))
+        panel.delegate = self
         store.onRequestClose = { [weak self] in
-            self?.closePopover(restoringFocus: false)
+            self?.closePanel(restoringFocus: false)
         }
     }
 
@@ -126,7 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return
         }
 
-        togglePopover(restoringFocusOnClose: false)
+        togglePanel(restoringFocusOnClose: false)
     }
 
     @objc private func quitApplication() {
@@ -140,8 +138,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func showCopyOptionsMenu(for entry: CheatSheetEntry) {
-        guard popover.isShown,
-              let fallbackView = popover.contentViewController?.view else {
+        guard panel.isVisible,
+              let fallbackView = panel.contentView else {
             isCopyOptionsPresented = false
             copyOptionsEntry = nil
             store.restorePinnedEntrySelection()
@@ -189,9 +187,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
     }
 
-    private func togglePopover(restoringFocusOnClose: Bool) {
-        if popover.isShown {
-            closePopover(restoringFocus: restoringFocusOnClose)
+    private func togglePanel(restoringFocusOnClose: Bool) {
+        if panel.isVisible {
+            closePanel(restoringFocus: restoringFocusOnClose)
             return
         }
 
@@ -200,14 +198,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier {
             previouslyActiveApplication = frontmostApplication
         }
-        popover.contentSize = preferredPopoverSize(for: button.window?.screen ?? NSScreen.main)
         store.reload()
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        NSApp.activate(ignoringOtherApps: true)
-        popover.contentViewController?.view.window?.makeKey()
+        panel.setFrame(panelFrame(below: button), display: false)
+
+        // The panel takes keyboard focus without activating the app, so the
+        // previous app stays frontmost, including a fullscreen one.
+        panel.alphaValue = 0
+        panel.makeKeyAndOrderFront(nil)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.12
+            panel.animator().alphaValue = 1
+        }
+        startMonitoringOutsideClicks()
     }
 
-    private func preferredPopoverSize(for screen: NSScreen?) -> NSSize {
+    /// Places the panel just below the status item, kept on screen.
+    private func panelFrame(below button: NSStatusBarButton) -> NSRect {
+        let screen = button.window?.screen ?? NSScreen.main
+        let size = preferredPanelSize(for: screen)
+        guard let screen else { return NSRect(origin: .zero, size: size) }
+
+        let visibleFrame = screen.visibleFrame
+        let buttonFrame = button.window?.frame
+            ?? NSRect(x: visibleFrame.midX, y: visibleFrame.maxY, width: 0, height: 0)
+        let margin: CGFloat = 8
+        let x = min(
+            max(buttonFrame.midX - size.width / 2, visibleFrame.minX + margin),
+            visibleFrame.maxX - size.width - margin
+        )
+        let top = min(buttonFrame.minY, visibleFrame.maxY) - 4
+        return NSRect(x: x, y: top - size.height, width: size.width, height: size.height)
+    }
+
+    private func preferredPanelSize(for screen: NSScreen?) -> NSSize {
         guard let screen else {
             return NSSize(width: 900, height: 800)
         }
@@ -215,43 +238,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let widthFraction = DisplayPreferences.popoverWidthFraction()
         return NSSize(
             width: floor(screen.visibleFrame.width * widthFraction),
-            height: floor(screen.visibleFrame.height * Self.popoverScreenHeightFraction)
+            height: floor(screen.visibleFrame.height * Self.panelScreenHeightFraction)
         )
     }
 
     @objc private func displayPreferencesDidChange() {
-        guard popover.isShown else { return }
-        let screen = statusItem.button?.window?.screen
-            ?? popover.contentViewController?.view.window?.screen
-            ?? NSScreen.main
-        popover.contentSize = preferredPopoverSize(for: screen)
+        guard panel.isVisible, let button = statusItem.button else { return }
+        panel.setFrame(panelFrame(below: button), display: true)
     }
 
-    private func closePopover(restoringFocus: Bool) {
-        restoreFocusWhenPopoverCloses = restoringFocus
-        popover.performClose(nil)
+    /// Clicks in other apps close the panel, as they would a transient
+    /// popover. Clicks on the status item reach `statusItemClicked` instead.
+    private func startMonitoringOutsideClicks() {
+        guard outsideClickMonitor == nil else { return }
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.closePanel(restoringFocus: false)
+            }
+        }
     }
 
-    func popoverDidClose(_ notification: Notification) {
-        // Keep any in-progress variable form alive while the popover is hidden.
+    private func stopMonitoringOutsideClicks() {
+        if let outsideClickMonitor {
+            NSEvent.removeMonitor(outsideClickMonitor)
+        }
+        outsideClickMonitor = nil
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        // The panel's own sheets and alerts take key too, so wait until focus
+        // settles and close only if it moved somewhere else, such as another
+        // app after ⌘Tab.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.panel.isVisible, !self.panel.isKeyWindow,
+                  self.panel.attachedSheet == nil, !self.isCopyOptionsPresented else { return }
+            self.closePanel(restoringFocus: false)
+        }
+    }
+
+    private func closePanel(restoringFocus: Bool) {
+        guard panel.isVisible else { return }
+        stopMonitoringOutsideClicks()
+        panel.orderOut(nil)
+
+        // Keep any in-progress variable form alive while the panel is hidden.
         // This lets someone switch to another app to look up or copy a value,
-        // then reopen the popover and continue exactly where they left off.
+        // then reopen the panel and continue exactly where they left off.
         // The form's own Cancel button and Escape handling still discard it.
         store.restorePinnedEntrySelection()
         isCopyOptionsPresented = false
         copyOptionsEntry = nil
 
-        defer {
-            restoreFocusWhenPopoverCloses = false
-            previouslyActiveApplication = nil
-        }
+        defer { previouslyActiveApplication = nil }
 
-        guard restoreFocusWhenPopoverCloses else { return }
+        // The panel never activates the app, but its sheets and alerts can.
+        guard restoringFocus, NSApp.isActive else { return }
         previouslyActiveApplication?.activate(options: [])
     }
 
     private func handleKeyEvent(_ event: NSEvent) -> NSEvent? {
-        guard popover.isShown else { return event }
+        guard panel.isVisible else { return event }
 
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
@@ -277,7 +325,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         if event.keyCode == 53 {
-            closePopover(restoringFocus: true)
+            closePanel(restoringFocus: true)
             return nil
         }
 
@@ -367,4 +415,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         return event
     }
+}
+
+/// A floating panel that takes keyboard focus without activating the app.
+///
+/// An `NSPopover` only works while its app is active. Over a fullscreen app,
+/// macOS hands activation straight back to that app, and the popover closes
+/// as soon as it opens.
+final class CheatSheetPanel: NSPanel {
+    init<Content: View>(rootView: Content) {
+        super.init(
+            contentRect: .zero,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: true
+        )
+        isFloatingPanel = true
+        level = .statusBar
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
+        hidesOnDeactivate = false
+        becomesKeyOnlyIfNeeded = false
+        isReleasedWhenClosed = false
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
+
+        let hostingView = NSHostingView(rootView: rootView)
+        // The app sizes the panel from the screen, not from its content.
+        hostingView.sizingOptions = []
+        hostingView.wantsLayer = true
+        hostingView.layer?.cornerRadius = 10
+        hostingView.layer?.masksToBounds = true
+        contentView = hostingView
+    }
+
+    // Borderless windows refuse key status by default, which would leave the
+    // search field unable to receive typing.
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 }
