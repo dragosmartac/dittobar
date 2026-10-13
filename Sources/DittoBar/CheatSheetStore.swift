@@ -4,10 +4,21 @@ import SwiftUI
 
 @MainActor
 final class CheatSheetStore: ObservableObject {
-    @Published private(set) var sheets: [CheatSheet] = []
-    @Published var selectedSheetIndex = 0
+    @Published private(set) var sheets: [CheatSheet] = [] {
+        didSet { updateVisibleItems() }
+    }
+    @Published var selectedSheetIndex = 0 {
+        didSet { updateVisibleItems() }
+    }
     @Published var selectedEntryIndex = 0
-    @Published var query = ""
+    @Published var query = "" {
+        didSet { updateVisibleItems() }
+    }
+    /// The selected sheet's items that match `query`. Stored rather than
+    /// computed: a single key press reads it several times, and each read
+    /// would filter the whole sheet again.
+    @Published private(set) var visibleItems: [CheatSheetItem] = []
+    private(set) var visibleEntries: [CheatSheetEntry] = []
     @Published private(set) var copiedEntryID: String?
     @Published var editorErrorMessage: String?
     @Published var isNewSheetPromptPresented = false
@@ -19,6 +30,10 @@ final class CheatSheetStore: ObservableObject {
     let folderURL: URL
     var onRequestClose: (() -> Void)?
     weak var selectedRowAnchorView: NSView?
+
+    /// An in-memory copy of `EntryVariableStorage`, which every row reads on
+    /// every update. Reloaded with the sheets and updated when values are saved.
+    private var rememberedValues: [String: [String: String]] = [:]
 
     /// What caused the latest change to `selectedEntryIndex`, so the list can
     /// decide how to scroll to the new selection.
@@ -57,15 +72,15 @@ final class CheatSheetStore: ObservableObject {
         return sheets[selectedSheetIndex]
     }
 
-    var visibleItems: [CheatSheetItem] {
-        guard let sheet = selectedSheet else { return [] }
-        return CheatSheetSearch.filteredItems(in: sheet, matching: query) { entry in
-            effectiveValues(for: entry)
+    private func updateVisibleItems() {
+        if let sheet = selectedSheet {
+            visibleItems = CheatSheetSearch.filteredItems(in: sheet, matching: query) { entry in
+                effectiveValues(for: entry)
+            }
+        } else {
+            visibleItems = []
         }
-    }
-
-    var visibleEntries: [CheatSheetEntry] {
-        visibleItems.compactMap(\.entry)
+        visibleEntries = visibleItems.compactMap(\.entry)
     }
 
     var selectedEntry: CheatSheetEntry? {
@@ -150,7 +165,7 @@ final class CheatSheetStore: ObservableObject {
     /// whatever was last entered for the variables it still declares.
     func effectiveValues(for entry: CheatSheetEntry) -> [String: String] {
         var values = entry.defaultValues
-        let remembered = EntryVariableStorage.values(for: entry.storageKey)
+        let remembered = rememberedValues[entry.storageKey] ?? [:]
         for variable in entry.variables {
             if let value = remembered[variable.name] {
                 values[variable.name] = value
@@ -193,11 +208,12 @@ final class CheatSheetStore: ObservableObject {
 
     func confirmVariableForm() {
         guard let form = variableForm else { return }
-        let remembered = EntryVariableStorage.values(for: form.storageKey)
-        EntryVariableStorage.save(
-            remembered.merging(form.values) { _, newValue in newValue },
-            for: form.storageKey
-        )
+        let remembered = rememberedValues[form.storageKey] ?? [:]
+        let values = remembered.merging(form.values) { _, newValue in newValue }
+        EntryVariableStorage.save(values, for: form.storageKey)
+        rememberedValues[form.storageKey] = values
+        // Search also matches variable values.
+        updateVisibleItems()
         variableForm = nil
         if form.action == .openURL {
             openURL(form.output)
@@ -461,6 +477,8 @@ final class CheatSheetStore: ObservableObject {
 
     func reload(fileManager: FileManager = .default) {
         let previousSheetID = selectedSheet?.id
+        // Before the sheets, whose filtering reads the values.
+        rememberedValues = EntryVariableStorage.allValues()
         let urls = (try? fileManager.contentsOfDirectory(
             at: folderURL,
             includingPropertiesForKeys: nil,

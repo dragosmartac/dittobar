@@ -9,6 +9,11 @@ enum EntryVariableStorage {
         stored(in: defaults)[storageKey] ?? [:]
     }
 
+    /// Every entry's remembered values, keyed by storage key.
+    static func allValues(defaults: UserDefaults = .standard) -> [String: [String: String]] {
+        stored(in: defaults)
+    }
+
     static func save(
         _ values: [String: String],
         for storageKey: String,

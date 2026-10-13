@@ -3,7 +3,7 @@
 /// same field, so one edit updates every occurrence in the text.
 enum TextVariables {
     /// A resolved run of text, tagged with the variable it came from.
-    struct Segment: Equatable {
+    struct Segment: Hashable {
         let text: String
         let variableName: String?
 

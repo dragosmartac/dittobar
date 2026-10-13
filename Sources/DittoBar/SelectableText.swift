@@ -224,6 +224,22 @@ private final class InlineCodeTextFieldCell: NSTextFieldCell {
 /// those text styles do not line up with SwiftUI's `.headline` / `.caption`,
 /// which made the rows render at inconsistent sizes.
 enum EntryTextStyle {
+    private struct MarkdownRenderedKey: Hashable {
+        let segments: [TextVariables.Segment]
+        let size: CGFloat
+        let emphasized: Bool
+        let baseColor: NSColor
+        let lineSpacing: CGFloat
+    }
+
+    /// Rendering parses Markdown and styles it character by character, and a
+    /// row renders its text again each time it scrolls into view. The result
+    /// depends only on the key, so keep it. Rows are only built on the main
+    /// thread. Cleared when full rather than evicted one by one, since a full
+    /// cache means the text or settings changed a lot anyway.
+    private static var markdownRenderedCache: [MarkdownRenderedKey: NSAttributedString] = [:]
+    private static let markdownRenderedCacheLimit = 2_000
+
     static func title(_ text: String, size: CGFloat) -> NSAttributedString {
         NSAttributedString(
             string: text,
@@ -243,6 +259,38 @@ enum EntryTextStyle {
         emphasized: Bool = false,
         baseColor: NSColor = .secondaryLabelColor,
         lineSpacing: CGFloat = 0
+    ) -> NSAttributedString {
+        let key = MarkdownRenderedKey(
+            segments: segments,
+            size: size,
+            emphasized: emphasized,
+            baseColor: baseColor,
+            lineSpacing: lineSpacing
+        )
+        if let cached = markdownRenderedCache[key] {
+            return cached
+        }
+
+        let result = uncachedMarkdownRenderedDescription(
+            segments,
+            size: size,
+            emphasized: emphasized,
+            baseColor: baseColor,
+            lineSpacing: lineSpacing
+        )
+        if markdownRenderedCache.count >= markdownRenderedCacheLimit {
+            markdownRenderedCache.removeAll()
+        }
+        markdownRenderedCache[key] = result
+        return result
+    }
+
+    private static func uncachedMarkdownRenderedDescription(
+        _ segments: [TextVariables.Segment],
+        size: CGFloat,
+        emphasized: Bool,
+        baseColor: NSColor,
+        lineSpacing: CGFloat
     ) -> NSAttributedString {
         let rendered = renderMarkdown(
             segments,
