@@ -169,8 +169,6 @@ struct PopoverView: View {
 
     private var entryList: some View {
         let selectedItemID = store.selectedItemID
-        // Only sections with entries are selectable, so the rest are empty.
-        let selectableItemIDs = Set(store.selectableItems.map(\.id))
 
         return ScrollViewReader { proxy in
             List(store.visibleItems) { item in
@@ -179,8 +177,7 @@ struct PopoverView: View {
                     SectionHeaderRow(
                         title: section.title,
                         fontSize: CGFloat(sectionTitleFontSize),
-                        fonts: fonts,
-                        isEmpty: !selectableItemIDs.contains(item.id)
+                        fonts: fonts
                     )
                     .background(
                         SelectedRowAnchor(
@@ -891,7 +888,6 @@ private struct SectionHeaderRow: View {
     let title: String
     let fontSize: CGFloat
     let fonts: EntryFonts
-    let isEmpty: Bool
 
     var body: some View {
         // Uppercase and a trailing rule mark a heading, so a large gray
@@ -900,16 +896,15 @@ private struct SectionHeaderRow: View {
             Text(title.uppercased())
                 .font(Font(fonts.text(size: fontSize * 0.8, weight: .semibold)))
                 .tracking(fontSize * 0.06)
-                .foregroundStyle(isEmpty ? .secondary : .primary)
+                .foregroundStyle(.primary)
                 .lineLimit(1)
             Rectangle()
                 .fill(Color(nsColor: .separatorColor))
                 .frame(height: 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Empty sections stack tightly instead of each taking a full gap.
-        .padding(.top, isEmpty ? 2 : 10)
-        .padding(.bottom, isEmpty ? 0 : 2)
+        .padding(.top, 10)
+        .padding(.bottom, 2)
         .listRowSeparator(.hidden)
         .accessibilityLabel(title)
         .accessibilityAddTraits(.isHeader)
