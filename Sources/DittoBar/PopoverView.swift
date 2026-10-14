@@ -87,32 +87,13 @@ struct PopoverView: View {
 
     private var header: some View {
         VStack(spacing: 10) {
-            HStack {
-                Image(systemName: "command.square.fill")
-                    .font(.system(size: chromeSize * 1.3))
-                    .foregroundStyle(.tint)
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("Ditto Bar")
-                        .font(.system(size: chromeSize, weight: .semibold))
-                    Text("Write it only once")
-                        .font(.system(size: chromeSize * 0.77))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
+            // The search field takes the title row: the menu-bar icon already
+            // says which app this is, and the list gets the space back.
+            HStack(spacing: 10) {
+                searchField
                 MoreOptionsButton(store: store, symbolSize: chromeSize * 1.15)
                     .frame(width: chromeSize * 1.5, height: chromeSize * 1.5)
             }
-
-            TextField("Search entries", text: $store.query)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: chromeSize))
-                .focused($searchIsFocused)
-                .onChange(of: store.query) {
-                    store.selectFirstEntry()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .focusCheatSheetSearch)) { _ in
-                    searchIsFocused = true
-                }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
@@ -143,6 +124,47 @@ struct PopoverView: View {
             }
         }
         .padding(14)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search entries", text: $store.query)
+                .textFieldStyle(.plain)
+                .focused($searchIsFocused)
+                .onChange(of: store.query) {
+                    store.selectFirstEntry()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .focusCheatSheetSearch)) { _ in
+                    searchIsFocused = true
+                }
+            if !store.query.isEmpty {
+                Button {
+                    store.query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .font(.system(size: chromeSize))
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
+        // Clicking the icon or padding focuses the field too.
+        .contentShape(RoundedRectangle(cornerRadius: 7))
+        .onTapGesture { searchIsFocused = true }
+        // A thin tinted outline instead of the thick system focus ring.
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .strokeBorder(
+                    searchIsFocused ? Color.accentColor.opacity(0.5) : Color.primary.opacity(0.08),
+                    lineWidth: 1
+                )
+        }
     }
 
     private var entryList: some View {
