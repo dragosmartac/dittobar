@@ -241,10 +241,9 @@ struct PopoverView: View {
                                 ? Color.accentColor.opacity(0.12)
                                 : Color.clear
                     )
+                    // No dividers: spacing separates entries, and section rules
+                    // group them, so nothing cuts across the selection fill.
                     .listRowSeparator(.hidden)
-                    .overlay(alignment: .bottom) {
-                        Divider()
-                    }
                 }
             }
             .listStyle(.inset)
@@ -672,7 +671,7 @@ private struct EntryRow: View, Equatable {
                 payloadText(url.rawURL)
             }
         }
-        .padding(.vertical, 5)
+        .padding(.vertical, 8)
     }
 
     private func descriptionText(_ raw: String) -> some View {
