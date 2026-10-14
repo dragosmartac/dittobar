@@ -28,6 +28,11 @@ struct PopoverView: View {
         EntryFonts(textFamily: textFontFamily, codeFamily: codeFontFamily)
     }
 
+    /// The header, tabs, and footer scale with the entry title size, so
+    /// larger list text does not leave the controls around it looking tiny.
+    /// The ratios match the system text styles at the default size.
+    private var chromeSize: CGFloat { CGFloat(titleFontSize) }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -84,22 +89,23 @@ struct PopoverView: View {
         VStack(spacing: 10) {
             HStack {
                 Image(systemName: "command.square.fill")
-                    .font(.title2)
+                    .font(.system(size: chromeSize * 1.3))
                     .foregroundStyle(.tint)
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("Ditto Bar")
-                        .font(.headline)
+                        .font(.system(size: chromeSize, weight: .semibold))
                     Text("Write it only once")
-                        .font(.caption)
+                        .font(.system(size: chromeSize * 0.77))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                MoreOptionsButton(store: store)
-                    .frame(width: 20, height: 20)
+                MoreOptionsButton(store: store, symbolSize: chromeSize * 1.15)
+                    .frame(width: chromeSize * 1.5, height: chromeSize * 1.5)
             }
 
             TextField("Search entries", text: $store.query)
                 .textFieldStyle(.roundedBorder)
+                .font(.system(size: chromeSize))
                 .focused($searchIsFocused)
                 .onChange(of: store.query) {
                     store.selectFirstEntry()
@@ -121,6 +127,7 @@ struct PopoverView: View {
                                 }
                                 Text(sheet.title)
                             }
+                            .font(.system(size: chromeSize))
                             .padding(.horizontal, 9)
                             .padding(.vertical, 5)
                             .background(
@@ -394,15 +401,15 @@ struct PopoverView: View {
             footerShortcutDivider
             Text("⌘⇧M more")
         }
-        .font(.caption)
+        .font(.system(size: chromeSize * 0.85))
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
-        .frame(height: 38)
+        .frame(height: max(38, chromeSize * 2.6))
     }
 
     private var footerShortcutDivider: some View {
         Divider()
-            .frame(height: 14)
+            .frame(height: chromeSize * 1.1)
             .opacity(0.7)
     }
 }
@@ -445,6 +452,7 @@ private struct SelectedRowAnchor: NSViewRepresentable {
 
 private struct MoreOptionsButton: NSViewRepresentable {
     let store: CheatSheetStore
+    let symbolSize: CGFloat
 
     func makeCoordinator() -> Coordinator {
         Coordinator(store: store)
@@ -468,6 +476,8 @@ private struct MoreOptionsButton: NSViewRepresentable {
 
     func updateNSView(_ button: NSButton, context: Context) {
         context.coordinator.button = button
+        // The button only scales its image down, so size the symbol itself.
+        button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .regular)
     }
 
     @MainActor
