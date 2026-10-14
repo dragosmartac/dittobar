@@ -10,7 +10,8 @@ final class CheatSheetStore: ObservableObject {
     @Published var selectedSheetIndex = 0 {
         didSet { updateVisibleItems() }
     }
-    @Published var selectedEntryIndex = 0
+    /// Indexes `selectableItems`.
+    @Published var selectedItemIndex = 0
     @Published var query = "" {
         didSet { updateVisibleItems() }
     }
@@ -19,13 +20,16 @@ final class CheatSheetStore: ObservableObject {
     /// would filter the whole sheet again.
     @Published private(set) var visibleItems: [CheatSheetItem] = []
     private(set) var visibleEntries: [CheatSheetEntry] = []
-    @Published private(set) var copiedEntryID: String?
+    /// The visible entries, plus each section that has visible entries for
+    /// its actions to act on.
+    private(set) var selectableItems: [CheatSheetItem] = []
+    @Published private(set) var copiedEntryIDs: Set<String> = []
     @Published var editorErrorMessage: String?
     @Published var isNewSheetPromptPresented = false
     @Published var newSheetName = ""
     @Published var variableForm: VariableFormState?
     @Published var isSettingsPresented = false
-    @Published private var pinnedEntryID: String?
+    @Published private var pinnedItemID: String?
 
     let folderURL: URL
     var onRequestClose: (() -> Void)?
@@ -35,7 +39,7 @@ final class CheatSheetStore: ObservableObject {
     /// every update. Reloaded with the sheets and updated when values are saved.
     private var rememberedValues: [String: [String: String]] = [:]
 
-    /// What caused the latest change to `selectedEntryIndex`, so the list can
+    /// What caused the latest change to `selectedItemIndex`, so the list can
     /// decide how to scroll to the new selection.
     enum EntrySelectionSource {
         case keyboard
@@ -59,6 +63,7 @@ final class CheatSheetStore: ObservableObject {
 
         createInitialFilesIfNeeded(fileManager: fileManager)
         reload(fileManager: fileManager)
+        selectFirstEntry()
 
         watcher = DirectoryWatcher(path: folderURL.path) { [weak self] in
             DispatchQueue.main.async {
@@ -81,27 +86,42 @@ final class CheatSheetStore: ObservableObject {
             visibleItems = []
         }
         visibleEntries = visibleItems.compactMap(\.entry)
-    }
-
-    var selectedEntry: CheatSheetEntry? {
-        let entries = visibleEntries
-        if let pinnedEntryID,
-           let entry = entries.first(where: { $0.id == pinnedEntryID }) {
-            return entry
+        selectableItems = visibleItems.indices.compactMap { index in
+            let item = visibleItems[index]
+            guard item.section != nil else { return item }
+            let nextIndex = visibleItems.index(after: index)
+            let hasEntries = visibleItems.indices.contains(nextIndex)
+                && visibleItems[nextIndex].entry != nil
+            return hasEntries ? item : nil
         }
-        guard entries.indices.contains(selectedEntryIndex) else { return nil }
-        return entries[selectedEntryIndex]
     }
 
-    var selectedEntryID: String? {
-        pinnedEntryID ?? selectedEntry?.id
+    var selectedItem: CheatSheetItem? {
+        if let pinnedItemID,
+           let item = selectableItems.first(where: { $0.id == pinnedItemID }) {
+            return item
+        }
+        guard selectableItems.indices.contains(selectedItemIndex) else { return nil }
+        return selectableItems[selectedItemIndex]
     }
 
-    func selectEntry(_ entry: CheatSheetEntry) {
-        guard let index = visibleEntries.firstIndex(where: { $0.id == entry.id }) else {
+    var selectedItemID: String? {
+        pinnedItemID ?? selectedItem?.id
+    }
+
+    var selectedEntry: CheatSheetEntry? { selectedItem?.entry }
+
+    func selectItem(_ item: CheatSheetItem) {
+        guard let index = selectableItems.firstIndex(where: { $0.id == item.id }) else {
             return
         }
-        setSelectedEntryIndex(index, source: .pointer)
+        setSelectedItemIndex(index, source: .pointer)
+    }
+
+    /// Lands on the first entry rather than its section, so Return copies
+    /// the top search result.
+    func selectFirstEntry() {
+        selectedItemIndex = selectableItems.firstIndex { $0.entry != nil } ?? 0
     }
 
     /// Returns what caused the latest selection change and resets it, so
@@ -111,32 +131,32 @@ final class CheatSheetStore: ObservableObject {
         return entrySelectionSource
     }
 
-    private func setSelectedEntryIndex(_ index: Int, source: EntrySelectionSource) {
+    private func setSelectedItemIndex(_ index: Int, source: EntrySelectionSource) {
         // An unchanged index fires no onChange, which would leave the source
         // set for an unrelated later change.
-        guard index != selectedEntryIndex else { return }
+        guard index != selectedItemIndex else { return }
         entrySelectionSource = source
-        selectedEntryIndex = index
+        selectedItemIndex = index
     }
 
     /// Native menu tracking can temporarily disturb SwiftUI list selection.
-    /// Keep both rendering and entry lookup tied to the entry that opened it.
-    func pinEntrySelection(_ entry: CheatSheetEntry) {
-        pinnedEntryID = entry.id
+    /// Keep both rendering and item lookup tied to the item that opened it.
+    func pinSelection(_ item: CheatSheetItem) {
+        pinnedItemID = item.id
     }
 
-    func restorePinnedEntrySelection() {
-        guard let pinnedEntryID else { return }
-        if let index = visibleEntries.firstIndex(where: { $0.id == pinnedEntryID }) {
-            selectedEntryIndex = index
+    func restorePinnedSelection() {
+        guard let pinnedItemID else { return }
+        if let index = selectableItems.firstIndex(where: { $0.id == pinnedItemID }) {
+            selectedItemIndex = index
         }
-        self.pinnedEntryID = nil
+        self.pinnedItemID = nil
     }
 
     func selectSheet(at index: Int) {
         guard sheets.indices.contains(index) else { return }
         selectedSheetIndex = index
-        selectedEntryIndex = 0
+        selectFirstEntry()
     }
 
     func moveSheetSelection(by offset: Int) {
@@ -146,13 +166,13 @@ final class CheatSheetStore: ObservableObject {
     }
 
     func moveSelection(by offset: Int, isRepeat: Bool = false) {
-        let count = visibleEntries.count
+        let count = selectableItems.count
         guard count > 0 else {
-            selectedEntryIndex = 0
+            selectedItemIndex = 0
             return
         }
-        setSelectedEntryIndex(
-            (selectedEntryIndex + offset + count) % count,
+        setSelectedItemIndex(
+            (selectedItemIndex + offset + count) % count,
             source: isRepeat ? .keyboardRepeat : .keyboard
         )
     }
@@ -218,7 +238,7 @@ final class CheatSheetStore: ObservableObject {
         if form.action == .openURL {
             openURL(form.output)
         } else {
-            writeToPasteboard(form.output, flashing: form.entryID)
+            writeToPasteboard(form.output, flashing: [form.entryID])
         }
     }
 
@@ -252,7 +272,7 @@ final class CheatSheetStore: ObservableObject {
 
         switch (action, entry) {
         case (.copyTitle, _):
-            writeToPasteboard(entry.title, flashing: entry.id)
+            writeToPasteboard(entry.title, flashing: [entry.id])
 
         case (.copyCommand, .command(let command)):
             performTextAction(
@@ -340,43 +360,166 @@ final class CheatSheetStore: ObservableObject {
             return
         }
 
-        let resolved = TextVariables.resolve(raw, values: effectiveValues(for: entry))
-        let output = textForm == .markdownStripped
-            ? MarkdownText.stripped(resolved)
-            : resolved
+        let output = self.output(raw, for: entry, textForm: textForm)
         if action == .openURL {
             openURL(output)
         } else {
-            writeToPasteboard(output, flashing: entry.id)
+            writeToPasteboard(output, flashing: [entry.id])
         }
     }
 
+    private func output(_ raw: String, for entry: CheatSheetEntry, textForm: EntryTextForm) -> String {
+        let resolved = TextVariables.resolve(raw, values: effectiveValues(for: entry))
+        return textForm == .markdownStripped ? MarkdownText.stripped(resolved) : resolved
+    }
+
     private func openURL(_ value: String) {
+        if openURLWithoutClosing(value) {
+            onRequestClose?()
+        }
+    }
+
+    /// Reports a failure through `editorErrorMessage` and returns false.
+    private func openURLWithoutClosing(_ value: String) -> Bool {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: trimmedValue), url.scheme != nil else {
             editorErrorMessage = "\"\(trimmedValue)\" is not a valid URL."
-            return
+            return false
         }
 
         guard NSWorkspace.shared.open(url) else {
             editorErrorMessage = "The URL could not be opened."
-            return
+            return false
         }
-        onRequestClose?()
+        return true
     }
 
-    private func writeToPasteboard(_ value: String, flashing entryID: String) {
+    private func writeToPasteboard(_ value: String, flashing entryIDs: Set<String>) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(value, forType: .string)
-        copiedEntryID = entryID
+        copiedEntryIDs = entryIDs
 
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(1))
-            if self?.copiedEntryID == entryID {
-                self?.copiedEntryID = nil
+            if self?.copiedEntryIDs == entryIDs {
+                self?.copiedEntryIDs = []
             }
         }
+    }
+
+    // MARK: - Section actions
+
+    /// The visible entries under a section heading, up to the next heading.
+    /// While searching, only the entries that match are included.
+    func entries(in section: CheatSheetSection) -> [CheatSheetEntry] {
+        guard let start = visibleItems.firstIndex(of: .section(section)) else { return [] }
+        return Array(
+            visibleItems[(start + 1)...]
+                .prefix { $0.section == nil }
+                .compactMap(\.entry)
+        )
+    }
+
+    func actions(for section: CheatSheetSection) -> [SectionAction] {
+        let entries = entries(in: section)
+        var actions: [SectionAction] = []
+        if entries.contains(where: { if case .url = $0 { true } else { false } }) {
+            actions.append(.openAllURLs)
+        }
+        if !entries.isEmpty {
+            actions.append(contentsOf: [.copyAllEntries, .copyAsMarkdown])
+        }
+        return actions
+    }
+
+    /// Uses each entry's current values without showing the variable form.
+    func perform(_ action: SectionAction, for section: CheatSheetSection) {
+        let entries = entries(in: section)
+
+        switch action {
+        case .openAllURLs:
+            let urls = entries.compactMap { entry -> String? in
+                guard case .url(let url) = entry else { return nil }
+                return output(url.rawURL, for: entry, textForm: .resolved)
+            }
+            // Open every URL even if one fails, then close only if all opened.
+            let failures = urls.filter { !openURLWithoutClosing($0) }
+            if failures.isEmpty, !urls.isEmpty {
+                onRequestClose?()
+            }
+
+        case .copyAllEntries:
+            guard !entries.isEmpty else { return }
+            writeToPasteboard(
+                Self.joinedEntryTexts(entries.map(primaryText(for:))),
+                flashing: Set(entries.map(\.id))
+            )
+
+        case .copyAsMarkdown:
+            guard !entries.isEmpty else { return }
+            writeToPasteboard(markdown(for: section), flashing: Set(entries.map(\.id)))
+        }
+    }
+
+    /// The section and its visible entries in cheat-sheet Markdown, with
+    /// each text resolved. URLs become bare lines, which most Markdown
+    /// renderers turn into links, rather than `url` fences.
+    func markdown(for section: CheatSheetSection) -> String {
+        let blocks = entries(in: section).map { entry -> String in
+            var parts = ["### \(entry.title)"]
+            switch entry {
+            case .note(let note):
+                parts.append(output(note.rawContent, for: entry, textForm: .resolved))
+            case .command(let command):
+                if let rawDescription = command.rawDescription {
+                    parts.append(output(rawDescription, for: entry, textForm: .resolved))
+                }
+                parts.append(Self.fenced(
+                    output(command.rawCommand, for: entry, textForm: .resolved),
+                    language: command.language
+                ))
+            case .url(let url):
+                if let rawDescription = url.rawDescription {
+                    parts.append(output(rawDescription, for: entry, textForm: .resolved))
+                }
+                parts.append(output(url.rawURL, for: entry, textForm: .resolved))
+            }
+            return parts
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .joined(separator: "\n\n")
+        }
+        return (["## \(section.title)"] + blocks).joined(separator: "\n\n")
+    }
+
+    /// Uses a fence longer than any backtick run in the code.
+    private static func fenced(_ code: String, language: String?) -> String {
+        var fence = "```"
+        while code.contains(fence) {
+            fence += "`"
+        }
+        let trimmed = code.trimmingCharacters(in: .newlines)
+        return "\(fence)\(language ?? "")\n\(trimmed)\n\(fence)"
+    }
+
+    /// The text an entry's primary action copies.
+    private func primaryText(for entry: CheatSheetEntry) -> String {
+        switch entry {
+        case .command(let command):
+            return output(command.rawCommand, for: entry, textForm: .resolved)
+        case .note(let note):
+            return output(note.rawContent, for: entry, textForm: .markdownStripped)
+        case .url(let url):
+            return output(url.rawURL, for: entry, textForm: .resolved)
+        }
+    }
+
+    /// One text per line when every text fits on one line, so commands paste
+    /// as a script and URLs as a list. Otherwise a blank line between texts.
+    static func joinedEntryTexts(_ texts: [String]) -> String {
+        let trimmed = texts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let separator = trimmed.contains { $0.contains("\n") } ? "\n\n" : "\n"
+        return trimmed.joined(separator: separator)
     }
 
     func openFolder() {
@@ -499,7 +642,7 @@ final class CheatSheetStore: ObservableObject {
         } else {
             selectedSheetIndex = min(selectedSheetIndex, max(0, sheets.count - 1))
         }
-        selectedEntryIndex = min(selectedEntryIndex, max(0, visibleEntries.count - 1))
+        selectedItemIndex = min(selectedItemIndex, max(0, selectableItems.count - 1))
     }
 
     private func createInitialFilesIfNeeded(fileManager: FileManager) {

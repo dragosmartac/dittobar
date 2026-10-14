@@ -102,7 +102,7 @@ struct PopoverView: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($searchIsFocused)
                 .onChange(of: store.query) {
-                    store.selectedEntryIndex = 0
+                    store.selectFirstEntry()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .focusCheatSheetSearch)) { _ in
                     searchIsFocused = true
@@ -139,7 +139,7 @@ struct PopoverView: View {
     }
 
     private var entryList: some View {
-        let selectedEntryID = store.selectedEntryID
+        let selectedItemID = store.selectedItemID
 
         return ScrollViewReader { proxy in
             List(store.visibleItems) { item in
@@ -150,6 +150,28 @@ struct PopoverView: View {
                         fontSize: CGFloat(sectionTitleFontSize),
                         fonts: fonts
                     )
+                    .background(
+                        SelectedRowAnchor(
+                            store: store,
+                            isSelected: item.id == selectedItemID
+                        )
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        store.selectItem(item)
+                    }
+                    .listRowBackground(
+                        item.id == selectedItemID
+                            ? Color.accentColor.opacity(0.12)
+                            : Color.clear
+                    )
+                    .contextMenu {
+                        ForEach(Array(store.actions(for: section).enumerated()), id: \.offset) { _, action in
+                            Button(action.title) {
+                                store.perform(action, for: section)
+                            }
+                        }
+                    }
 
                 case .entry(let entry):
                     EntryRow(
@@ -160,30 +182,30 @@ struct PopoverView: View {
                         noteFontSize: CGFloat(noteFontSize),
                         payloadFontSize: CGFloat(payloadFontSize),
                         fonts: fonts,
-                        isSelected: entry.id == selectedEntryID,
-                        wasCopied: entry.id == store.copiedEntryID,
-                        onSelect: { store.selectEntry(entry) }
+                        isSelected: item.id == selectedItemID,
+                        wasCopied: store.copiedEntryIDs.contains(entry.id),
+                        onSelect: { store.selectItem(item) }
                     )
                     .equatable()
                     .background(
                         SelectedRowAnchor(
                             store: store,
-                            isSelected: entry.id == selectedEntryID
+                            isSelected: item.id == selectedItemID
                         )
                     )
                     .contentShape(Rectangle())
                     // No double-click action: it would swallow the double-click
                     // that selects a word in the selectable text below.
                     .onTapGesture {
-                        store.selectEntry(entry)
+                        store.selectItem(item)
                     }
                     .contextMenu {
                         actionButtons(for: entry)
                     }
                     .listRowBackground(
-                        entry.id == store.copiedEntryID
+                        store.copiedEntryIDs.contains(entry.id)
                             ? Color.green.opacity(0.24)
-                            : entry.id == selectedEntryID
+                            : item.id == selectedItemID
                                 ? Color.accentColor.opacity(0.12)
                                 : Color.clear
                     )
@@ -199,12 +221,11 @@ struct PopoverView: View {
                     ContentUnavailableView.search(text: store.query)
                 }
             }
-            .onChange(of: store.selectedEntryIndex) { oldIndex, newIndex in
+            .onChange(of: store.selectedItemIndex) { oldIndex, newIndex in
                 let source = store.consumeEntrySelectionSource()
                 // A clicked row is already under the pointer; scrolling would
                 // slide it away.
-                guard source != .pointer, let entry = store.selectedEntry else { return }
-                let itemID = CheatSheetItem.entry(entry).id
+                guard source != .pointer, let itemID = store.selectedItem?.id else { return }
                 let duration = scrollDuration(for: source, rowDistance: abs(newIndex - oldIndex))
 
                 let scroll = {
@@ -228,8 +249,8 @@ struct PopoverView: View {
             .onChange(of: store.query) {
                 guard let entry = store.visibleEntries.first else { return }
 
-                // The selected index may already be zero, in which case its
-                // onChange handler does not fire. Wait for the filtered rows
+                // The selected index may already point at the first entry, in
+                // which case its onChange handler does not fire. Wait for the filtered rows
                 // to be laid out, then center the first result explicitly.
                 DispatchQueue.main.async {
                     withAnimation(.easeOut(duration: 0.12)) {
@@ -839,7 +860,6 @@ private struct SectionHeaderRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 10)
             .padding(.bottom, 2)
-            .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .accessibilityAddTraits(.isHeader)
     }

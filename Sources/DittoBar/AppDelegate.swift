@@ -8,13 +8,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
     private var copyOptionsMenu: NSMenu!
-    private var displayedEntryActions: [EntryAction] = []
+    /// Run by the copy options menu's items, indexed by their tags.
+    private var displayedActions: [() -> Void] = []
     private var hotKeyManager: HotKeyManager?
     private var keyMonitor: Any?
     private var outsideClickMonitor: Any?
     private var previouslyActiveApplication: NSRunningApplication?
     private var isCopyOptionsPresented = false
-    private var copyOptionsEntry: CheatSheetEntry?
+    private var copyOptionsItem: CheatSheetItem?
 
     private static let panelScreenHeightFraction: CGFloat = 0.85
 
@@ -131,22 +132,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.terminate(nil)
     }
 
-    @objc private func performSelectedEntryAction(_ sender: NSMenuItem) {
-        guard let entry = copyOptionsEntry,
-              displayedEntryActions.indices.contains(sender.tag) else { return }
-        store.perform(displayedEntryActions[sender.tag], for: entry)
+    @objc private func performDisplayedAction(_ sender: NSMenuItem) {
+        guard copyOptionsItem != nil,
+              displayedActions.indices.contains(sender.tag) else { return }
+        displayedActions[sender.tag]()
     }
 
-    private func showCopyOptionsMenu(for entry: CheatSheetEntry) {
+    private func presentCopyOptionsMenu(for item: CheatSheetItem) {
+        copyOptionsItem = item
+        store.pinSelection(item)
+        isCopyOptionsPresented = true
+        DispatchQueue.main.async { [weak self] in
+            self?.showCopyOptionsMenu(for: item)
+        }
+    }
+
+    private func showCopyOptionsMenu(for item: CheatSheetItem) {
         guard panel.isVisible,
               let fallbackView = panel.contentView else {
             isCopyOptionsPresented = false
-            copyOptionsEntry = nil
-            store.restorePinnedEntrySelection()
+            copyOptionsItem = nil
+            store.restorePinnedSelection()
             return
         }
 
-        rebuildCopyOptionsMenu(for: entry)
+        rebuildCopyOptionsMenu(for: item)
 
         let anchorView = store.selectedRowAnchorView?.window == fallbackView.window
             ? store.selectedRowAnchorView ?? fallbackView
@@ -163,27 +173,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             at: anchorPoint,
             in: anchorView
         )
-        store.restorePinnedEntrySelection()
+        store.restorePinnedSelection()
         isCopyOptionsPresented = false
-        copyOptionsEntry = nil
+        copyOptionsItem = nil
     }
 
-    private func rebuildCopyOptionsMenu(for entry: CheatSheetEntry) {
+    private func rebuildCopyOptionsMenu(for item: CheatSheetItem) {
         copyOptionsMenu.removeAllItems()
-        displayedEntryActions = entry.actions.all
+        let titledActions: [(title: String, perform: () -> Void)]
+        // An entry's primary action stands apart from its secondary ones.
+        let separatorIndex: Int?
+        switch item {
+        case .entry(let entry):
+            titledActions = entry.actions.all.map { action in
+                (action.title, { [store] in store.perform(action, for: entry) })
+            }
+            separatorIndex = 1
+        case .section(let section):
+            titledActions = store.actions(for: section).map { action in
+                (action.title, { [store] in store.perform(action, for: section) })
+            }
+            separatorIndex = nil
+        }
+        displayedActions = titledActions.map(\.perform)
 
-        for (index, action) in displayedEntryActions.enumerated() {
-            if index == 1 {
+        for (index, action) in titledActions.enumerated() {
+            if index == separatorIndex {
                 copyOptionsMenu.addItem(.separator())
             }
-            let item = NSMenuItem(
+            let menuItem = NSMenuItem(
                 title: action.title,
-                action: #selector(performSelectedEntryAction(_:)),
+                action: #selector(performDisplayedAction(_:)),
                 keyEquivalent: ""
             )
-            item.target = self
-            item.tag = index
-            copyOptionsMenu.addItem(item)
+            menuItem.target = self
+            menuItem.tag = index
+            copyOptionsMenu.addItem(menuItem)
         }
     }
 
@@ -287,9 +312,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // This lets someone switch to another app to look up or copy a value,
         // then reopen the panel and continue exactly where they left off.
         // The form's own Cancel button and Escape handling still discard it.
-        store.restorePinnedEntrySelection()
+        store.restorePinnedSelection()
         isCopyOptionsPresented = false
-        copyOptionsEntry = nil
+        copyOptionsItem = nil
 
         defer { previouslyActiveApplication = nil }
 
@@ -395,16 +420,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // Return copies, leaving ⌘C to the system so text in the list stays
         // selectable and copyable. ⌥Return opens copy options, while ⌘Return
-        // copies without opening the variable form.
+        // copies without opening the variable form. A section has no primary
+        // action, so any Return opens its menu.
         if event.keyCode == 36 || event.keyCode == 76 {
-            if modifiers == .option {
-                guard let entry = store.selectedEntry else { return nil }
-                copyOptionsEntry = entry
-                store.pinEntrySelection(entry)
-                isCopyOptionsPresented = true
-                DispatchQueue.main.async { [weak self] in
-                    self?.showCopyOptionsMenu(for: entry)
-                }
+            if let item = store.selectedItem, modifiers == .option || item.section != nil {
+                presentCopyOptionsMenu(for: item)
             } else if modifiers.contains(.command) {
                 store.performPrimaryActionForSelectedEntry(skippingVariableForm: true)
             } else {

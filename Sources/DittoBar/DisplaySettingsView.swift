@@ -363,8 +363,8 @@ private struct ShortcutGroup: Identifiable {
             Shortcut(title: "Show or hide DittoBar", keys: [["⌥", "Space"]])
         ]),
         ShortcutGroup(title: "Navigation", shortcuts: [
-            Shortcut(title: "Next entry", keys: [["↓"], ["Tab"]]),
-            Shortcut(title: "Previous entry", keys: [["↑"], ["⇧", "Tab"]]),
+            Shortcut(title: "Next entry or section", keys: [["↓"], ["Tab"]]),
+            Shortcut(title: "Previous entry or section", keys: [["↑"], ["⇧", "Tab"]]),
             Shortcut(title: "Previous or next sheet", keys: [["⌘", "⌥", "←"], ["⌘", "⌥", "→"]]),
             Shortcut(title: "Go to sheet 1–9", keys: [["⌘", "1–9"]]),
             Shortcut(title: "Search", keys: [["⌘", "F"]]),
@@ -374,6 +374,9 @@ private struct ShortcutGroup: Identifiable {
             Shortcut(title: "Copy, or fill in variables first", keys: [["↩"]]),
             Shortcut(title: "Copy with the current variable values", keys: [["⌘", "↩"]]),
             Shortcut(title: "Show copy options", keys: [["⌥", "↩"]])
+        ]),
+        ShortcutGroup(title: "Sections", shortcuts: [
+            Shortcut(title: "Show section actions", keys: [["↩"]])
         ]),
         ShortcutGroup(title: "Variable Form", shortcuts: [
             Shortcut(title: "Next or previous field", keys: [["Tab"], ["⇧", "Tab"]]),

@@ -152,6 +152,24 @@ struct CheatSheetSection: Identifiable, Equatable {
     let title: String
 }
 
+/// Acts on every entry shown under a section heading.
+enum SectionAction: Equatable {
+    case openAllURLs
+    case copyAllEntries
+    case copyAsMarkdown
+
+    var title: String {
+        switch self {
+        case .openAllURLs:
+            return "Open All URLs"
+        case .copyAllEntries:
+            return "Copy All Entries"
+        case .copyAsMarkdown:
+            return "Copy as Markdown"
+        }
+    }
+}
+
 enum CheatSheetItem: Identifiable, Equatable {
     case section(CheatSheetSection)
     case entry(CheatSheetEntry)

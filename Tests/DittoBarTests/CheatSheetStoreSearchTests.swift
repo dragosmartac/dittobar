@@ -89,17 +89,85 @@ struct CheatSheetStoreSearchTests {
     @Test func selectionMovesWithinFilteredEntryIndexesAndWraps() throws {
         try withStore { store in
             store.query = "git tools"
-            store.selectedEntryIndex = 0
+            store.selectFirstEntry()
+            #expect(store.selectedEntry?.title == "Clone repository")
 
             store.moveSelection(by: 1)
             #expect(store.selectedEntry?.title == "Deploy service")
 
             store.moveSelection(by: 2)
-            #expect(store.selectedEntry?.title == "Clone repository")
+            #expect(store.selectedItem?.section?.title == "Git tools")
 
             store.moveSelection(by: -1)
             #expect(store.selectedEntry?.title == "Formatted note")
         }
+    }
+
+    @Test func onlySectionsWithVisibleEntriesAreSelectable() throws {
+        try withStore { store in
+            #expect(itemDescriptions(store.selectableItems) == [
+                "entry:Before sections",
+                "section:Git tools",
+                "entry:Clone repository",
+                "entry:Deploy service",
+                "entry:Formatted note"
+            ])
+
+            store.query = "first empty section"
+            #expect(store.selectableItems.isEmpty)
+        }
+    }
+
+    @Test func sectionEntriesStopAtTheNextSectionAndFollowSearch() throws {
+        try withStore { store in
+            let gitTools = try #require(section(titled: "Git tools", in: store))
+            #expect(store.entries(in: gitTools).map(\.title) == [
+                "Clone repository",
+                "Deploy service",
+                "Formatted note"
+            ])
+            #expect(store.actions(for: gitTools) == [.copyAllEntries, .copyAsMarkdown])
+
+            let emptySection = try #require(section(titled: "First empty section", in: store))
+            #expect(store.entries(in: emptySection).isEmpty)
+            #expect(store.actions(for: emptySection).isEmpty)
+
+            store.query = "deploy"
+            #expect(store.entries(in: gitTools).map(\.title) == [
+                "Deploy service",
+                "Formatted note"
+            ])
+        }
+    }
+
+    @Test func sectionMarkdownResolvesVariablesAndKeepsFormatting() throws {
+        try withStore { store in
+            let gitTools = try #require(section(titled: "Git tools", in: store))
+            #expect(store.markdown(for: gitTools) == """
+            ## Git tools
+
+            ### Clone repository
+
+            Fetch a remote repository.
+
+            ### Deploy service
+
+            Run deploy-prod.
+
+            ### Formatted note
+
+            Deploy **now** safely.
+            """)
+        }
+    }
+
+    @Test func joinedEntryTextsUseBlankLinesOnlyForMultilineTexts() {
+        #expect(CheatSheetStore.joinedEntryTexts(["git status", "git log\n"]) == "git status\ngit log")
+        #expect(CheatSheetStore.joinedEntryTexts(["one\ntwo", "three"]) == "one\ntwo\n\nthree")
+    }
+
+    private func section(titled title: String, in store: CheatSheetStore) -> CheatSheetSection? {
+        store.visibleItems.lazy.compactMap(\.section).first { $0.title == title }
     }
 
     private func itemDescriptions(_ items: [CheatSheetItem]) -> [String] {

@@ -26,9 +26,9 @@ open "dist/DittoBar.app"
 | `Option-Space` | Open or close the popover globally |
 | `Command-1` … `Command-9` | Select a cheat-sheet tab |
 | `Command-Option-Left` / `Command-Option-Right` | Select the previous or next cheat-sheet tab |
-| `Tab` / `Shift-Tab` | Select the next or previous entry |
-| `Up` / `Down` | Select the previous or next entry |
-| `Return` | Perform the selected entry's primary copy action, or open its variable form |
+| `Tab` / `Shift-Tab` | Select the next or previous entry or section |
+| `Up` / `Down` | Select the previous or next entry or section |
+| `Return` | Perform the selected entry's primary copy action, or open its variable form. On a section, open its action menu |
 | `Option-Return` | Open the selected entry's action menu |
 | `Command-Return` | Perform the primary copy action without opening the variable form |
 | `Command-C` | Copy text selected inside an entry |
@@ -95,6 +95,14 @@ https://dashboards.example.com/trunk/tbwb
 https://dashboards.example.com/services/production
 ```
 ````
+
+Right-click a section heading, or select it and press Return, to act on every entry
+shown under it. **Copy All Entries** copies what each entry's Return would copy, one per
+line, or separated by blank lines when any of them spans several lines. **Open All URLs**
+opens each URL entry. **Copy as Markdown** copies the section heading and its entries
+as Markdown, with commands in fenced code blocks. All three use each entry's current
+variable values without showing the form, and while searching they include only the
+matching entries. The selection skips sections with no entries shown.
 
 The fence language turns on syntax highlighting for the command: `sh`/`bash`/`zsh`,
 `python`/`py`, `sql`, `js`/`ts`, and `json` (in any case, so `SQL` works too). Other
