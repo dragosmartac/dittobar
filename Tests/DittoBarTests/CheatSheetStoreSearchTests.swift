@@ -166,6 +166,15 @@ struct CheatSheetStoreSearchTests {
         #expect(CheatSheetStore.joinedEntryTexts(["one\ntwo", "three"]) == "one\ntwo\n\nthree")
     }
 
+    @Test func shellEscapedPathEscapesSpaces() {
+        #expect(
+            CheatSheetStore.shellEscapedPath(
+                "/Users/example/Library/Application Support/DittoBar/Cheat Sheets"
+            )
+                == "/Users/example/Library/Application\\ Support/DittoBar/Cheat\\ Sheets"
+        )
+    }
+
     private func section(titled title: String, in store: CheatSheetStore) -> CheatSheetSection? {
         store.visibleItems.lazy.compactMap(\.section).first { $0.title == title }
     }

@@ -529,7 +529,7 @@ final class CheatSheetStore: ObservableObject {
     func copyFolderPath() {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(folderURL.path, forType: .string)
+        pasteboard.setString(Self.shellEscapedPath(folderURL.path), forType: .string)
     }
 
     func copySelectedSheetPath() {
@@ -540,7 +540,11 @@ final class CheatSheetStore: ObservableObject {
 
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(sourceURL.path, forType: .string)
+        pasteboard.setString(Self.shellEscapedPath(sourceURL.path), forType: .string)
+    }
+
+    static func shellEscapedPath(_ path: String) -> String {
+        path.replacingOccurrences(of: " ", with: "\\ ")
     }
 
     func openSelectedSheetInEditor() {
