@@ -705,7 +705,6 @@ private struct EntryRow: View, Equatable {
                 size: payloadFontSize,
                 fonts: fonts
             ),
-            maximumNumberOfLines: 4,
             onMouseDown: onSelect
         )
         .frame(maxWidth: .infinity, alignment: .leading)
