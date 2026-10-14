@@ -241,10 +241,13 @@ private final class InlineCodeTextFieldCell: NSTextFieldCell {
 /// those text styles do not line up with SwiftUI's `.headline` / `.caption`,
 /// which made the rows render at inconsistent sizes.
 enum EntryTextStyle {
-    /// Dimmer than the semibold title so the two stay distinct, but darker
-    /// than descriptions because notes are meant to be read at length. One
+    /// Matches descriptions, below entry titles and section titles. One
     /// shared instance keeps the rendered-text cache key stable.
-    static let noteBodyColor = NSColor.labelColor.withAlphaComponent(0.75)
+    static let noteBodyColor = NSColor.secondaryLabelColor
+
+    /// A step brighter than descriptions and notes, so titles lead each entry
+    /// while staying dimmer than section titles.
+    static let entryTitleColor = NSColor.labelColor.withAlphaComponent(0.75)
 
     /// Shared by all description and note text, so lines are spaced the same
     /// everywhere and inline-code pills on consecutive lines never touch.
@@ -287,7 +290,7 @@ enum EntryTextStyle {
             string: text,
             attributes: [
                 .font: fonts.text(size: size, weight: .semibold),
-                .foregroundColor: NSColor.labelColor
+                .foregroundColor: entryTitleColor
             ]
         )
     }
