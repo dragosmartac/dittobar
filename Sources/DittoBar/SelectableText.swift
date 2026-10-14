@@ -87,14 +87,29 @@ struct SelectableText: NSViewRepresentable {
                 height: .greatestFiniteMagnitude
             )
         ) ?? .zero
-        let width = bound
-
         // Cap at the proposal so a short label does not shove its neighbours
         // out of an HStack, but still report the height wrapping needs.
-        return CGSize(
-            width: min(ceil(fitting.width) + inlineCodeHorizontalInset, width),
-            height: ceil(fitting.height)
-        )
+        var width = min(ceil(fitting.width) + inlineCodeHorizontalInset, bound)
+
+        // The unbounded measurement can come up a few points short, as with a
+        // list's tab-aligned items, so at the reported width the widest line
+        // would wrap and its last word fall outside the reported height. Take
+        // the whole proposal then, where the text was measured to fit.
+        if width < bound, bound < .greatestFiniteMagnitude {
+            let heightAtWidth = nsView.cell?.cellSize(
+                forBounds: NSRect(
+                    x: 0,
+                    y: 0,
+                    width: max(0, width - inlineCodeHorizontalInset),
+                    height: .greatestFiniteMagnitude
+                )
+            ).height ?? 0
+            if heightAtWidth > fitting.height {
+                width = bound
+            }
+        }
+
+        return CGSize(width: width, height: ceil(fitting.height))
     }
 
     private var inlineCodeHorizontalInset: CGFloat {
