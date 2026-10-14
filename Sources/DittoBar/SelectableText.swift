@@ -549,17 +549,52 @@ enum EntryTextStyle {
     }
 
     /// Substituted variable values are tinted and bold, as in the SwiftUI version.
+    /// When the fence names a known language, the resolved text is also
+    /// syntax highlighted, with variable values keeping their tint on top.
     static func payload(
         _ segments: [TextVariables.Segment],
+        language: String? = nil,
         size: CGFloat,
         fonts: EntryFonts
     ) -> NSAttributedString {
-        return build(
+        let built = build(
             segments,
             plain: fonts.code(size: size, weight: .regular),
             emphasised: fonts.code(size: size, weight: .bold),
             plainColor: .labelColor
         )
+        let tokens = SyntaxHighlighter.tokens(in: built.string, language: language)
+        guard !tokens.isEmpty else { return built }
+
+        let result = NSMutableAttributedString(attributedString: built)
+        for token in tokens {
+            result.addAttribute(.foregroundColor, value: syntaxColor(for: token.kind), range: token.range)
+        }
+
+        var location = 0
+        for segment in segments {
+            let length = (segment.text as NSString).length
+            if segment.isVariable {
+                result.addAttribute(
+                    .foregroundColor,
+                    value: NSColor.controlAccentColor,
+                    range: NSRange(location: location, length: length)
+                )
+            }
+            location += length
+        }
+        return result
+    }
+
+    /// System colors, so they adapt to light and dark appearance.
+    private static func syntaxColor(for kind: SyntaxHighlighter.TokenKind) -> NSColor {
+        switch kind {
+        case .keyword: .systemPink
+        case .string: .systemRed
+        case .comment: .secondaryLabelColor
+        case .number: .systemPurple
+        case .variable: .systemTeal
+        }
     }
 
     private static func renderMarkdown(

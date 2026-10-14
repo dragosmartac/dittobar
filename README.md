@@ -96,6 +96,10 @@ https://dashboards.example.com/services/production
 ```
 ````
 
+The fence language turns on syntax highlighting for the command: `sh`/`bash`/`zsh`,
+`python`/`py`, `sql`, `js`/`ts`, and `json` (in any case, so `SQL` works too). Other
+languages, or no language, show the command uncolored.
+
 An H3 with content but no fenced code block becomes a note entry. Pressing Return copies
 its content as plain text with Markdown formatting removed.
 

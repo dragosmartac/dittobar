@@ -603,7 +603,7 @@ private struct EntryRow: View, Equatable {
                 if let rawDescription = command.rawDescription {
                     descriptionText(rawDescription)
                 }
-                payloadText(command.rawCommand)
+                payloadText(command.rawCommand, language: command.language)
             case .url(let url):
                 if let rawDescription = url.rawDescription {
                     descriptionText(rawDescription)
@@ -637,10 +637,11 @@ private struct EntryRow: View, Equatable {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func payloadText(_ raw: String) -> some View {
+    private func payloadText(_ raw: String, language: String? = nil) -> some View {
         SelectableText(
             attributedString: EntryTextStyle.payload(
                 TextVariables.segments(of: raw, values: values),
+                language: language,
                 size: payloadFontSize,
                 fonts: fonts
             ),
