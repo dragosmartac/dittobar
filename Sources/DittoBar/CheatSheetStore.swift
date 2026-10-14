@@ -532,6 +532,17 @@ final class CheatSheetStore: ObservableObject {
         pasteboard.setString(folderURL.path, forType: .string)
     }
 
+    func copySelectedSheetPath() {
+        guard let sourceURL = selectedSheet?.sourceURL else {
+            NSSound.beep()
+            return
+        }
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(sourceURL.path, forType: .string)
+    }
+
     func openSelectedSheetInEditor() {
         guard let sourceURL = selectedSheet?.sourceURL else {
             NSSound.beep()

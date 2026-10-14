@@ -485,6 +485,7 @@ private struct MoreOptionsButton: NSViewRepresentable {
                 modifiers: [.command, .shift]
             )
             addItem("Edit Current Sheet in Editor", action: #selector(editCurrentSheet), key: "e")
+            addItem("Copy Current Sheet Path", action: #selector(copyCurrentSheetPath))
             addItem("Open Cheat Sheets Folder", action: #selector(openFolder))
             addItem(
                 "Copy Cheat Sheets Folder Path",
@@ -540,6 +541,10 @@ private struct MoreOptionsButton: NSViewRepresentable {
 
         @objc private func editCurrentSheet() {
             store.openSelectedSheetInEditor()
+        }
+
+        @objc private func copyCurrentSheetPath() {
+            store.copySelectedSheetPath()
         }
 
         @objc private func createNewSheet() {
