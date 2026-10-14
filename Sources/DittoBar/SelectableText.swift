@@ -253,6 +253,7 @@ enum EntryTextStyle {
     private struct MarkdownRenderedKey: Hashable {
         let segments: [TextVariables.Segment]
         let size: CGFloat
+        let fonts: EntryFonts
         let emphasized: Bool
         let baseColor: NSColor
         let lineSpacing: CGFloat
@@ -274,17 +275,18 @@ enum EntryTextStyle {
     private struct MarkdownRenderedListKey: Hashable {
         let items: [ListItemSegments]
         let size: CGFloat
+        let fonts: EntryFonts
         let baseColor: NSColor
         let lineSpacing: CGFloat
     }
 
     private static var markdownRenderedListCache: [MarkdownRenderedListKey: NSAttributedString] = [:]
 
-    static func title(_ text: String, size: CGFloat) -> NSAttributedString {
+    static func title(_ text: String, size: CGFloat, fonts: EntryFonts) -> NSAttributedString {
         NSAttributedString(
             string: text,
             attributes: [
-                .font: NSFont.systemFont(ofSize: size, weight: .semibold),
+                .font: fonts.text(size: size, weight: .semibold),
                 .foregroundColor: NSColor.labelColor
             ]
         )
@@ -296,6 +298,7 @@ enum EntryTextStyle {
     static func markdownRenderedDescription(
         _ segments: [TextVariables.Segment],
         size: CGFloat,
+        fonts: EntryFonts,
         emphasized: Bool = false,
         baseColor: NSColor = .secondaryLabelColor,
         lineSpacing: CGFloat = 0
@@ -303,6 +306,7 @@ enum EntryTextStyle {
         let key = MarkdownRenderedKey(
             segments: segments,
             size: size,
+            fonts: fonts,
             emphasized: emphasized,
             baseColor: baseColor,
             lineSpacing: lineSpacing
@@ -314,6 +318,7 @@ enum EntryTextStyle {
         let result = uncachedMarkdownRenderedDescription(
             segments,
             size: size,
+            fonts: fonts,
             emphasized: emphasized,
             baseColor: baseColor,
             lineSpacing: lineSpacing
@@ -328,6 +333,7 @@ enum EntryTextStyle {
     private static func uncachedMarkdownRenderedDescription(
         _ segments: [TextVariables.Segment],
         size: CGFloat,
+        fonts: EntryFonts,
         emphasized: Bool,
         baseColor: NSColor,
         lineSpacing: CGFloat
@@ -335,15 +341,16 @@ enum EntryTextStyle {
         let rendered = renderMarkdown(
             segments,
             size: size,
+            fonts: fonts,
             emphasized: emphasized,
             baseColor: baseColor
         ) ?? build(
             segments,
-            plain: NSFont.systemFont(
-                ofSize: size,
+            plain: fonts.text(
+                size: size,
                 weight: emphasized ? .semibold : .regular
             ),
-            emphasised: NSFont.systemFont(ofSize: size, weight: .semibold),
+            emphasised: fonts.text(size: size, weight: .semibold),
             plainColor: baseColor
         )
         guard lineSpacing > 0, rendered.length > 0 else { return rendered }
@@ -365,12 +372,14 @@ enum EntryTextStyle {
     static func markdownRenderedList(
         _ items: [ListItemSegments],
         size: CGFloat,
+        fonts: EntryFonts,
         baseColor: NSColor = .secondaryLabelColor,
         lineSpacing: CGFloat = 0
     ) -> NSAttributedString {
         let key = MarkdownRenderedListKey(
             items: items,
             size: size,
+            fonts: fonts,
             baseColor: baseColor,
             lineSpacing: lineSpacing
         )
@@ -381,6 +390,7 @@ enum EntryTextStyle {
         let result = uncachedMarkdownRenderedList(
             items,
             size: size,
+            fonts: fonts,
             baseColor: baseColor,
             lineSpacing: lineSpacing
         )
@@ -394,11 +404,12 @@ enum EntryTextStyle {
     private static func uncachedMarkdownRenderedList(
         _ items: [ListItemSegments],
         size: CGFloat,
+        fonts: EntryFonts,
         baseColor: NSColor,
         lineSpacing: CGFloat
     ) -> NSAttributedString {
         let markerAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: size),
+            .font: fonts.text(size: size),
             .foregroundColor: baseColor
         ]
 
@@ -412,7 +423,7 @@ enum EntryTextStyle {
         for depth in 0...maxDepth {
             let widest = items
                 .filter { $0.item.depth == depth }
-                .map { listMarker(for: $0.item, attributes: markerAttributes, size: size).size().width }
+                .map { listMarker(for: $0.item, attributes: markerAttributes, size: size, fonts: fonts).size().width }
                 .max() ?? 0
             let markerColumn = depth == 0 ? leadingInset : textColumns[depth - 1]
             markerColumns.append(markerColumn)
@@ -434,12 +445,13 @@ enum EntryTextStyle {
             renderMarkdown(
                 entry.segments,
                 size: size,
+                fonts: fonts,
                 emphasized: false,
                 baseColor: baseColor
             ) ?? build(
                 entry.segments,
-                plain: NSFont.systemFont(ofSize: size),
-                emphasised: NSFont.systemFont(ofSize: size, weight: .semibold),
+                plain: fonts.text(size: size),
+                emphasised: fonts.text(size: size, weight: .semibold),
                 plainColor: baseColor
             )
         }
@@ -450,7 +462,7 @@ enum EntryTextStyle {
             let textColumn = textColumns[item.depth]
             let rendered = renderedItems[index]
             let paragraph = NSMutableAttributedString(
-                attributedString: listMarker(for: item, attributes: markerAttributes, size: size)
+                attributedString: listMarker(for: item, attributes: markerAttributes, size: size, fonts: fonts)
             )
             paragraph.append(NSAttributedString(string: "\t", attributes: markerAttributes))
             paragraph.append(rendered)
@@ -487,7 +499,8 @@ enum EntryTextStyle {
     private static func listMarker(
         for item: MarkdownText.ListItem,
         attributes: [NSAttributedString.Key: Any],
-        size: CGFloat
+        size: CGFloat,
+        fonts: EntryFonts
     ) -> NSAttributedString {
         let result = NSMutableAttributedString()
         switch item.marker {
@@ -520,7 +533,7 @@ enum EntryTextStyle {
         }
 
         // Center the symbol on the text's x-height rather than its baseline.
-        let font = attributes[.font] as? NSFont ?? NSFont.systemFont(ofSize: size)
+        let font = attributes[.font] as? NSFont ?? fonts.text(size: size)
         let attachment = NSTextAttachment()
         attachment.image = image
         attachment.bounds = NSRect(
@@ -538,12 +551,13 @@ enum EntryTextStyle {
     /// Substituted variable values are tinted and bold, as in the SwiftUI version.
     static func payload(
         _ segments: [TextVariables.Segment],
-        size: CGFloat
+        size: CGFloat,
+        fonts: EntryFonts
     ) -> NSAttributedString {
         return build(
             segments,
-            plain: NSFont.monospacedSystemFont(ofSize: size, weight: .regular),
-            emphasised: NSFont.monospacedSystemFont(ofSize: size, weight: .bold),
+            plain: fonts.code(size: size, weight: .regular),
+            emphasised: fonts.code(size: size, weight: .bold),
             plainColor: .labelColor
         )
     }
@@ -551,6 +565,7 @@ enum EntryTextStyle {
     private static func renderMarkdown(
         _ segments: [TextVariables.Segment],
         size: CGFloat,
+        fonts: EntryFonts,
         emphasized: Bool,
         baseColor: NSColor
     ) -> NSAttributedString? {
@@ -591,12 +606,12 @@ enum EntryTextStyle {
                 }
 
                 var font = isCode
-                    ? NSFont.monospacedSystemFont(
-                        ofSize: size,
+                    ? fonts.code(
+                        size: size,
                         weight: emphasized || isVariable || isBold ? .semibold : .regular
                     )
-                    : NSFont.systemFont(
-                        ofSize: size,
+                    : fonts.text(
+                        size: size,
                         weight: emphasized || isVariable || isBold ? .semibold : .regular
                     )
 
@@ -631,7 +646,7 @@ enum EntryTextStyle {
             }
         }
 
-        widenWhitespaceAroundInlineCode(in: result, size: size)
+        widenWhitespaceAroundInlineCode(in: result, size: size, fonts: fonts)
         return result
     }
 
@@ -640,7 +655,8 @@ enum EntryTextStyle {
     /// characters, so selecting and copying still returns the original text.
     private static func widenWhitespaceAroundInlineCode(
         in result: NSMutableAttributedString,
-        size: CGFloat
+        size: CGFloat,
+        fonts: EntryFonts
     ) {
         let fullRange = NSRange(location: 0, length: result.length)
         var codeRanges: [NSRange] = []
@@ -660,7 +676,7 @@ enum EntryTextStyle {
                 }
                 result.addAttribute(
                     .font,
-                    value: NSFont.monospacedSystemFont(ofSize: size, weight: .regular),
+                    value: fonts.code(size: size, weight: .regular),
                     range: range
                 )
             }

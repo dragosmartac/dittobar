@@ -19,6 +19,14 @@ struct PopoverView: View {
     private var noteFontSize = DisplayPreferences.defaultNoteFontSize
     @AppStorage(DisplayPreferences.payloadFontSizeKey)
     private var payloadFontSize = DisplayPreferences.defaultPayloadFontSize
+    @AppStorage(DisplayPreferences.textFontFamilyKey)
+    private var textFontFamily = ""
+    @AppStorage(DisplayPreferences.codeFontFamilyKey)
+    private var codeFontFamily = ""
+
+    private var fonts: EntryFonts {
+        EntryFonts(textFamily: textFontFamily, codeFamily: codeFontFamily)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -137,7 +145,11 @@ struct PopoverView: View {
             List(store.visibleItems) { item in
                 switch item {
                 case .section(let section):
-                    SectionHeaderRow(title: section.title, fontSize: CGFloat(sectionTitleFontSize))
+                    SectionHeaderRow(
+                        title: section.title,
+                        fontSize: CGFloat(sectionTitleFontSize),
+                        fonts: fonts
+                    )
 
                 case .entry(let entry):
                     EntryRow(
@@ -147,6 +159,7 @@ struct PopoverView: View {
                         descriptionFontSize: CGFloat(descriptionFontSize),
                         noteFontSize: CGFloat(noteFontSize),
                         payloadFontSize: CGFloat(payloadFontSize),
+                        fonts: fonts,
                         isSelected: entry.id == selectedEntryID,
                         wasCopied: entry.id == store.copiedEntryID,
                         onSelect: { store.selectEntry(entry) }
@@ -540,6 +553,7 @@ private struct EntryRow: View, Equatable {
     let descriptionFontSize: CGFloat
     let noteFontSize: CGFloat
     let payloadFontSize: CGFloat
+    let fonts: EntryFonts
     let isSelected: Bool
     let wasCopied: Bool
     let onSelect: () -> Void
@@ -552,6 +566,7 @@ private struct EntryRow: View, Equatable {
             && lhs.descriptionFontSize == rhs.descriptionFontSize
             && lhs.noteFontSize == rhs.noteFontSize
             && lhs.payloadFontSize == rhs.payloadFontSize
+            && lhs.fonts == rhs.fonts
             && lhs.isSelected == rhs.isSelected
             && lhs.wasCopied == rhs.wasCopied
     }
@@ -560,7 +575,7 @@ private struct EntryRow: View, Equatable {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 SelectableText(
-                    attributedString: EntryTextStyle.title(entry.title, size: titleFontSize),
+                    attributedString: EntryTextStyle.title(entry.title, size: titleFontSize, fonts: fonts),
                     maximumNumberOfLines: 1,
                     onMouseDown: onSelect
                 )
@@ -604,6 +619,7 @@ private struct EntryRow: View, Equatable {
             raw: raw,
             values: values,
             fontSize: descriptionFontSize,
+            fonts: fonts,
             onSelect: onSelect
         )
     }
@@ -613,6 +629,7 @@ private struct EntryRow: View, Equatable {
             raw: raw,
             values: values,
             fontSize: noteFontSize,
+            fonts: fonts,
             textColor: EntryTextStyle.noteBodyColor,
             usesExpandedParagraphLayout: true,
             onSelect: onSelect
@@ -624,7 +641,8 @@ private struct EntryRow: View, Equatable {
         SelectableText(
             attributedString: EntryTextStyle.payload(
                 TextVariables.segments(of: raw, values: values),
-                size: payloadFontSize
+                size: payloadFontSize,
+                fonts: fonts
             ),
             maximumNumberOfLines: 4,
             onMouseDown: onSelect
@@ -642,6 +660,7 @@ private struct MarkdownDescriptionView: View {
     let raw: String
     let values: [String: String]
     let fontSize: CGFloat
+    let fonts: EntryFonts
     var textColor: NSColor = .secondaryLabelColor
     var usesExpandedParagraphLayout = false
     let onSelect: () -> Void
@@ -685,6 +704,7 @@ private struct MarkdownDescriptionView: View {
             attributedString: EntryTextStyle.markdownRenderedDescription(
                 TextVariables.segments(of: raw, values: values),
                 size: fontSize,
+                fonts: fonts,
                 emphasized: emphasized,
                 baseColor: baseColor,
                 lineSpacing: EntryTextStyle.lineSpacing
@@ -750,6 +770,7 @@ private struct MarkdownDescriptionView: View {
                     )
                 },
                 size: fontSize,
+                fonts: fonts,
                 baseColor: textColor,
                 lineSpacing: EntryTextStyle.lineSpacing
             ),
@@ -808,10 +829,11 @@ private struct MarkdownDescriptionView: View {
 private struct SectionHeaderRow: View {
     let title: String
     let fontSize: CGFloat
+    let fonts: EntryFonts
 
     var body: some View {
         Text(title)
-            .font(.system(size: fontSize, weight: .semibold))
+            .font(Font(fonts.text(size: fontSize, weight: .semibold)))
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 10)

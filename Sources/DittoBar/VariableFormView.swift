@@ -9,6 +9,14 @@ struct VariableFormView: View {
     private var payloadFontSize = DisplayPreferences.defaultPayloadFontSize
     @AppStorage(DisplayPreferences.descriptionFontSizeKey)
     private var descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
+    @AppStorage(DisplayPreferences.textFontFamilyKey)
+    private var textFontFamily = ""
+    @AppStorage(DisplayPreferences.codeFontFamilyKey)
+    private var codeFontFamily = ""
+
+    private var fonts: EntryFonts {
+        EntryFonts(textFamily: textFontFamily, codeFamily: codeFontFamily)
+    }
 
     var body: some View {
         if let form = store.variableForm {
@@ -117,7 +125,7 @@ struct VariableFormView: View {
     private func previewText(for form: VariableFormState) -> Text {
         if form.textForm == .markdownStripped {
             return Text(verbatim: form.output)
-                .font(.system(size: CGFloat(descriptionFontSize)))
+                .font(Font(fonts.text(size: CGFloat(descriptionFontSize))))
         }
 
         return form.segments
@@ -126,7 +134,7 @@ struct VariableFormView: View {
                     .foregroundStyle(segment.isVariable ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
                     .bold(segment.isVariable)
             }
-            .font(.system(size: CGFloat(payloadFontSize), design: .monospaced))
+            .font(Font(fonts.code(size: CGFloat(payloadFontSize))))
     }
 
     private func actions(for form: VariableFormState) -> some View {

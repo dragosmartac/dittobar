@@ -19,6 +19,10 @@ struct DisplaySettingsView: View {
     private var payloadFontSize = DisplayPreferences.defaultPayloadFontSize
     @AppStorage(DisplayPreferences.popoverWidthFractionKey)
     private var popoverWidthFraction = DisplayPreferences.defaultPopoverWidthFraction
+    @AppStorage(DisplayPreferences.textFontFamilyKey)
+    private var textFontFamily = ""
+    @AppStorage(DisplayPreferences.codeFontFamilyKey)
+    private var codeFontFamily = ""
     @AppStorage(EditorPreferences.selectedEditorKey)
     private var selectedEditor = EditorPreferences.defaultEditor.rawValue
     @AppStorage(EditorPreferences.customEditorPathKey)
@@ -67,8 +71,8 @@ struct DisplaySettingsView: View {
             switch selectedTab ?? .layout {
             case .layout:
                 layout
-            case .textSizes:
-                textSizes
+            case .text:
+                text
             case .editor:
                 editor
             case .shortcuts:
@@ -129,41 +133,63 @@ struct DisplaySettingsView: View {
         }
     }
 
-    private var textSizes: some View {
+    private var text: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Text Sizes")
+            Text("Text")
                 .font(.title2.bold())
 
             Text("Adjust the text shown in the list. Changes are applied immediately.")
                 .foregroundStyle(.secondary)
 
-            VStack(spacing: 14) {
-                FontSizeControl(
-                    title: "Section Title",
-                    value: $sectionTitleFontSize,
-                    range: DisplayPreferences.sectionTitleFontSizeRange
-                )
-                FontSizeControl(
-                    title: "Title",
-                    value: $titleFontSize,
-                    range: DisplayPreferences.titleFontSizeRange
-                )
-                FontSizeControl(
-                    title: "Description",
-                    value: $descriptionFontSize,
-                    range: DisplayPreferences.descriptionFontSizeRange
-                )
-                FontSizeControl(
-                    title: "Note",
-                    value: $noteFontSize,
-                    range: DisplayPreferences.noteFontSizeRange
-                )
-                FontSizeControl(
-                    title: "Payload",
-                    value: $payloadFontSize,
-                    range: DisplayPreferences.payloadFontSizeRange
-                )
+            ScrollView(.vertical) {
+                VStack(spacing: 14) {
+                    FontFamilyPicker(
+                        title: "Text Font",
+                        families: EntryFonts.installedFamilies,
+                        selection: $textFontFamily
+                    )
+                    FontFamilyPicker(
+                        title: "Code Font",
+                        families: EntryFonts.installedMonospacedFamilies,
+                        selection: $codeFontFamily
+                    )
+
+                    Divider()
+
+                    textSizes
+                }
+                .padding(.trailing, 12)
             }
+        }
+    }
+
+    private var textSizes: some View {
+        VStack(spacing: 14) {
+            FontSizeControl(
+                title: "Section Title",
+                value: $sectionTitleFontSize,
+                range: DisplayPreferences.sectionTitleFontSizeRange
+            )
+            FontSizeControl(
+                title: "Title",
+                value: $titleFontSize,
+                range: DisplayPreferences.titleFontSizeRange
+            )
+            FontSizeControl(
+                title: "Description",
+                value: $descriptionFontSize,
+                range: DisplayPreferences.descriptionFontSizeRange
+            )
+            FontSizeControl(
+                title: "Note",
+                value: $noteFontSize,
+                range: DisplayPreferences.noteFontSizeRange
+            )
+            FontSizeControl(
+                title: "Payload",
+                value: $payloadFontSize,
+                range: DisplayPreferences.payloadFontSizeRange
+            )
         }
     }
 
@@ -231,8 +257,10 @@ struct DisplaySettingsView: View {
         switch selectedTab ?? .layout {
         case .layout:
             popoverWidthFraction == DisplayPreferences.defaultPopoverWidthFraction
-        case .textSizes:
-            sectionTitleFontSize == DisplayPreferences.defaultSectionTitleFontSize
+        case .text:
+            textFontFamily.isEmpty
+                && codeFontFamily.isEmpty
+                && sectionTitleFontSize == DisplayPreferences.defaultSectionTitleFontSize
                 && titleFontSize == DisplayPreferences.defaultTitleFontSize
                 && descriptionFontSize == DisplayPreferences.defaultDescriptionFontSize
                 && noteFontSize == DisplayPreferences.defaultNoteFontSize
@@ -249,7 +277,9 @@ struct DisplaySettingsView: View {
         switch selectedTab ?? .layout {
         case .layout:
             popoverWidthFraction = DisplayPreferences.defaultPopoverWidthFraction
-        case .textSizes:
+        case .text:
+            textFontFamily = ""
+            codeFontFamily = ""
             sectionTitleFontSize = DisplayPreferences.defaultSectionTitleFontSize
             titleFontSize = DisplayPreferences.defaultTitleFontSize
             descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
@@ -267,7 +297,7 @@ struct DisplaySettingsView: View {
 
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case layout
-    case textSizes
+    case text
     case editor
     case shortcuts
 
@@ -276,7 +306,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .layout: "Layout"
-        case .textSizes: "Text Sizes"
+        case .text: "Text"
         case .editor: "Editor"
         case .shortcuts: "Shortcuts"
         }
@@ -285,7 +315,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .layout: "rectangle.expand.horizontal"
-        case .textSizes: "textformat.size"
+        case .text: "textformat.size"
         case .editor: "square.and.pencil"
         case .shortcuts: "keyboard"
         }
@@ -388,6 +418,26 @@ private struct ShortcutKeys: View {
                             )
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Lists installed families, with an empty selection meaning the system font.
+private struct FontFamilyPicker: View {
+    let title: String
+    let families: [String]
+    @Binding var selection: String
+
+    var body: some View {
+        Picker(title, selection: $selection) {
+            Text("System").tag("")
+            if !selection.isEmpty, !families.contains(selection) {
+                Text("\(selection) (not installed)").tag(selection)
+            }
+            Divider()
+            ForEach(families, id: \.self) { family in
+                Text(family).tag(family)
             }
         }
     }
