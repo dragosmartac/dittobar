@@ -1,6 +1,5 @@
 # Ditto Bar
-
-Your repeatable commands, URLs, and notes one keystroke away—Markdown cheat sheets in the macOS menu bar.
+Your repeatable commands, URLs, and notes one keystroke away. All backed up by AI-friendly Markdown files.
 
 ## Run it
 
@@ -79,12 +78,12 @@ the entries inside it. Section headings are not selectable entries:
 ````markdown
 # Dashboards
 
-## Trunk Validation dashboards
+## Analytics
 
-### TBwB
+### User Engagement
 
 ```url
-https://dashboards.example.com/trunk/tbwb
+https://dashboards.example.com/users/engagement
 ```
 
 ## Service dashboards
@@ -139,9 +138,8 @@ into an editable field:
 ````markdown
 ## Run the pipeline locally
 
-```sh
-dataswarm-cli daemon execute -- tester --verbose pipeline.py \
-  {{date=2026-09-15}} --local-run -b "test_{{diff=D120155593}}_"
+```python
+pipeline-runner my-pipeline.py
 ```
 ````
 
