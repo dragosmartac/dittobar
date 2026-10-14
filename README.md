@@ -33,15 +33,15 @@ open "dist/DittoBar.app"
 | `Command-C` | Copy text selected inside an entry |
 | `Command-E` | Open the current Markdown file in the configured editor |
 | `Command-F` | Focus search |
-| `Command-,` | Open text-size settings |
+| `Command-,` | Open Settings |
 | `Command-Shift-N` | Create a new cheat sheet and open it in the configured editor |
 | `Command-Shift-M` | Open the More Options menu |
 | `C` | Copy the full cheat-sheets directory path while More Options is open |
 | `Escape` | Close the popover |
 
-Popover width, editor, and the title, description, and payload font sizes can be changed
-from **More Options → Settings**. The choices are saved automatically. The editor can use
-the system default, Visual Studio Code, TextEdit, or any custom application.
+**More Options → Settings** controls the popover width, text and code fonts, text sizes,
+and editor, and lists every keyboard shortcut. Changes are saved automatically. The editor
+can use the system default, Visual Studio Code, TextEdit, or any custom application.
 
 Right-click any entry, or press `Option-Return`, to show its primary and secondary
 actions. Every entry supports copying its title. Commands and URLs with descriptions
@@ -51,7 +51,8 @@ copying their content with Markdown stripped or retained, and URL entries also s
 
 ## Edit cheat sheets
 
-Use the More Options menu to open the folder or copy its full path. Files live at:
+Use More Options to copy the current Markdown file's full path, or open the cheat-sheets
+folder and copy its full path. Copied paths escape spaces for shell use. Files live at:
 
 ```text
 ~/Library/Application Support/DittoBar/CheatSheets/
@@ -110,8 +111,8 @@ languages, or no language, show the command uncolored.
 An H3 with content but no fenced code block becomes a note entry. Pressing Return copies
 its content as plain text with Markdown formatting removed.
 
-Descriptions and note content support Markdown tables, block quotes, and inline Markdown,
-including `` `code` ``, `**bold**`, `*italic*`, `~~strikethrough~~`, and
+Descriptions and note content support Markdown tables, block quotes, lists, and inline
+Markdown, including `` `code` ``, `**bold**`, `*italic*`, `~~strikethrough~~`, and
 `[links](https://example.com)`.
 
 Use a `url` fence for a URL entry. It supports a description and variables just like a
