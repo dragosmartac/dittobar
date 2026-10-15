@@ -102,9 +102,12 @@ struct PopoverView: View {
                             store.selectSheet(at: index)
                         } label: {
                             HStack(spacing: 5) {
-                                if index < 9 {
-                                    Text("⌘\(index + 1)")
+                                if let number = store.shortcutNumber(forSheetAt: index) {
+                                    Text("⌘\(number)")
                                         .foregroundStyle(.secondary)
+                                }
+                                if sheet.isTodosTab {
+                                    Image(systemName: "checkmark.square")
                                 }
                                 Text(sheet.title)
                             }
@@ -203,19 +206,7 @@ struct PopoverView: View {
                     }
 
                 case .entry(let entry):
-                    EntryRow(
-                        entry: entry,
-                        values: store.effectiveValues(for: entry),
-                        titleFontSize: CGFloat(titleFontSize),
-                        descriptionFontSize: CGFloat(descriptionFontSize),
-                        noteFontSize: CGFloat(noteFontSize),
-                        payloadFontSize: CGFloat(payloadFontSize),
-                        fonts: fonts,
-                        isSelected: item.id == selectedItemID,
-                        wasCopied: store.copiedEntryIDs.contains(entry.id),
-                        onSelect: { store.selectItem(item) }
-                    )
-                    .equatable()
+                    entryRow(for: entry, item: item, isSelected: item.id == selectedItemID)
                     .background(
                         SelectedRowAnchor(
                             store: store,
@@ -247,7 +238,15 @@ struct PopoverView: View {
             .listStyle(.inset)
             .overlay {
                 if store.visibleItems.isEmpty {
-                    ContentUnavailableView.search(text: store.query)
+                    if store.query.isEmpty, store.selectedSheet?.isTodosTab == true {
+                        ContentUnavailableView(
+                            "Nothing to Do",
+                            systemImage: "checkmark.circle",
+                            description: Text("Todos checked off today stay here until tomorrow.")
+                        )
+                    } else {
+                        ContentUnavailableView.search(text: store.query)
+                    }
                 }
             }
             .onChange(of: store.selectedItemIndex) { oldIndex, newIndex in
@@ -376,15 +375,49 @@ struct PopoverView: View {
     }
 
     @ViewBuilder
+    private func entryRow(for entry: CheatSheetEntry, item: CheatSheetItem, isSelected: Bool) -> some View {
+        if case .todo(let todo) = entry {
+            TodoRow(
+                todo: todo,
+                values: store.effectiveValues(for: entry),
+                today: store.today,
+                showsContext: store.selectedSheet?.isTodosTab == true,
+                fontSize: CGFloat(titleFontSize),
+                fonts: fonts,
+                isSelected: isSelected,
+                wasCopied: store.copiedEntryIDs.contains(entry.id),
+                onToggle: { store.setDone(!todo.isDone, for: todo) },
+                onSelect: { store.selectItem(item) }
+            )
+            .equatable()
+        } else {
+            EntryRow(
+                entry: entry,
+                values: store.effectiveValues(for: entry),
+                titleFontSize: CGFloat(titleFontSize),
+                descriptionFontSize: CGFloat(descriptionFontSize),
+                noteFontSize: CGFloat(noteFontSize),
+                payloadFontSize: CGFloat(payloadFontSize),
+                fonts: fonts,
+                isSelected: isSelected,
+                wasCopied: store.copiedEntryIDs.contains(entry.id),
+                onSelect: { store.selectItem(item) }
+            )
+            .equatable()
+        }
+    }
+
+    @ViewBuilder
     private func actionButtons(for entry: CheatSheetEntry) -> some View {
-        Button(entry.actions.primary.title) {
-            store.perform(entry.actions.primary, for: entry)
+        let actions = store.actions(for: entry)
+        Button(actions.primary.title) {
+            store.perform(actions.primary, for: entry)
         }
 
-        if !entry.actions.secondary.isEmpty {
+        if !actions.secondary.isEmpty {
             Divider()
 
-            ForEach(Array(entry.actions.secondary.enumerated()), id: \.offset) { _, action in
+            ForEach(Array(actions.secondary.enumerated()), id: \.offset) { _, action in
                 Button(action.title) {
                     store.perform(action, for: entry)
                 }
@@ -407,7 +440,7 @@ struct PopoverView: View {
 
     private var footer: some View {
         HStack(spacing: 14) {
-            Text("↩ copy")
+            Text(returnKeyHint)
             footerShortcutDivider
             Text("⌥↩ options")
             footerShortcutDivider
@@ -424,6 +457,11 @@ struct PopoverView: View {
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
         .frame(height: max(38, chromeSize * 2.6))
+    }
+
+    private var returnKeyHint: String {
+        guard case .todo(let todo) = store.selectedEntry else { return "↩ copy" }
+        return todo.isDone ? "↩ uncheck" : "↩ check"
     }
 
     private var footerShortcutDivider: some View {
@@ -667,6 +705,9 @@ private struct EntryRow: View, Equatable {
                     descriptionText(rawDescription)
                 }
                 payloadText(url.rawURL)
+            case .todo:
+                // Drawn by `TodoRow` instead.
+                EmptyView()
             }
         }
         .padding(.vertical, 5)
@@ -711,6 +752,137 @@ private struct EntryRow: View, Equatable {
             Color(nsColor: .textBackgroundColor),
             in: RoundedRectangle(cornerRadius: 6)
         )
+    }
+}
+
+/// A todo on one line: its checkbox, its text, and a line of chips for its
+/// priority, due date, tags, and, in the Todos tab, where it is written.
+private struct TodoRow: View, Equatable {
+    let todo: TodoEntry
+    let values: [String: String]
+    let today: String
+    let showsContext: Bool
+    let fontSize: CGFloat
+    let fonts: EntryFonts
+    let isSelected: Bool
+    let wasCopied: Bool
+    let onToggle: () -> Void
+    let onSelect: () -> Void
+
+    /// The closures are left out: they always act on `todo`, which is compared.
+    static func == (lhs: TodoRow, rhs: TodoRow) -> Bool {
+        lhs.todo == rhs.todo
+            && lhs.values == rhs.values
+            && lhs.today == rhs.today
+            && lhs.showsContext == rhs.showsContext
+            && lhs.fontSize == rhs.fontSize
+            && lhs.fonts == rhs.fonts
+            && lhs.isSelected == rhs.isSelected
+            && lhs.wasCopied == rhs.wasCopied
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Button {
+                // Reloading the Todos tab can move this row to or from Done
+                // Today. Let NSTableView finish dispatching the click before
+                // SwiftUI changes its rows; doing it from inside the table's
+                // delegate callback makes AppKit re-enter layout and can jump
+                // the scroll position.
+                DispatchQueue.main.async(execute: onToggle)
+            } label: {
+                Image(systemName: todo.isDone ? "checkmark.square.fill" : "square")
+                    .font(.system(size: fontSize * 1.1))
+                    .foregroundStyle(todo.isDone ? Color.secondary : priorityColor ?? Color.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(todo.isDone ? "Mark as not done" : "Mark as done")
+
+            VStack(alignment: .leading, spacing: 4) {
+                SelectableText(attributedString: text, onMouseDown: onSelect)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if hasDetails {
+                    details
+                }
+            }
+
+            if wasCopied {
+                Label("Copied", systemImage: "checkmark")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+            }
+        }
+        .padding(.vertical, 3)
+    }
+
+    private var text: NSAttributedString {
+        let rendered = EntryTextStyle.markdownRenderedDescription(
+            TextVariables.segments(of: todo.rawText, values: values),
+            size: fontSize,
+            fonts: fonts,
+            baseColor: todo.isDone ? .tertiaryLabelColor : .labelColor
+        )
+        guard todo.isDone else { return rendered }
+        let struck = NSMutableAttributedString(attributedString: rendered)
+        struck.addAttribute(
+            .strikethroughStyle,
+            value: NSUnderlineStyle.single.rawValue,
+            range: NSRange(location: 0, length: struck.length)
+        )
+        return struck
+    }
+
+    private var hasDetails: Bool {
+        todo.priority != nil || todo.dueDate != nil || !todo.tags.isEmpty
+            || (showsContext && !todo.context.isEmpty)
+    }
+
+    private var details: some View {
+        HStack(spacing: 6) {
+            if let priority = todo.priority {
+                chip("!\(priority)", color: priorityColor ?? .secondary)
+            }
+            if let dueDate = todo.dueDate {
+                chip(
+                    dueDate == today ? "Today" : TodoDate.displayString(for: dueDate, today: today),
+                    systemImage: "calendar",
+                    color: todo.isDone ? .secondary : dueDate < today ? .red : dueDate == today ? .orange : .secondary
+                )
+            }
+            ForEach(todo.tags, id: \.self) { tag in
+                chip("#\(tag)", color: .accentColor)
+            }
+            if showsContext, !todo.context.isEmpty {
+                Text(todo.context.joined(separator: " › "))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+        .font(.system(size: fontSize * 0.78))
+        .opacity(todo.isDone ? 0.6 : 1)
+    }
+
+    private var priorityColor: Color? {
+        switch todo.priority {
+        case 1: .red
+        case 2: .orange
+        case 3: .blue
+        default: nil
+        }
+    }
+
+    private func chip(_ title: String, systemImage: String? = nil, color: Color) -> some View {
+        HStack(spacing: 3) {
+            if let systemImage {
+                Image(systemName: systemImage)
+            }
+            Text(title)
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 1)
+        .background(color.opacity(0.13), in: Capsule())
     }
 }
 

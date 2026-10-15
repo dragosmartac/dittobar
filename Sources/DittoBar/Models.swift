@@ -37,6 +37,44 @@ struct URLEntry: Equatable {
     let variables: [EntryVariable]
 }
 
+/// Where a todo is written, so checking it off can rewrite that line.
+struct TodoSource: Equatable {
+    let fileURL: URL
+    /// Zero-based, counting lines split on `\n`.
+    let lineIndex: Int
+    /// The line as it was parsed, without its line ending.
+    let line: String
+}
+
+struct TodoEntry: Equatable {
+    let metadata: EntryMetadata
+    let isDone: Bool
+    /// The text after the checkbox as written, tokens included.
+    let rawItemText: String
+    /// `rawItemText` without its tokens. May contain variables.
+    let rawText: String
+    /// 1 is the highest.
+    let priority: Int?
+    let tags: [String]
+    /// `YYYY-MM-DD`.
+    let dueDate: String?
+    /// `YYYY-MM-DD`, set when the todo is checked off in the app.
+    let doneDate: String?
+    let variables: [EntryVariable]
+    let source: TodoSource
+    /// The sheet title and the headings above the todo, outermost first.
+    let context: [String]
+    /// The entry whose description or note the todo is written in, or nil
+    /// when the todo stands on its own.
+    let containingEntryID: String?
+
+    var isInsideEntry: Bool { containingEntryID != nil }
+
+    var hasTokens: Bool {
+        priority != nil || !tags.isEmpty || dueDate != nil
+    }
+}
+
 enum EntryTextForm: Equatable {
     case markdownStripped
     case resolved
@@ -49,6 +87,10 @@ enum EntryAction: Equatable {
     case copyURL
     case copyDescription(EntryTextForm)
     case openURL
+    case markTodoDone
+    case markTodoNotDone
+    case copyTodoText(EntryTextForm)
+    case showTodoInSheet
 
     var title: String {
         switch self {
@@ -68,6 +110,16 @@ enum EntryAction: Equatable {
             return "Copy Description as Markdown"
         case .openURL:
             return "Open URL"
+        case .markTodoDone:
+            return "Mark as Done"
+        case .markTodoNotDone:
+            return "Mark as Not Done"
+        case .copyTodoText(.markdownStripped):
+            return "Copy Text"
+        case .copyTodoText(.resolved):
+            return "Copy as Markdown"
+        case .showTodoInSheet:
+            return "Show in Sheet"
         }
     }
 }
@@ -83,6 +135,7 @@ enum CheatSheetEntry: Identifiable, Equatable {
     case note(NoteEntry)
     case command(CommandEntry)
     case url(URLEntry)
+    case todo(TodoEntry)
 
     var metadata: EntryMetadata {
         switch self {
@@ -91,6 +144,8 @@ enum CheatSheetEntry: Identifiable, Equatable {
         case .command(let entry):
             return entry.metadata
         case .url(let entry):
+            return entry.metadata
+        case .todo(let entry):
             return entry.metadata
         }
     }
@@ -106,6 +161,8 @@ enum CheatSheetEntry: Identifiable, Equatable {
         case .command(let entry):
             return entry.variables
         case .url(let entry):
+            return entry.variables
+        case .todo(let entry):
             return entry.variables
         }
     }
@@ -143,6 +200,16 @@ enum CheatSheetEntry: Identifiable, Equatable {
                 ])
             }
             return EntryActions(primary: .copyURL, secondary: secondary)
+
+        case .todo(let entry):
+            return EntryActions(
+                primary: entry.isDone ? .markTodoNotDone : .markTodoDone,
+                secondary: [
+                    .copyTodoText(.markdownStripped),
+                    .copyTodoText(.resolved),
+                    .showTodoInSheet
+                ]
+            )
         }
     }
 }
@@ -192,13 +259,25 @@ enum CheatSheetItem: Identifiable, Equatable {
         guard case .entry(let entry) = self else { return nil }
         return entry
     }
+
+    var todo: TodoEntry? {
+        guard case .entry(.todo(let todo)) = self else { return nil }
+        return todo
+    }
 }
 
 struct CheatSheet: Identifiable, Equatable {
+    static let todosTabID = "todos"
+
     let id: String
     let title: String
     let items: [CheatSheetItem]
-    let sourceURL: URL
+    /// Nil for the Todos tab, which gathers todos from every sheet.
+    let sourceURL: URL?
+    /// Every todo in the file, in order, including those inside entries.
+    var todos: [TodoEntry] = []
+
+    var isTodosTab: Bool { id == Self.todosTabID }
 }
 
 /// The in-flight state of the variable form.

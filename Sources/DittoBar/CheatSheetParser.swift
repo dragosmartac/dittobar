@@ -10,7 +10,10 @@ enum CheatSheetParser {
 
     static func parse(_ source: String, fileURL: URL) -> CheatSheet {
         let fileName = fileURL.lastPathComponent
-        let lines = source.components(separatedBy: .newlines)
+        // Split as `TodoWriter` does, so todo line indexes match the file.
+        let lines = source.components(separatedBy: "\n").map { line in
+            line.hasSuffix("\r") ? String(line.dropLast()) : line
+        }
         let fallbackTitle = Self.fallbackTitle(for: fileURL)
 
         var sheetTitle = fallbackTitle
@@ -18,6 +21,8 @@ enum CheatSheetParser {
         var entryTitle: String?
         var descriptionLines: [String] = []
         var items: [CheatSheetItem] = []
+        var todos: [TodoEntry] = []
+        var sectionTitle: String?
         var entryCount = 0
         var sectionCount = 0
         var isInsideComment = false
@@ -39,6 +44,20 @@ enum CheatSheetParser {
             if let entry = makeEntry(from: draft, fileName: fileName, entryIndex: entryCount) {
                 items.append(.entry(entry))
                 entryCount += 1
+            }
+        }
+
+        func appendTodo(_ parsed: TodoLine.Parsed, lineIndex: Int) {
+            let todo = makeTodo(
+                from: parsed,
+                source: TodoSource(fileURL: fileURL, lineIndex: lineIndex, line: lines[lineIndex]),
+                context: [sheetTitle, sectionTitle, entryTitle].compactMap { $0 },
+                // The ID the entry is about to be given in `appendEntry`.
+                containingEntryID: entryTitle.map { "\(fileName):\(entryCount):\($0)" }
+            )
+            todos.append(todo)
+            if !todo.isInsideEntry {
+                items.append(.entry(.todo(todo)))
             }
         }
 
@@ -77,7 +96,7 @@ enum CheatSheetParser {
 
             if line.hasPrefix("# ") {
                 appendEntry()
-                if !hasParsedSheetTitle, items.isEmpty {
+                if !hasParsedSheetTitle, items.allSatisfy({ $0.todo != nil }) {
                     sheetTitle = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
                     hasParsedSheetTitle = true
                 }
@@ -89,6 +108,7 @@ enum CheatSheetParser {
                 appendEntry()
                 let title = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
                 appendSection(title: title)
+                sectionTitle = title
                 descriptionLines = []
                 index += 1
                 continue
@@ -120,6 +140,12 @@ enum CheatSheetParser {
                 continue
             }
 
+            // Outside an entry, todos stand on their own and the shorthand
+            // forms are accepted. Inside one, they stay part of its text.
+            if let todo = TodoLine.parse(line, allowsShorthand: entryTitle == nil) {
+                appendTodo(todo, lineIndex: index)
+            }
+
             if entryTitle != nil {
                 // Leading whitespace nests list items, so only trim the end.
                 descriptionLines.append(String(line.reversed().drop(while: { $0 == " " || $0 == "\t" }).reversed()))
@@ -133,7 +159,36 @@ enum CheatSheetParser {
             id: fileName,
             title: sheetTitle,
             items: items,
-            sourceURL: fileURL
+            sourceURL: fileURL,
+            todos: todos
+        )
+    }
+
+    private static func makeTodo(
+        from parsed: TodoLine.Parsed,
+        source: TodoSource,
+        context: [String],
+        containingEntryID: String?
+    ) -> TodoEntry {
+        let fileName = source.fileURL.lastPathComponent
+        let tokens = TodoTokens.parse(parsed.rawItemText)
+        return TodoEntry(
+            metadata: EntryMetadata(
+                id: "\(fileName):todo:\(source.lineIndex)",
+                storageKey: "\(fileName)#todo:\(tokens.rawText)",
+                title: MarkdownText.stripped(tokens.rawText)
+            ),
+            isDone: parsed.isDone,
+            rawItemText: parsed.rawItemText,
+            rawText: tokens.rawText,
+            priority: tokens.priority,
+            tags: tokens.tags,
+            dueDate: tokens.dueDate,
+            doneDate: tokens.doneDate,
+            variables: TextVariables.variables(in: tokens.rawText),
+            source: source,
+            context: context,
+            containingEntryID: containingEntryID
         )
     }
 

@@ -23,11 +23,12 @@ open "dist/DittoBar.app"
 | Key | Action |
 | --- | --- |
 | `Option-Space` | Open or close the popover globally |
+| `Command-0` | Select the Todos tab |
 | `Command-1` … `Command-9` | Select a cheat-sheet tab |
 | `Command-Option-Left` / `Command-Option-Right` | Select the previous or next cheat-sheet tab |
 | `Tab` / `Shift-Tab` | Select the next or previous entry or section |
 | `Up` / `Down` | Select the previous or next entry or section |
-| `Return` | Perform the selected entry's primary copy action, or open its variable form. On a section, open its action menu |
+| `Return` | Perform the selected entry's primary copy action, or open its variable form. On a todo, check it off or back on. On a section, open its action menu |
 | `Option-Return` | Open the selected entry's action menu |
 | `Command-Return` | Perform the primary copy action without opening the variable form |
 | `Command-C` | Copy text selected inside an entry |
@@ -130,6 +131,49 @@ https://dashboards.example.com/services/{{service=payments}}
 ````
 
 Changes reload automatically. Two example files are created on first launch.
+
+## Todos
+
+Write a task list item anywhere outside an entry to add a todo. No heading is needed:
+
+```markdown
+# Personal
+
+[] Cancel gym subscription #home
+- [ ] Renew passport !1 due:2026-11-01
+
+## Money
+- [x] Move savings to the new account done:2026-10-14
+```
+
+`- [ ]` is the standard form, and `[]`, `[ ]`, and `- []` work too. A todo's text can
+carry these tokens anywhere, separated by spaces:
+
+| Token | Meaning |
+| --- | --- |
+| `!1`, `!2`, `!3` | Priority, `!1` highest |
+| `#tag` | A tag: a letter, then letters, digits, `-`, `_`, or `/` |
+| `due:YYYY-MM-DD` | Due date |
+| `done:YYYY-MM-DD` | When it was checked off, added by the app |
+
+Tokens show as colored chips and are left out of copied text. Inside inline code they are
+ordinary text.
+
+Press `Return` or click the checkbox to check a todo off. The app rewrites only that
+line in its file, in the standard `- [x]` form, and adds `done:` with today's date.
+Unchecking removes it. If the line changed in the file since it was loaded, nothing is
+written and the app reloads instead.
+
+The **Todos** tab, first in the tab list (`Command-0`), gathers todos from every sheet
+into **Overdue**, **Today**, **Open**, and **Done Today**. Each group is sorted by
+priority, then due date, then file order, and each todo shows the sheet and headings it
+is written under. Todos checked off on an earlier day are not shown. Search with a token,
+such as `#home` or `!1`, to filter. Option-Return offers **Show in Sheet**, and
+`Command-E` opens the selected todo's file. The tab only appears once there is a todo.
+
+A task list inside an entry's description or note stays part of that entry, so a
+checklist in a runbook is not mistaken for todos. Give one of its items a priority, tag,
+or due date to add it to the Todos tab too.
 
 ## Variables
 

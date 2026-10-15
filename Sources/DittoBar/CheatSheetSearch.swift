@@ -88,6 +88,9 @@ enum CheatSheetSearch {
             return [command.rawDescription, command.rawCommand].compactMap { $0 }
         case .url(let url):
             return [url.rawDescription, url.rawURL].compactMap { $0 }
+        case .todo(let todo):
+            // Tokens included, so `#tag` and `!1` find the todos that have them.
+            return [todo.rawItemText]
         }
     }
 }

@@ -51,8 +51,10 @@ final class CheatSheetStore: ObservableObject {
     private var entrySelectionSource = EntrySelectionSource.other
 
     private var watcher: DirectoryWatcher?
+    private let now: () -> Date
 
-    init(fileManager: FileManager = .default) {
+    init(fileManager: FileManager = .default, now: @escaping () -> Date = Date.init) {
+        self.now = now
         let applicationSupport = fileManager.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -111,6 +113,9 @@ final class CheatSheetStore: ObservableObject {
 
     var selectedEntry: CheatSheetEntry? { selectedItem?.entry }
 
+    /// Today as todo dates are written, `YYYY-MM-DD`.
+    var today: String { TodoDate.string(from: now()) }
+
     func selectItem(_ item: CheatSheetItem) {
         guard let index = selectableItems.firstIndex(where: { $0.id == item.id }) else {
             return
@@ -157,6 +162,18 @@ final class CheatSheetStore: ObservableObject {
         guard sheets.indices.contains(index) else { return }
         selectedSheetIndex = index
         selectFirstEntry()
+    }
+
+    var hasTodosTab: Bool { sheets.first?.isTodosTab == true }
+
+    /// ⌘0 selects the Todos tab, and ⌘1–⌘9 the sheets after it.
+    func shortcutNumber(forSheetAt index: Int) -> Int? {
+        let number = hasTodosTab ? index : index + 1
+        return number <= 9 ? number : nil
+    }
+
+    func selectSheet(shortcutNumber number: Int) {
+        selectSheet(at: hasTodosTab ? number : number - 1)
     }
 
     func moveSheetSelection(by offset: Int) {
@@ -260,12 +277,23 @@ final class CheatSheetStore: ObservableObject {
         )
     }
 
+    /// The entry's actions, less Show in Sheet outside the Todos tab, where
+    /// the todo is already shown in its sheet.
+    func actions(for entry: CheatSheetEntry) -> EntryActions {
+        let actions = entry.actions
+        guard selectedSheet?.isTodosTab != true else { return actions }
+        return EntryActions(
+            primary: actions.primary,
+            secondary: actions.secondary.filter { $0 != .showTodoInSheet }
+        )
+    }
+
     func perform(
         _ action: EntryAction,
         for entry: CheatSheetEntry,
         skippingVariableForm: Bool = false
     ) {
-        guard entry.actions.all.contains(action) else {
+        guard actions(for: entry).all.contains(action) else {
             assertionFailure("Unavailable action \(action) for entry \(entry.id)")
             return
         }
@@ -336,9 +364,107 @@ final class CheatSheetStore: ObservableObject {
                 skippingVariableForm: skippingVariableForm
             )
 
+        case (.markTodoDone, .todo(let todo)):
+            setDone(true, for: todo)
+
+        case (.markTodoNotDone, .todo(let todo)):
+            setDone(false, for: todo)
+
+        case (.copyTodoText(.markdownStripped), .todo(let todo)):
+            performTextAction(
+                action,
+                for: entry,
+                raw: todo.rawText,
+                variables: todo.variables,
+                textForm: .markdownStripped,
+                skippingVariableForm: skippingVariableForm
+            )
+
+        case (.copyTodoText(.resolved), .todo(let todo)):
+            performTextAction(
+                action,
+                for: entry,
+                raw: Self.markdownLine(for: todo),
+                variables: todo.variables,
+                textForm: .resolved,
+                skippingVariableForm: skippingVariableForm
+            )
+
+        case (.showTodoInSheet, .todo(let todo)):
+            showInSheet(todo)
+
         default:
             assertionFailure("Mismatched action \(action) for entry \(entry.id)")
         }
+    }
+
+    // MARK: - Todos
+
+    /// Rewrites the todo's line in its file, then reloads.
+    func setDone(_ isDone: Bool, for todo: TodoEntry) {
+        do {
+            try TodoWriter.setDone(isDone, for: todo, today: today)
+        } catch {
+            editorErrorMessage = "The todo could not be updated: \(error.localizedDescription)"
+        }
+        reload()
+    }
+
+    private func showInSheet(_ todo: TodoEntry) {
+        guard let index = sheets.firstIndex(where: { $0.sourceURL == todo.source.fileURL }) else {
+            return
+        }
+        query = ""
+        selectSheet(at: index)
+        let entryID = todo.containingEntryID ?? todo.metadata.id
+        if let itemIndex = selectableItems.firstIndex(where: { $0.entry?.id == entryID }) {
+            selectedItemIndex = itemIndex
+        }
+    }
+
+    /// The todo as a Markdown task list item, tokens included.
+    static func markdownLine(for todo: TodoEntry) -> String {
+        "- [\(todo.isDone ? "x" : " ")] \(todo.rawItemText)"
+    }
+
+    /// Gathers the todos from every sheet: those written on their own, and
+    /// those inside entries that have a priority, tag, or due date. Open
+    /// todos are grouped by when they are due and sorted by priority, then
+    /// due date, then the order they are written in. Todos checked off on
+    /// an earlier day are left out. Nil when there are no todos at all.
+    static func todosTab(from sheets: [CheatSheet], today: String) -> CheatSheet? {
+        let todos = sheets
+            .flatMap(\.todos)
+            .filter { !$0.isInsideEntry || $0.hasTokens }
+        guard !todos.isEmpty else { return nil }
+
+        let open = todos.enumerated()
+            .filter { !$0.element.isDone }
+            .sorted { lhs, rhs in
+                let left = (lhs.element.priority ?? 4, lhs.element.dueDate ?? "~", lhs.offset)
+                let right = (rhs.element.priority ?? 4, rhs.element.dueDate ?? "~", rhs.offset)
+                return left < right
+            }
+            .map(\.element)
+
+        let groups: [(title: String, todos: [TodoEntry])] = [
+            ("Overdue", open.filter { ($0.dueDate ?? today) < today }),
+            ("Today", open.filter { $0.dueDate == today }),
+            ("Open", open.filter { ($0.dueDate ?? "~") > today }),
+            ("Done Today", todos.filter { $0.isDone && $0.doneDate == today })
+        ]
+
+        let items = groups
+            .filter { !$0.todos.isEmpty }
+            .flatMap { group -> [CheatSheetItem] in
+                let section = CheatSheetSection(
+                    id: "\(CheatSheet.todosTabID):section:\(group.title)",
+                    title: group.title
+                )
+                return [.section(section)] + group.todos.map { .entry(.todo($0)) }
+            }
+
+        return CheatSheet(id: CheatSheet.todosTabID, title: "Todos", items: items, sourceURL: nil)
     }
 
     private func performTextAction(
@@ -466,7 +592,19 @@ final class CheatSheetStore: ObservableObject {
     /// each text resolved. URLs become bare lines, which most Markdown
     /// renderers turn into links, rather than `url` fences.
     func markdown(for section: CheatSheetSection) -> String {
-        let blocks = entries(in: section).map { entry -> String in
+        var blocks: [String] = []
+        for entry in entries(in: section) {
+            // Consecutive todos form one list.
+            if case .todo(let todo) = entry {
+                let line = output(Self.markdownLine(for: todo), for: entry, textForm: .resolved)
+                if let last = blocks.last, last.hasPrefix("- [") {
+                    blocks[blocks.count - 1] = last + "\n" + line
+                } else {
+                    blocks.append(line)
+                }
+                continue
+            }
+
             var parts = ["### \(entry.title)"]
             switch entry {
             case .note(let note):
@@ -484,10 +622,12 @@ final class CheatSheetStore: ObservableObject {
                     parts.append(output(rawDescription, for: entry, textForm: .resolved))
                 }
                 parts.append(output(url.rawURL, for: entry, textForm: .resolved))
+            case .todo:
+                break
             }
-            return parts
+            blocks.append(parts
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .joined(separator: "\n\n")
+                .joined(separator: "\n\n"))
         }
         return (["## \(section.title)"] + blocks).joined(separator: "\n\n")
     }
@@ -511,6 +651,8 @@ final class CheatSheetStore: ObservableObject {
             return output(note.rawContent, for: entry, textForm: .markdownStripped)
         case .url(let url):
             return output(url.rawURL, for: entry, textForm: .resolved)
+        case .todo(let todo):
+            return output(todo.rawText, for: entry, textForm: .markdownStripped)
         }
     }
 
@@ -532,8 +674,13 @@ final class CheatSheetStore: ObservableObject {
         pasteboard.setString(Self.shellEscapedPath(folderURL.path), forType: .string)
     }
 
+    /// The selected sheet's file, or in the Todos tab, the selected todo's.
+    private var selectedSourceURL: URL? {
+        selectedSheet?.sourceURL ?? selectedItem?.todo?.source.fileURL
+    }
+
     func copySelectedSheetPath() {
-        guard let sourceURL = selectedSheet?.sourceURL else {
+        guard let sourceURL = selectedSourceURL else {
             NSSound.beep()
             return
         }
@@ -548,7 +695,7 @@ final class CheatSheetStore: ObservableObject {
     }
 
     func openSelectedSheetInEditor() {
-        guard let sourceURL = selectedSheet?.sourceURL else {
+        guard let sourceURL = selectedSourceURL else {
             NSSound.beep()
             return
         }
@@ -643,13 +790,15 @@ final class CheatSheetStore: ObservableObject {
             options: [.skipsHiddenFiles]
         )) ?? []
 
-        sheets = urls
+        let fileSheets = urls
             .filter { $0.pathExtension.lowercased() == "md" }
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-            .compactMap { url in
+            .compactMap { url -> CheatSheet? in
                 guard let source = try? String(contentsOf: url, encoding: .utf8) else { return nil }
                 return CheatSheetParser.parse(source, fileURL: url)
             }
+        let todosTab = Self.todosTab(from: fileSheets, today: today)
+        sheets = (todosTab.map { [$0] } ?? []) + fileSheets
 
         if let previousSheetID,
            let index = sheets.firstIndex(where: { $0.id == previousSheetID }) {

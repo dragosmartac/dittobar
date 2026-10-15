@@ -185,7 +185,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let separatorIndex: Int?
         switch item {
         case .entry(let entry):
-            titledActions = entry.actions.all.map { action in
+            titledActions = store.actions(for: entry).all.map { action in
                 (action.title, { [store] in store.perform(action, for: entry) })
             }
             separatorIndex = 1
@@ -357,8 +357,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if modifiers.contains(.command),
            let characters = event.charactersIgnoringModifiers,
            let number = Int(characters),
-           (1...9).contains(number) {
-            store.selectSheet(at: number - 1)
+           (0...9).contains(number) {
+            store.selectSheet(shortcutNumber: number)
             return nil
         }
 

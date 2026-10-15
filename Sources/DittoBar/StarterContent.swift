@@ -21,6 +21,16 @@ enum StarterContent {
       3. Note
          Content without a non-empty fenced block.
 
+    Todos
+
+      Outside an entry, write a task list item to add a todo; no heading
+      is needed. [] Text works as a shorthand for - [ ] Text.
+
+      - [ ] Renew passport !1 #home due:2026-11-01
+
+      !1 to !3 set the priority. Todos from every file are gathered in
+      the Todos tab.
+
     Description formatting
 
       Descriptions support Markdown tables, block quotes, and inline Markdown:
