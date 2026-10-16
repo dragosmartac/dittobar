@@ -407,12 +407,23 @@ struct PopoverView: View {
 
     private var footer: some View {
         HStack(spacing: 14) {
-            Text("↩ copy/open")
-            footerShortcutDivider
-            Text("⌥↩ options")
-            footerShortcutDivider
-            Text("⌘↩ skip form")
-            footerShortcutDivider
+            switch store.selectedItem {
+            case .entry(let entry):
+                Text("↩ \(returnVerb(for: entry))")
+                footerShortcutDivider
+                Text("⌥↩ options")
+                footerShortcutDivider
+                if entry.hasVariables {
+                    Text("⌘↩ skip form")
+                    footerShortcutDivider
+                }
+            case .section:
+                // Return already opens the options menu on a section.
+                Text("↩ options")
+                footerShortcutDivider
+            case nil:
+                EmptyView()
+            }
             Text("⌘E edit")
             footerShortcutDivider
             Text("⌘⇧N new")
@@ -430,6 +441,15 @@ struct PopoverView: View {
         Divider()
             .frame(height: chromeSize * 1.1)
             .opacity(0.7)
+    }
+
+    private func returnVerb(for entry: CheatSheetEntry) -> String {
+        switch entry.actions.primary {
+        case .openURL, .openFile, .revealInFinder:
+            return "open"
+        default:
+            return "copy"
+        }
     }
 }
 
