@@ -135,14 +135,14 @@ enum CheatSheetEntry: Identifiable, Equatable {
             )
 
         case .url(let entry):
-            var secondary: [EntryAction] = [.openURL, .copyTitle]
+            var secondary: [EntryAction] = [.copyURL, .copyTitle]
             if entry.rawDescription != nil {
                 secondary.append(contentsOf: [
                     .copyDescription(.markdownStripped),
                     .copyDescription(.resolved)
                 ])
             }
-            return EntryActions(primary: .copyURL, secondary: secondary)
+            return EntryActions(primary: .openURL, secondary: secondary)
         }
     }
 }

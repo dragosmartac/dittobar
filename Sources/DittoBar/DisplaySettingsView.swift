@@ -371,9 +371,9 @@ private struct ShortcutGroup: Identifiable {
             Shortcut(title: "Close", keys: [["Esc"]])
         ]),
         ShortcutGroup(title: "Entries", shortcuts: [
-            Shortcut(title: "Copy, or fill in variables first", keys: [["↩"]]),
-            Shortcut(title: "Copy with the current variable values", keys: [["⌘", "↩"]]),
-            Shortcut(title: "Show copy options", keys: [["⌥", "↩"]])
+            Shortcut(title: "Copy or open, or fill in variables first", keys: [["↩"]]),
+            Shortcut(title: "Copy or open with the current variable values", keys: [["⌘", "↩"]]),
+            Shortcut(title: "Show all actions", keys: [["⌥", "↩"]])
         ]),
         ShortcutGroup(title: "Sections", shortcuts: [
             Shortcut(title: "Show section actions", keys: [["↩"]])

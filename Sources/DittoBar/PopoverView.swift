@@ -407,7 +407,7 @@ struct PopoverView: View {
 
     private var footer: some View {
         HStack(spacing: 14) {
-            Text("↩ copy")
+            Text("↩ copy/open")
             footerShortcutDivider
             Text("⌥↩ options")
             footerShortcutDivider

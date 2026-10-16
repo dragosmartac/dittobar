@@ -502,7 +502,7 @@ final class CheatSheetStore: ObservableObject {
         return "\(fence)\(language ?? "")\n\(trimmed)\n\(fence)"
     }
 
-    /// The text an entry's primary action copies.
+    /// The text an entry's primary action copies or, for a URL, opens.
     private func primaryText(for entry: CheatSheetEntry) -> String {
         switch entry {
         case .command(let command):

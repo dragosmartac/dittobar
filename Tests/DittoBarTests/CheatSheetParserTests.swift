@@ -72,9 +72,9 @@ struct CheatSheetParserTests {
         #expect(url.rawURL == "https://example.com/{{topic=swift}}")
         #expect(url.variables == [EntryVariable(name: "topic", defaultValue: "swift")])
         #expect(entries[0].actions == EntryActions(
-            primary: .copyURL,
+            primary: .openURL,
             secondary: [
-                .openURL,
+                .copyURL,
                 .copyTitle,
                 .copyDescription(.markdownStripped),
                 .copyDescription(.resolved)
@@ -180,8 +180,8 @@ struct CheatSheetParserTests {
         #expect(support.rawDescription == nil)
         #expect(support.rawURL == "https://example.com/support")
         #expect(entries[2].actions == EntryActions(
-            primary: .copyURL,
-            secondary: [.openURL, .copyTitle]
+            primary: .openURL,
+            secondary: [.copyURL, .copyTitle]
         ))
     }
 

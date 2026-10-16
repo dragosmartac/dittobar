@@ -27,9 +27,9 @@ open "dist/DittoBar.app"
 | `Command-Option-Left` / `Command-Option-Right` | Select the previous or next cheat-sheet tab |
 | `Tab` / `Shift-Tab` | Select the next or previous entry or section |
 | `Up` / `Down` | Select the previous or next entry or section |
-| `Return` | Perform the selected entry's primary copy action, or open its variable form. On a section, open its action menu |
+| `Return` | Perform the selected entry's primary action, or open its variable form. URLs open; other entries copy. On a section, open its action menu |
 | `Option-Return` | Open the selected entry's action menu |
-| `Command-Return` | Perform the primary copy action without opening the variable form |
+| `Command-Return` | Perform the primary action without opening the variable form |
 | `Command-C` | Copy text selected inside an entry |
 | `Command-E` | Open the current Markdown file in the configured editor |
 | `Command-F` | Focus search |
@@ -47,7 +47,7 @@ Right-click any entry, or press `Option-Return`, to show its primary and seconda
 actions. Every entry supports copying its title. Commands and URLs with descriptions
 support copying the description with Markdown stripped or retained. Notes support
 copying their content with Markdown stripped or retained, and URL entries also support
-**Open URL**.
+**Copy URL**.
 
 ## Edit cheat sheets
 
@@ -97,7 +97,7 @@ https://dashboards.example.com/services/production
 ````
 
 Right-click a section heading, or select it and press Return, to act on every entry
-shown under it. **Copy All Entries** copies what each entry's Return would copy, one per
+shown under it. **Copy All Entries** copies each entry's command, note content, or URL, one per
 line, or separated by blank lines when any of them spans several lines. **Open All URLs**
 opens each URL entry. **Copy as Markdown** copies the section heading and its entries
 as Markdown, with commands in fenced code blocks. All three use each entry's current
@@ -116,7 +116,7 @@ Markdown, including `` `code` ``, `**bold**`, `*italic*`, `~~strikethrough~~`, a
 `[links](https://example.com)`.
 
 Use a `url` fence for a URL entry. It supports a description and variables just like a
-command. Return copies the URL; Option-Return offers to open it in the default application:
+command. Return opens the URL in the default application; Option-Return offers to copy it:
 
 ````markdown
 ## Service dashboards
@@ -162,11 +162,11 @@ Other details:
 - `{{name}}` without an `=` declares a field that starts empty.
 - Repeating a name reuses one field. For commands and URLs, this spans the description
   and payload: the same `{{diff}}` in both is one field.
-- An entry's primary action copies its command, note content, or URL. A variable in a
-  description keeps it in step with the payload.
+- An entry's primary action copies its command or note content, or opens its URL. A
+  variable in a description keeps it in step with the payload.
 - Values you enter are remembered per entry and pre-fill the form next time.
   **Reset to Defaults** restores what the Markdown says.
-- `Command-Return` skips the form and copies using the current values.
+- `Command-Return` skips the form and copies or opens using the current values.
 
 ## Comments
 
