@@ -646,6 +646,11 @@ private struct EntryRow: View, Equatable {
                         .font(.caption2)
                         .foregroundStyle(.tint)
                 }
+                if case .file = entry {
+                    Label("File", systemImage: "doc")
+                        .font(.caption2)
+                        .foregroundStyle(.tint)
+                }
                 Spacer()
                 if wasCopied {
                     Label("Copied", systemImage: "checkmark")
@@ -667,6 +672,11 @@ private struct EntryRow: View, Equatable {
                     descriptionText(rawDescription)
                 }
                 payloadText(url.rawURL)
+            case .file(let file):
+                if let rawDescription = file.rawDescription {
+                    descriptionText(rawDescription)
+                }
+                payloadText(file.rawPath)
             }
         }
         .padding(.vertical, 5)

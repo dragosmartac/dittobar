@@ -88,6 +88,8 @@ enum CheatSheetSearch {
             return [command.rawDescription, command.rawCommand].compactMap { $0 }
         case .url(let url):
             return [url.rawDescription, url.rawURL].compactMap { $0 }
+        case .file(let file):
+            return [file.rawDescription, file.rawPath].compactMap { $0 }
         }
     }
 }

@@ -166,6 +166,59 @@ struct CheatSheetStoreSearchTests {
         #expect(CheatSheetStore.joinedEntryTexts(["one\ntwo", "three"]) == "one\ntwo\n\nthree")
     }
 
+    @Test func fileEntriesAreSearchedAndCopiedAsMarkdown() throws {
+        let source = """
+        # Research
+
+        ## Notes
+        ### Release plan
+        The plan for the **next** release.
+
+        ```file
+        plans/{{name=release}}.md
+        ```
+
+        ### Retro
+        ```file
+        retro.md
+        ```
+        """
+        try withStore(source: source) { store in
+            store.query = "plans/release"
+
+            let notes = try #require(section(titled: "Notes", in: store))
+            #expect(store.entries(in: notes).map(\.title) == ["Release plan"])
+            #expect(store.actions(for: notes) == [.openAllFiles, .copyAllEntries, .copyAsMarkdown])
+            #expect(store.markdown(for: notes) == """
+            ## Notes
+
+            ### Release plan
+
+            The plan for the **next** release.
+
+            ```file
+            plans/release.md
+            ```
+            """)
+        }
+    }
+
+    @Test func filePathsResolveAgainstTheCheatSheetsFolder() {
+        let folderURL = URL(fileURLWithPath: "/Users/example/CheatSheets", isDirectory: true)
+        #expect(
+            CheatSheetStore.fileURL(forPath: " notes/../plans/a b.md\n", relativeTo: folderURL).path
+                == "/Users/example/CheatSheets/plans/a b.md"
+        )
+        #expect(
+            CheatSheetStore.fileURL(forPath: "/tmp/notes.md", relativeTo: folderURL).path
+                == "/tmp/notes.md"
+        )
+        #expect(
+            CheatSheetStore.fileURL(forPath: "~/notes.md", relativeTo: folderURL).path
+                == NSHomeDirectory() + "/notes.md"
+        )
+    }
+
     @Test func shellEscapedPathEscapesSpaces() {
         #expect(
             CheatSheetStore.shellEscapedPath(
@@ -190,7 +243,10 @@ struct CheatSheetStoreSearchTests {
         }
     }
 
-    private func withStore(_ assertions: (CheatSheetStore) throws -> Void) throws {
+    private func withStore(
+        source: String = Self.source,
+        _ assertions: (CheatSheetStore) throws -> Void
+    ) throws {
         let rootURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("DittoBarSearchTests-\(UUID().uuidString)", isDirectory: true)
         let cheatSheetsURL = rootURL
@@ -203,7 +259,7 @@ struct CheatSheetStoreSearchTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let sourceURL = cheatSheetsURL.appendingPathComponent("search.md")
-        try Self.source.write(to: sourceURL, atomically: true, encoding: .utf8)
+        try source.write(to: sourceURL, atomically: true, encoding: .utf8)
 
         do {
             let fileManager = TestFileManager(applicationSupportURL: rootURL)

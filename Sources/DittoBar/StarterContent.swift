@@ -15,10 +15,13 @@ enum StarterContent {
 
       Entry types:
       1. Command
-         Any non-empty fenced block except ```url ...```.
+         Any non-empty fenced block except ```url ...``` and ```file ...```.
       2. URL
          A non-empty ```url ...``` block.
-      3. Note
+      3. File
+         A non-empty ```file ...``` block holding a path: absolute, starting
+         with ~, or relative to this folder.
+      4. Note
          Content without a non-empty fenced block.
 
     Description formatting

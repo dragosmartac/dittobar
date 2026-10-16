@@ -1,6 +1,6 @@
 # Markdown in descriptions and notes
 
-Some text components support Markdown rendering (e.g. descriptions in Command or URL entries or the content of a Note). The current document highlights the supported behaviour.
+Some text components support Markdown rendering (e.g. descriptions in Command, URL, or File entries or the content of a Note). The current document highlights the supported behaviour.
 
 ## Supported formatting
 
@@ -94,7 +94,7 @@ have no effect as formatting:
 
 ## Copying
 
-- Command and URL entries offer **Copy Description** (markdownStripped) and
+- Command, URL, and file entries offer **Copy Description** (markdownStripped) and
   **Copy Description as Markdown** (resolved).
 - Note entries offer **Copy Content** (markdownStripped, the `Return` key action) and
   **Copy Content as Markdown** (resolved).

@@ -27,7 +27,7 @@ open "dist/DittoBar.app"
 | `Command-Option-Left` / `Command-Option-Right` | Select the previous or next cheat-sheet tab |
 | `Tab` / `Shift-Tab` | Select the next or previous entry or section |
 | `Up` / `Down` | Select the previous or next entry or section |
-| `Return` | Perform the selected entry's primary action, or open its variable form. URLs open; other entries copy. On a section, open its action menu |
+| `Return` | Perform the selected entry's primary action, or open its variable form. URLs and files open; other entries copy. On a section, open its action menu |
 | `Option-Return` | Open the selected entry's action menu |
 | `Command-Return` | Perform the primary action without opening the variable form |
 | `Command-C` | Copy text selected inside an entry |
@@ -46,8 +46,8 @@ can use the system default, Visual Studio Code, TextEdit, or any custom applicat
 Right-click any entry, or press `Option-Return`, to show its primary and secondary
 actions. Every entry supports copying its title. Commands and URLs with descriptions
 support copying the description with Markdown stripped or retained. Notes support
-copying their content with Markdown stripped or retained, and URL entries also support
-**Copy URL**.
+copying their content with Markdown stripped or retained. URL entries also support
+**Copy URL**, and file entries **Copy Path** and **Reveal in Finder**.
 
 ## Edit cheat sheets
 
@@ -97,9 +97,9 @@ https://dashboards.example.com/services/production
 ````
 
 Right-click a section heading, or select it and press Return, to act on every entry
-shown under it. **Copy All Entries** copies each entry's command, note content, or URL, one per
-line, or separated by blank lines when any of them spans several lines. **Open All URLs**
-opens each URL entry. **Copy as Markdown** copies the section heading and its entries
+shown under it. **Copy All Entries** copies each entry's command, note content, URL, or
+full path, one per line, or separated by blank lines when any of them spans several lines. **Open All URLs**
+opens each URL entry, and **Open All Files** each file entry. **Copy as Markdown** copies the section heading and its entries
 as Markdown, with commands in fenced code blocks. All three use each entry's current
 variable values without showing the form, and while searching they include only the
 matching entries. The selection skips sections with no entries shown.
@@ -128,6 +128,24 @@ Traffic, errors, and latency for the production service.
 https://dashboards.example.com/services/{{service=payments}}
 ```
 ````
+
+Use a `file` fence for a file entry, which points to a bigger note, some research, or any
+other file. Return opens the file in the configured editor; Option-Return offers to copy
+its full path or reveal it in Finder. Like a URL entry, it supports a description and
+variables:
+
+````markdown
+### Search research
+Claude's notes on fuzzy matching.
+
+```file
+notes/search-research.md
+```
+````
+
+The path can be absolute, start with `~`, or be relative to the cheat-sheets folder.
+Only Markdown files directly in that folder become tabs, so a subfolder such as `notes/`
+is a good home for bigger notes. Paths to folders are not supported.
 
 Changes reload automatically. Two example files are created on first launch.
 
@@ -160,10 +178,10 @@ is open, reopening it restores the form and all values entered so far.
 Other details:
 
 - `{{name}}` without an `=` declares a field that starts empty.
-- Repeating a name reuses one field. For commands and URLs, this spans the description
-  and payload: the same `{{diff}}` in both is one field.
-- An entry's primary action copies its command or note content, or opens its URL. A
-  variable in a description keeps it in step with the payload.
+- Repeating a name reuses one field. For commands, URLs, and files, this spans the
+  description and payload: the same `{{diff}}` in both is one field.
+- An entry's primary action copies its command or note content, or opens its URL or
+  file. A variable in a description keeps it in step with the payload.
 - Values you enter are remembered per entry and pre-fill the form next time.
   **Reset to Defaults** restores what the Markdown says.
 - `Command-Return` skips the form and copies or opens using the current values.

@@ -156,11 +156,20 @@ struct VariableFormView: View {
             // confirming the form before it can be typed into. Return is
             // already handled by .onSubmit on the fields; ⌘Return is a
             // distinct shortcut the replayed plain Return cannot match.
-            Button(form.action == .openURL ? "Open URL" : "Copy") {
+            Button(confirmTitle(for: form)) {
                 store.confirmVariableForm()
             }
             .keyboardShortcut(.return, modifiers: .command)
             .buttonStyle(.borderedProminent)
+        }
+    }
+
+    private func confirmTitle(for form: VariableFormState) -> String {
+        switch form.action {
+        case .openURL, .openFile, .revealInFinder:
+            return form.action.title
+        default:
+            return "Copy"
         }
     }
 }

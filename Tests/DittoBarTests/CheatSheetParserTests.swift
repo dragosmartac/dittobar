@@ -44,6 +44,53 @@ struct CheatSheetParserTests {
         ))
     }
 
+    @Test func parsesFileEntries() {
+        let source = """
+        # Research
+        ### Search research
+        Claude's notes on **fuzzy matching**.
+        ```FILE
+        notes/{{topic=search}}.md
+        ```
+        ### Plan
+        ```file
+        ~/plan.md
+        ```
+        """
+
+        let sheet = CheatSheetParser.parse(
+            source,
+            fileURL: URL(fileURLWithPath: "/tmp/research.md")
+        )
+
+        let entries = sheet.items.compactMap(\.entry)
+        guard entries.count == 2,
+              case .file(let research) = entries[0],
+              case .file(let plan) = entries[1] else {
+            Issue.record("Expected two file entries")
+            return
+        }
+        #expect(research.rawDescription == "Claude's notes on **fuzzy matching**.")
+        #expect(research.rawPath == "notes/{{topic=search}}.md")
+        #expect(research.variables == [EntryVariable(name: "topic", defaultValue: "search")])
+        #expect(entries[0].actions == EntryActions(
+            primary: .openFile,
+            secondary: [
+                .copyPath,
+                .revealInFinder,
+                .copyTitle,
+                .copyDescription(.markdownStripped),
+                .copyDescription(.resolved)
+            ]
+        ))
+        #expect(plan.rawDescription == nil)
+        #expect(plan.rawPath == "~/plan.md")
+        #expect(entries[1].actions == EntryActions(
+            primary: .openFile,
+            secondary: [.copyPath, .revealInFinder, .copyTitle]
+        ))
+    }
+
     @Test func parsesURLAndNoteEntries() {
         let source = """
         # Resources

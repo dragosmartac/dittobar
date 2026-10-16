@@ -37,6 +37,15 @@ struct URLEntry: Equatable {
     let variables: [EntryVariable]
 }
 
+struct FileEntry: Equatable {
+    let metadata: EntryMetadata
+    let rawDescription: String?
+    /// Absolute, starting with `~`, or relative to the cheat-sheets folder.
+    /// May contain variables.
+    let rawPath: String
+    let variables: [EntryVariable]
+}
+
 enum EntryTextForm: Equatable {
     case markdownStripped
     case resolved
@@ -49,6 +58,9 @@ enum EntryAction: Equatable {
     case copyURL
     case copyDescription(EntryTextForm)
     case openURL
+    case openFile
+    case copyPath
+    case revealInFinder
 
     var title: String {
         switch self {
@@ -68,6 +80,12 @@ enum EntryAction: Equatable {
             return "Copy Description as Markdown"
         case .openURL:
             return "Open URL"
+        case .openFile:
+            return "Open File"
+        case .copyPath:
+            return "Copy Path"
+        case .revealInFinder:
+            return "Reveal in Finder"
         }
     }
 }
@@ -83,6 +101,7 @@ enum CheatSheetEntry: Identifiable, Equatable {
     case note(NoteEntry)
     case command(CommandEntry)
     case url(URLEntry)
+    case file(FileEntry)
 
     var metadata: EntryMetadata {
         switch self {
@@ -91,6 +110,8 @@ enum CheatSheetEntry: Identifiable, Equatable {
         case .command(let entry):
             return entry.metadata
         case .url(let entry):
+            return entry.metadata
+        case .file(let entry):
             return entry.metadata
         }
     }
@@ -106,6 +127,8 @@ enum CheatSheetEntry: Identifiable, Equatable {
         case .command(let entry):
             return entry.variables
         case .url(let entry):
+            return entry.variables
+        case .file(let entry):
             return entry.variables
         }
     }
@@ -143,6 +166,16 @@ enum CheatSheetEntry: Identifiable, Equatable {
                 ])
             }
             return EntryActions(primary: .openURL, secondary: secondary)
+
+        case .file(let entry):
+            var secondary: [EntryAction] = [.copyPath, .revealInFinder, .copyTitle]
+            if entry.rawDescription != nil {
+                secondary.append(contentsOf: [
+                    .copyDescription(.markdownStripped),
+                    .copyDescription(.resolved)
+                ])
+            }
+            return EntryActions(primary: .openFile, secondary: secondary)
         }
     }
 }
@@ -155,6 +188,7 @@ struct CheatSheetSection: Identifiable, Equatable {
 /// Acts on every entry shown under a section heading.
 enum SectionAction: Equatable {
     case openAllURLs
+    case openAllFiles
     case copyAllEntries
     case copyAsMarkdown
 
@@ -162,6 +196,8 @@ enum SectionAction: Equatable {
         switch self {
         case .openAllURLs:
             return "Open All URLs"
+        case .openAllFiles:
+            return "Open All Files"
         case .copyAllEntries:
             return "Copy All Entries"
         case .copyAsMarkdown:

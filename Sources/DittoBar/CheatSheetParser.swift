@@ -170,6 +170,17 @@ enum CheatSheetParser {
                 )
             }
 
+            if draft.fenceLanguage?.caseInsensitiveCompare("file") == .orderedSame {
+                return .file(
+                    FileEntry(
+                        metadata: metadata,
+                        rawDescription: description,
+                        rawPath: rawFencedContent,
+                        variables: variables
+                    )
+                )
+            }
+
             let language = draft.fenceLanguage?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             return .command(

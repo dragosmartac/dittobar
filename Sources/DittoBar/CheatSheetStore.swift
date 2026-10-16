@@ -235,11 +235,7 @@ final class CheatSheetStore: ObservableObject {
         // Search also matches variable values.
         updateVisibleItems()
         variableForm = nil
-        if form.action == .openURL {
-            openURL(form.output)
-        } else {
-            writeToPasteboard(form.output, flashing: [form.entryID])
-        }
+        complete(form.action, output: form.output, entryID: form.entryID)
     }
 
     func binding(forVariable name: String) -> Binding<String> {
@@ -326,12 +322,33 @@ final class CheatSheetStore: ObservableObject {
                 skippingVariableForm: skippingVariableForm
             )
 
+        case (.copyDescription(let textForm), .file(let file)):
+            guard let rawDescription = file.rawDescription else { return }
+            performTextAction(
+                action,
+                for: entry,
+                raw: rawDescription,
+                variables: TextVariables.variables(in: rawDescription),
+                textForm: textForm,
+                skippingVariableForm: skippingVariableForm
+            )
+
         case (.openURL, .url(let url)):
             performTextAction(
                 action,
                 for: entry,
                 raw: url.rawURL,
                 variables: url.variables,
+                textForm: .resolved,
+                skippingVariableForm: skippingVariableForm
+            )
+
+        case (.openFile, .file(let file)), (.copyPath, .file(let file)), (.revealInFinder, .file(let file)):
+            performTextAction(
+                action,
+                for: entry,
+                raw: file.rawPath,
+                variables: file.variables,
                 textForm: .resolved,
                 skippingVariableForm: skippingVariableForm
             )
@@ -360,11 +377,25 @@ final class CheatSheetStore: ObservableObject {
             return
         }
 
-        let output = self.output(raw, for: entry, textForm: textForm)
-        if action == .openURL {
+        complete(action, output: output(raw, for: entry, textForm: textForm), entryID: entry.id)
+    }
+
+    /// Finishes an action once its text is resolved, with or without the
+    /// variable form.
+    private func complete(_ action: EntryAction, output: String, entryID: String) {
+        switch action {
+        case .openURL:
             openURL(output)
-        } else {
-            writeToPasteboard(output, flashing: [entry.id])
+        case .openFile:
+            openFile(atPath: output)
+        case .copyPath:
+            writeToPasteboard(copiedPath(for: output), flashing: [entryID])
+        case .revealInFinder:
+            guard let fileURL = existingFileURL(forPath: output) else { return }
+            NSWorkspace.shared.activateFileViewerSelecting([fileURL])
+            onRequestClose?()
+        default:
+            writeToPasteboard(output, flashing: [entryID])
         }
     }
 
@@ -392,6 +423,49 @@ final class CheatSheetStore: ObservableObject {
             return false
         }
         return true
+    }
+
+    private func openFile(atPath path: String) {
+        if openFileWithoutClosing(atPath: path) {
+            onRequestClose?()
+        }
+    }
+
+    /// Reports a failure through `editorErrorMessage` and returns false.
+    private func openFileWithoutClosing(atPath path: String) -> Bool {
+        guard let fileURL = existingFileURL(forPath: path) else { return false }
+        return openInConfiguredEditor(fileURL)
+    }
+
+    /// Reports a missing file, or a folder, through `editorErrorMessage`
+    /// and returns nil.
+    private func existingFileURL(forPath path: String) -> URL? {
+        let fileURL = Self.fileURL(forPath: path, relativeTo: folderURL)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory) else {
+            editorErrorMessage = "\"\(fileURL.path)\" does not exist."
+            return nil
+        }
+        guard !isDirectory.boolValue else {
+            editorErrorMessage = "\"\(fileURL.path)\" is a folder. File entries can only open files."
+            return nil
+        }
+        return fileURL
+    }
+
+    /// The full path, ready to paste into a shell.
+    private func copiedPath(for path: String) -> String {
+        Self.shellEscapedPath(Self.fileURL(forPath: path, relativeTo: folderURL).path)
+    }
+
+    /// Expands `~` and resolves a relative path against `folderURL`.
+    static func fileURL(forPath path: String, relativeTo folderURL: URL) -> URL {
+        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        let expandedPath = (trimmedPath as NSString).expandingTildeInPath
+        let fileURL = expandedPath.hasPrefix("/")
+            ? URL(fileURLWithPath: expandedPath)
+            : folderURL.appendingPathComponent(expandedPath)
+        return fileURL.standardizedFileURL
     }
 
     private func writeToPasteboard(_ value: String, flashing entryIDs: Set<String>) {
@@ -427,6 +501,9 @@ final class CheatSheetStore: ObservableObject {
         if entries.contains(where: { if case .url = $0 { true } else { false } }) {
             actions.append(.openAllURLs)
         }
+        if entries.contains(where: { if case .file = $0 { true } else { false } }) {
+            actions.append(.openAllFiles)
+        }
         if !entries.isEmpty {
             actions.append(contentsOf: [.copyAllEntries, .copyAsMarkdown])
         }
@@ -449,6 +526,17 @@ final class CheatSheetStore: ObservableObject {
                 onRequestClose?()
             }
 
+        case .openAllFiles:
+            let paths = entries.compactMap { entry -> String? in
+                guard case .file(let file) = entry else { return nil }
+                return output(file.rawPath, for: entry, textForm: .resolved)
+            }
+            // Open every file even if one fails, then close only if all opened.
+            let failures = paths.filter { !openFileWithoutClosing(atPath: $0) }
+            if failures.isEmpty, !paths.isEmpty {
+                onRequestClose?()
+            }
+
         case .copyAllEntries:
             guard !entries.isEmpty else { return }
             writeToPasteboard(
@@ -464,7 +552,8 @@ final class CheatSheetStore: ObservableObject {
 
     /// The section and its visible entries in cheat-sheet Markdown, with
     /// each text resolved. URLs become bare lines, which most Markdown
-    /// renderers turn into links, rather than `url` fences.
+    /// renderers turn into links, rather than `url` fences. Paths keep
+    /// their `file` fences, since no renderer would link a bare path.
     func markdown(for section: CheatSheetSection) -> String {
         let blocks = entries(in: section).map { entry -> String in
             var parts = ["### \(entry.title)"]
@@ -484,6 +573,14 @@ final class CheatSheetStore: ObservableObject {
                     parts.append(output(rawDescription, for: entry, textForm: .resolved))
                 }
                 parts.append(output(url.rawURL, for: entry, textForm: .resolved))
+            case .file(let file):
+                if let rawDescription = file.rawDescription {
+                    parts.append(output(rawDescription, for: entry, textForm: .resolved))
+                }
+                parts.append(Self.fenced(
+                    output(file.rawPath, for: entry, textForm: .resolved),
+                    language: "file"
+                ))
             }
             return parts
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -502,7 +599,8 @@ final class CheatSheetStore: ObservableObject {
         return "\(fence)\(language ?? "")\n\(trimmed)\n\(fence)"
     }
 
-    /// The text an entry's primary action copies or, for a URL, opens.
+    /// The text an entry's primary action copies or, for a URL, opens. For a
+    /// file, what Copy Path copies.
     private func primaryText(for entry: CheatSheetEntry) -> String {
         switch entry {
         case .command(let command):
@@ -511,6 +609,8 @@ final class CheatSheetStore: ObservableObject {
             return output(note.rawContent, for: entry, textForm: .markdownStripped)
         case .url(let url):
             return output(url.rawURL, for: entry, textForm: .resolved)
+        case .file(let file):
+            return copiedPath(for: output(file.rawPath, for: entry, textForm: .resolved))
         }
     }
 
