@@ -130,8 +130,8 @@ https://dashboards.example.com/services/{{service=payments}}
 ````
 
 Use a `file` fence for a file entry, which points to a bigger note, some research, or any
-other file. Return opens the file in the configured editor; Option-Return offers to copy
-its full path or reveal it in Finder. Like a URL entry, it supports a description and
+other file. Return opens the file in its default application, as double-clicking it in
+Finder would; Option-Return offers to copy its full path or reveal it in Finder. Like a URL entry, it supports a description and
 variables:
 
 ````markdown

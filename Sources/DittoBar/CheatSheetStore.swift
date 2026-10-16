@@ -431,10 +431,16 @@ final class CheatSheetStore: ObservableObject {
         }
     }
 
-    /// Reports a failure through `editorErrorMessage` and returns false.
+    /// Opens the file in its default application, as Finder would, so a PDF
+    /// or image does not land in a text editor. Reports a failure through
+    /// `editorErrorMessage` and returns false.
     private func openFileWithoutClosing(atPath path: String) -> Bool {
         guard let fileURL = existingFileURL(forPath: path) else { return false }
-        return openInConfiguredEditor(fileURL)
+        guard NSWorkspace.shared.open(fileURL) else {
+            editorErrorMessage = "No application could open \"\(fileURL.path)\"."
+            return false
+        }
+        return true
     }
 
     /// Reports a missing file, or a folder, through `editorErrorMessage`
