@@ -1,6 +1,10 @@
 import AppKit
 import SwiftUI
 
+private enum PanelStyle {
+    static let mutedFill = Color.primary.opacity(0.05)
+}
+
 extension Notification.Name {
     static let focusCheatSheetSearch = Notification.Name("focusCheatSheetSearch")
     static let openCheatSheetMoreOptions = Notification.Name("openCheatSheetMoreOptions")
@@ -9,6 +13,7 @@ extension Notification.Name {
 struct PopoverView: View {
     @ObservedObject var store: CheatSheetStore
     @FocusState private var searchIsFocused: Bool
+    @State private var hoveredItemID: CheatSheetItem.ID?
     @AppStorage(DisplayPreferences.sectionTitleFontSizeKey)
     private var sectionTitleFontSize = DisplayPreferences.defaultSectionTitleFontSize
     @AppStorage(DisplayPreferences.titleFontSizeKey)
@@ -155,11 +160,15 @@ struct PopoverView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Clear search")
             }
+            Text("⌘F")
+                .font(.system(size: chromeSize * 0.8, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
         .font(.system(size: chromeSize))
         .padding(.horizontal, 9)
-        .padding(.vertical, 6)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
+        .padding(.vertical, 9)
+        .background(PanelStyle.mutedFill, in: RoundedRectangle(cornerRadius: 7))
         // Clicking the icon or padding focuses the field too.
         .contentShape(RoundedRectangle(cornerRadius: 7))
         .onTapGesture { searchIsFocused = true }
@@ -198,8 +207,12 @@ struct PopoverView: View {
                     .listRowBackground(
                         item.id == selectedItemID
                             ? Color.accentColor.opacity(0.12)
-                            : Color.clear
+                            : item.id == hoveredItemID ? Color.accentColor.opacity(0.05) : Color.clear
                     )
+                    .onHover { hovering in
+                        if hovering { hoveredItemID = item.id }
+                        else if hoveredItemID == item.id { hoveredItemID = nil }
+                    }
                     .contextMenu {
                         ForEach(Array(store.actions(for: section).enumerated()), id: \.offset) { _, action in
                             Button(action.title) {
@@ -242,8 +255,12 @@ struct PopoverView: View {
                             ? Color.green.opacity(0.24)
                             : item.id == selectedItemID
                                 ? Color.accentColor.opacity(0.12)
-                                : Color.clear
+                                : item.id == hoveredItemID ? Color.accentColor.opacity(0.05) : Color.clear
                     )
+                    .onHover { hovering in
+                        if hovering { hoveredItemID = item.id }
+                        else if hoveredItemID == item.id { hoveredItemID = nil }
+                    }
                     .listRowSeparator(.hidden)
                     .overlay(alignment: .bottom) {
                         Divider()
@@ -416,37 +433,25 @@ struct PopoverView: View {
             switch store.selectedItem {
             case .entry(let entry):
                 footerShortcut("↩", label: returnVerb(for: entry))
-                footerShortcutDivider
                 footerShortcut("⌥↩", label: "options")
-                footerShortcutDivider
                 if entry.hasVariables {
                     footerShortcut("⌘↩", label: "skip form")
-                    footerShortcutDivider
                 }
             case .section:
                 // Return already opens the options menu on a section.
                 footerShortcut("↩", label: "options")
-                footerShortcutDivider
             case nil:
                 EmptyView()
             }
             footerShortcut("⌘E", label: "edit")
-            footerShortcutDivider
             footerShortcut("⌘⇧N", label: "new")
             Spacer()
-            footerShortcutDivider
             footerShortcut("⌘⇧M", label: "more")
         }
         .font(.system(size: chromeSize * 0.85))
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14)
         .frame(height: max(38, chromeSize * 2.6))
-    }
-
-    private var footerShortcutDivider: some View {
-        Divider()
-            .frame(height: chromeSize * 1.1)
-            .opacity(0.7)
     }
 
     private func footerShortcut(_ keys: String, label: String) -> some View {
@@ -456,12 +461,13 @@ struct PopoverView: View {
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 4))
+                .background(PanelStyle.mutedFill, in: RoundedRectangle(cornerRadius: 4))
                 .overlay {
                     RoundedRectangle(cornerRadius: 4)
                         .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
                 }
             Text(label)
+                .foregroundStyle(.secondary.opacity(0.85))
         }
         .fixedSize()
         .accessibilityElement(children: .combine)
@@ -762,7 +768,7 @@ private struct EntryRow: View, Equatable {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
         .background(
-            Color(nsColor: .textBackgroundColor),
+            PanelStyle.mutedFill,
             in: RoundedRectangle(cornerRadius: 6)
         )
     }
@@ -957,8 +963,8 @@ private struct SectionHeaderRow: View {
                 .frame(height: 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 10)
-        .padding(.bottom, 2)
+        .padding(.top, 18)
+        .padding(.bottom, 4)
         .listRowSeparator(.hidden)
         .accessibilityLabel(title)
         .accessibilityAddTraits(.isHeader)
