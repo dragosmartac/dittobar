@@ -128,6 +128,7 @@ struct PopoverView: View {
                                     : Color.clear,
                                 in: RoundedRectangle(cornerRadius: 7)
                             )
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
