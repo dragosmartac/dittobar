@@ -264,6 +264,8 @@ struct PopoverView: View {
                     .listRowSeparator(.hidden)
                     .overlay(alignment: .bottom) {
                         Divider()
+                            .opacity(0.45)
+                            .padding(.leading, 16)
                     }
                 }
             }
@@ -689,17 +691,18 @@ private struct EntryRow: View, Equatable {
                 )
                 .fixedSize()
                 if entry.hasVariables {
-                    VariableCountBadge(count: entry.variables.count)
+                    EntryBadge(
+                        title: entry.variables.count == 1 ? "1 field" : "\(entry.variables.count) fields",
+                        symbol: "square.and.pencil",
+                        titleFontSize: titleFontSize,
+                        fonts: fonts
+                    )
                 }
                 if case .url = entry {
-                    Label("URL", systemImage: "link")
-                        .font(.caption2)
-                        .foregroundStyle(.tint)
+                    EntryBadge(title: "URL", symbol: "link", titleFontSize: titleFontSize, fonts: fonts)
                 }
                 if case .file = entry {
-                    Label("File", systemImage: "doc")
-                        .font(.caption2)
-                        .foregroundStyle(.tint)
+                    EntryBadge(title: "File", symbol: "doc", titleFontSize: titleFontSize, fonts: fonts)
                 }
                 Spacer()
                 if wasCopied {
@@ -729,7 +732,20 @@ private struct EntryRow: View, Equatable {
                 payloadText(file.rawPath)
             }
         }
-        .padding(.vertical, 5)
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .overlay(alignment: .leading) {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(Color.accentColor)
+                    .frame(width: 3)
+                    .padding(.vertical, 8)
+                    .padding(.leading, 4)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
     }
 
     private func descriptionText(_ raw: String) -> some View {
@@ -963,7 +979,10 @@ private struct SectionHeaderRow: View {
                 .frame(height: 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 18)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(PanelStyle.mutedFill, in: RoundedRectangle(cornerRadius: 6))
+        .padding(.top, 10)
         .padding(.bottom, 4)
         .listRowSeparator(.hidden)
         .accessibilityLabel(title)
@@ -971,18 +990,21 @@ private struct SectionHeaderRow: View {
     }
 }
 
-private struct VariableCountBadge: View {
-    let count: Int
+private struct EntryBadge: View {
+    let title: String
+    let symbol: String
+    let titleFontSize: CGFloat
+    let fonts: EntryFonts
+
+    private var badgeFontSize: CGFloat { max(9, titleFontSize * 0.8) }
 
     var body: some View {
-        Label(
-            count == 1 ? "1 field" : "\(count) fields",
-            systemImage: "square.and.pencil"
-        )
-        .font(.caption2)
+        Label(title, systemImage: symbol)
+        .font(Font(fonts.text(size: badgeFontSize, weight: .medium)))
         .foregroundStyle(.tint)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
+        .fixedSize()
+        .padding(.horizontal, badgeFontSize * 0.6)
+        .padding(.vertical, badgeFontSize * 0.2)
         .background(Color.accentColor.opacity(0.14), in: Capsule())
     }
 }
