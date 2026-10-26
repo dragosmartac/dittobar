@@ -267,6 +267,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.setFrame(panelFrame(below: button), display: true)
     }
 
+    private var isMouseOverStatusItem: Bool {
+        guard let button = statusItem.button, let window = button.window else { return false }
+        let buttonFrame = window.convertToScreen(button.convert(button.bounds, to: nil))
+        return buttonFrame.contains(NSEvent.mouseLocation)
+    }
+
     /// Clicks in other apps close the panel, as they would a transient
     /// popover. Clicks on the status item reach `statusItemClicked` instead.
     private func startMonitoringOutsideClicks() {
@@ -275,7 +281,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.closePanel(restoringFocus: false)
+                guard let self, !self.isMouseOverStatusItem else { return }
+                self.closePanel(restoringFocus: false)
             }
         }
     }
@@ -294,6 +301,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.panel.isVisible, !self.panel.isKeyWindow,
                   self.panel.attachedSheet == nil, !self.isCopyOptionsPresented else { return }
+            // Clicking the status item can take key focus before its mouse-up
+            // action. Leave the panel visible so that action toggles it closed.
+            if NSEvent.pressedMouseButtons != 0, self.isMouseOverStatusItem { return }
             self.closePanel(restoringFocus: false)
         }
     }
