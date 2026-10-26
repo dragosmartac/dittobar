@@ -450,12 +450,12 @@ struct PopoverView: View {
     }
 
     private func footerShortcut(_ keys: String, label: String) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 8) {
             Text(keys)
                 .font(.system(size: chromeSize * 0.8, weight: .medium, design: .monospaced))
                 .foregroundStyle(.primary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 4))
                 .overlay {
                     RoundedRectangle(cornerRadius: 4)
