@@ -459,7 +459,7 @@ final class CheatSheetPanel: NSPanel {
         // The app sizes the panel from the screen, not from its content.
         hostingView.sizingOptions = []
         hostingView.wantsLayer = true
-        hostingView.layer?.cornerRadius = 20
+        hostingView.layer?.cornerRadius = 14
         hostingView.layer?.cornerCurve = .continuous
         hostingView.layer?.masksToBounds = true
         contentView = hostingView

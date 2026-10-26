@@ -59,6 +59,12 @@ struct PopoverView: View {
         .sheet(isPresented: $store.isSettingsPresented) {
             DisplaySettingsView()
         }
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
         .alert("New Cheat Sheet", isPresented: $store.isNewSheetPromptPresented) {
             TextField("Name", text: $store.newSheetName)
             Button("Cancel", role: .cancel) {}
@@ -409,27 +415,27 @@ struct PopoverView: View {
         HStack(spacing: 14) {
             switch store.selectedItem {
             case .entry(let entry):
-                Text("↩ \(returnVerb(for: entry))")
+                footerShortcut("↩", label: returnVerb(for: entry))
                 footerShortcutDivider
-                Text("⌥↩ options")
+                footerShortcut("⌥↩", label: "options")
                 footerShortcutDivider
                 if entry.hasVariables {
-                    Text("⌘↩ skip form")
+                    footerShortcut("⌘↩", label: "skip form")
                     footerShortcutDivider
                 }
             case .section:
                 // Return already opens the options menu on a section.
-                Text("↩ options")
+                footerShortcut("↩", label: "options")
                 footerShortcutDivider
             case nil:
                 EmptyView()
             }
-            Text("⌘E edit")
+            footerShortcut("⌘E", label: "edit")
             footerShortcutDivider
-            Text("⌘⇧N new")
+            footerShortcut("⌘⇧N", label: "new")
             Spacer()
             footerShortcutDivider
-            Text("⌘⇧M more")
+            footerShortcut("⌘⇧M", label: "more")
         }
         .font(.system(size: chromeSize * 0.85))
         .foregroundStyle(.secondary)
@@ -441,6 +447,24 @@ struct PopoverView: View {
         Divider()
             .frame(height: chromeSize * 1.1)
             .opacity(0.7)
+    }
+
+    private func footerShortcut(_ keys: String, label: String) -> some View {
+        HStack(spacing: 5) {
+            Text(keys)
+                .font(.system(size: chromeSize * 0.8, weight: .medium, design: .monospaced))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 4))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                }
+            Text(label)
+        }
+        .fixedSize()
+        .accessibilityElement(children: .combine)
     }
 
     private func returnVerb(for entry: CheatSheetEntry) -> String {
