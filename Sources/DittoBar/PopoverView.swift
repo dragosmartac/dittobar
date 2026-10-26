@@ -282,10 +282,13 @@ struct PopoverView: View {
                 // slide it away.
                 guard source != .pointer, let itemID = store.selectedItem?.id else { return }
                 let duration = scrollDuration(for: source, rowDistance: abs(newIndex - oldIndex))
+                let query = store.query
 
                 let scroll = {
+                    // A newer key press or search can overtake this queued update.
+                    guard store.selectedItemID == itemID, store.query == query else { return }
                     if !animateListScroll(toItemID: itemID, duration: duration) {
-                        proxy.scrollTo(itemID, anchor: .center)
+                        proxy.scrollTo(itemID)
                     }
                 }
 
@@ -303,14 +306,15 @@ struct PopoverView: View {
             }
             .onChange(of: store.query) {
                 guard let entry = store.visibleEntries.first else { return }
+                let query = store.query
+                let itemID = CheatSheetItem.entry(entry).id
 
                 // The selected index may already point at the first entry, in
                 // which case its onChange handler does not fire. Wait for the filtered rows
-                // to be laid out, then center the first result explicitly.
+                // to be laid out, then show the first result at the top.
                 DispatchQueue.main.async {
-                    withAnimation(.easeOut(duration: 0.12)) {
-                        proxy.scrollTo(CheatSheetItem.entry(entry).id, anchor: .center)
-                    }
+                    guard store.query == query, store.selectedItemID == itemID else { return }
+                    proxy.scrollTo(itemID, anchor: .top)
                 }
             }
         }
@@ -353,16 +357,24 @@ struct PopoverView: View {
         guard let estimatedTarget = edgeScrollBounds(ofRow: row, in: tableView, clipView: clipView) else {
             return true
         }
-        // Rows that come into view mid-slide would be built and measured on
-        // the fly, dropping frames. Build every row the slide passes first.
-        tableView.prepareContent(in: clipView.bounds.union(estimatedTarget))
+        // A single tall entry can put even an adjacent selection a screen
+        // away. Jump there rather than animating through and measuring a
+        // potentially large stretch of content.
+        let travel = abs(estimatedTarget.minY - clipView.bounds.minY)
+        let effectiveDuration = travel > clipView.bounds.height ? 0 : duration
+        // Only animated slides need the intervening rows. Preparing the
+        // entire span of an instant wrap would eagerly build the whole list.
+        let preparationBounds = effectiveDuration > 0
+            ? clipView.bounds.union(estimatedTarget)
+            : estimatedTarget
+        tableView.prepareContent(in: preparationBounds)
         // Measuring those rows can move the selected row, so aim again.
         guard let origin = edgeScrollBounds(ofRow: row, in: tableView, clipView: clipView)?.origin else {
             return true
         }
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = duration
+            context.duration = effectiveDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             clipView.animator().setBoundsOrigin(origin)
         }
