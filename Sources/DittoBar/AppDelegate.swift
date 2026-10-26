@@ -57,8 +57,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// An accessory app displays no menu bar, but `NSApplication` still routes
     /// key equivalents through the main menu. Without an Edit menu there is
-    /// nothing binding ⌘C/⌘V/⌘X/⌘A to the responder chain, so those shortcuts
-    /// do nothing in any text field — including the variable form's.
+    /// nothing binding ⌘C/⌘V/⌘X/⌘A to the responder chain (Apple Name for it), 
+    /// so those shortcuts do nothing in text fields for example. 
+    /// Compare this with cmd-shift-n, it always opens a sheet in the editor,
+    /// cmd-c needs to work appropiately in different contexts.
     private func configureMainMenu() {
         let editMenu = NSMenu(title: "Edit")
         editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
@@ -225,15 +227,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         store.reload()
         panel.setFrame(panelFrame(below: button), display: false)
-
-        // The panel takes keyboard focus without activating the app, so the
-        // previous app stays frontmost, including a fullscreen one.
-        panel.alphaValue = 0
+        panel.alphaValue = 1
         panel.makeKeyAndOrderFront(nil)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.12
-            panel.animator().alphaValue = 1
-        }
         startMonitoringOutsideClicks()
     }
 
@@ -450,6 +445,7 @@ final class CheatSheetPanel: NSPanel {
             backing: .buffered,
             defer: true
         )
+        animationBehavior = .documentWindow
         isFloatingPanel = true
         level = .statusBar
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
@@ -459,12 +455,12 @@ final class CheatSheetPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
-
         let hostingView = NSHostingView(rootView: rootView)
         // The app sizes the panel from the screen, not from its content.
         hostingView.sizingOptions = []
         hostingView.wantsLayer = true
-        hostingView.layer?.cornerRadius = 10
+        hostingView.layer?.cornerRadius = 20
+        hostingView.layer?.cornerCurve = .continuous
         hostingView.layer?.masksToBounds = true
         contentView = hostingView
     }
