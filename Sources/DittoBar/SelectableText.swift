@@ -165,6 +165,18 @@ private final class InlineCodeTextFieldCell: NSTextFieldCell {
         super.drawInterior(withFrame: cellFrame, in: controlView)
     }
 
+    /// The field editor draws links with its own attributes, ignoring the
+    /// string's colour, so links would turn system blue on click.
+    override func setUpFieldEditorAttributes(_ textObj: NSText) -> NSText {
+        let textObj = super.setUpFieldEditorAttributes(textObj)
+        (textObj as? NSTextView)?.linkTextAttributes = [
+            .foregroundColor: NSColor.dittoAccent,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .cursor: NSCursor.pointingHand
+        ]
+        return textObj
+    }
+
     private var containsInlineCode: Bool {
         guard attributedStringValue.length > 0 else { return false }
         var found = false
@@ -595,7 +607,7 @@ enum EntryTextStyle {
             if segment.isVariable {
                 result.addAttribute(
                     .foregroundColor,
-                    value: NSColor.controlAccentColor,
+                    value: NSColor.dittoAccent,
                     range: NSRange(location: location, length: length)
                 )
             }
@@ -676,7 +688,7 @@ enum EntryTextStyle {
                 var attributes: [NSAttributedString.Key: Any] = [
                     .font: font,
                     .foregroundColor: isVariable
-                        ? NSColor.controlAccentColor
+                        ? NSColor.dittoAccent
                         : baseColor
                 ]
 
@@ -691,7 +703,7 @@ enum EntryTextStyle {
                     attributes[.link] = target
                     attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
                     if !isVariable {
-                        attributes[.foregroundColor] = NSColor.linkColor
+                        attributes[.foregroundColor] = NSColor.dittoAccent
                     }
                 }
 
@@ -761,7 +773,7 @@ enum EntryTextStyle {
                     attributes: [
                         .font: segment.isVariable ? emphasised : plain,
                         .foregroundColor: segment.isVariable
-                            ? NSColor.controlAccentColor
+                            ? NSColor.dittoAccent
                             : plainColor
                     ]
                 )

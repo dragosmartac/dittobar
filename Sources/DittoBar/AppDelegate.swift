@@ -84,7 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func configurePanel() {
-        panel = CheatSheetPanel(rootView: PopoverView(store: store))
+        panel = CheatSheetPanel(rootView: PopoverView(store: store).tint(.dittoAccent))
         panel.delegate = self
         store.onRequestClose = { [weak self] in
             self?.closePanel(restoringFocus: false)

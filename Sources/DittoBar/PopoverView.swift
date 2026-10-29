@@ -63,6 +63,7 @@ struct PopoverView: View {
         }
         .sheet(isPresented: $store.isSettingsPresented) {
             DisplaySettingsView()
+                .tint(.dittoAccent)
         }
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -124,7 +125,7 @@ struct PopoverView: View {
                             .padding(.vertical, 5)
                             .background(
                                 index == store.selectedSheetIndex
-                                    ? Color.accentColor.opacity(0.18)
+                                    ? Color.dittoAccent.opacity(0.18)
                                     : Color.clear,
                                 in: RoundedRectangle(cornerRadius: 7)
                             )
@@ -177,7 +178,7 @@ struct PopoverView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 7)
                 .strokeBorder(
-                    searchIsFocused ? Color.accentColor.opacity(0.5) : Color.primary.opacity(0.08),
+                    searchIsFocused ? Color.dittoAccent.opacity(0.5) : Color.primary.opacity(0.08),
                     lineWidth: 1
                 )
         }
@@ -207,8 +208,8 @@ struct PopoverView: View {
                     }
                     .listRowBackground(
                         item.id == selectedItemID
-                            ? Color.accentColor.opacity(0.12)
-                            : item.id == hoveredItemID ? Color.accentColor.opacity(0.05) : Color.clear
+                            ? Color.dittoAccent.opacity(0.12)
+                            : item.id == hoveredItemID ? Color.dittoAccent.opacity(0.05) : Color.clear
                     )
                     .onHover { hovering in
                         if hovering { hoveredItemID = item.id }
@@ -255,8 +256,8 @@ struct PopoverView: View {
                         store.copiedEntryIDs.contains(entry.id)
                             ? Color.green.opacity(0.24)
                             : item.id == selectedItemID
-                                ? Color.accentColor.opacity(0.12)
-                                : item.id == hoveredItemID ? Color.accentColor.opacity(0.05) : Color.clear
+                                ? Color.dittoAccent.opacity(0.12)
+                                : item.id == hoveredItemID ? Color.dittoAccent.opacity(0.05) : Color.clear
                     )
                     .onHover { hovering in
                         if hovering { hoveredItemID = item.id }
@@ -751,7 +752,7 @@ private struct EntryRow: View, Equatable {
         .overlay(alignment: .leading) {
             if isSelected {
                 RoundedRectangle(cornerRadius: 1.5)
-                    .fill(Color.accentColor)
+                    .fill(Color.dittoAccent)
                     .frame(width: 3)
                     .padding(.vertical, 8)
                     .padding(.leading, 4)
@@ -1018,6 +1019,6 @@ private struct EntryBadge: View {
         .fixedSize()
         .padding(.horizontal, badgeFontSize * 0.6)
         .padding(.vertical, badgeFontSize * 0.2)
-        .background(Color.accentColor.opacity(0.14), in: Capsule())
+        .background(Color.dittoAccent.opacity(0.14), in: Capsule())
     }
 }
