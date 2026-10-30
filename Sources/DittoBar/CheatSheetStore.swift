@@ -31,7 +31,10 @@ final class CheatSheetStore: ObservableObject {
     @Published var isSettingsPresented = false
     @Published private var pinnedItemID: String?
 
-    let folderURL: URL
+    @Published private(set) var folderURL: URL
+    let defaultFolderURL: URL
+    static let sheetsDirectoryPathKey = "sheetsDirectoryPath"
+    private let defaults: UserDefaults
     var onRequestClose: (() -> Void)?
     weak var selectedRowAnchorView: NSView?
 
@@ -52,19 +55,56 @@ final class CheatSheetStore: ObservableObject {
 
     private var watcher: DirectoryWatcher?
 
-    init(fileManager: FileManager = .default) {
+    init(fileManager: FileManager = .default, defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         let applicationSupport = fileManager.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
         ).first!
-        folderURL = applicationSupport
+        defaultFolderURL = applicationSupport
             .appendingPathComponent("DittoBar", isDirectory: true)
             .appendingPathComponent("CheatSheets", isDirectory: true)
 
-        createInitialFilesIfNeeded(fileManager: fileManager)
+        if let path = defaults.string(forKey: Self.sheetsDirectoryPathKey), !path.isEmpty {
+            folderURL = URL(fileURLWithPath: path, isDirectory: true)
+        } else {
+            folderURL = defaultFolderURL
+            createInitialFilesIfNeeded(fileManager: fileManager)
+        }
         reload(fileManager: fileManager)
         selectFirstEntry()
 
+        watchFolder()
+    }
+
+    /// Switches the source without moving or adding files to the chosen folder.
+    func setSheetsDirectory(_ url: URL, fileManager: FileManager = .default) throws {
+        let url = url.standardizedFileURL
+        // Validate before changing either the active folder or the saved preference.
+        _ = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+        watcher = nil
+        folderURL = url
+        if url == defaultFolderURL.standardizedFileURL {
+            defaults.removeObject(forKey: Self.sheetsDirectoryPathKey)
+        } else {
+            defaults.set(url.path, forKey: Self.sheetsDirectoryPathKey)
+        }
+        variableForm = nil
+        pinnedItemID = nil
+        copiedEntryIDs = []
+        query = ""
+        selectedSheetIndex = 0
+        reload(fileManager: fileManager)
+        selectFirstEntry()
+        watchFolder()
+    }
+
+    func resetSheetsDirectory() throws {
+        try FileManager.default.createDirectory(at: defaultFolderURL, withIntermediateDirectories: true)
+        try setSheetsDirectory(defaultFolderURL)
+    }
+
+    private func watchFolder() {
         watcher = DirectoryWatcher(path: folderURL.path) { [weak self] in
             DispatchQueue.main.async {
                 self?.reload()

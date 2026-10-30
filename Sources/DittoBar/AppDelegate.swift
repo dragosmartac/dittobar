@@ -275,13 +275,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// Clicks in other apps close the panel, as they would a transient
     /// popover. Clicks on the status item reach `statusItemClicked` instead.
+    /// File pickers can run in a separate system process, so their clicks also
+    /// reach this monitor. Keep the panel visible while settings or a sheet
+    /// owns the interaction, including the picker's presentation transitions.
     private func startMonitoringOutsideClicks() {
         guard outsideClickMonitor == nil else { return }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, !self.isMouseOverStatusItem else { return }
+                guard let self, !self.isMouseOverStatusItem,
+                      !self.store.isSettingsPresented,
+                      self.panel.attachedSheet == nil else { return }
                 self.closePanel(restoringFocus: false)
             }
         }
@@ -300,7 +305,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // app after ⌘Tab.
         DispatchQueue.main.async { [weak self] in
             guard let self, self.panel.isVisible, !self.panel.isKeyWindow,
-                  self.panel.attachedSheet == nil, !self.isCopyOptionsPresented else { return }
+                  self.panel.attachedSheet == nil, !self.store.isSettingsPresented,
+                  !self.isCopyOptionsPresented else { return }
             // Clicking the status item can take key focus before its mouse-up
             // action. Leave the panel visible so that action toggles it closed.
             if NSEvent.pressedMouseButtons != 0, self.isMouseOverStatusItem { return }

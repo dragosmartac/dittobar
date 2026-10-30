@@ -263,7 +263,10 @@ struct CheatSheetStoreSearchTests {
 
         do {
             let fileManager = TestFileManager(applicationSupportURL: rootURL)
-            let store = CheatSheetStore(fileManager: fileManager)
+            let suiteName = "DittoBarSearchTests-\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suiteName)!
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+            let store = CheatSheetStore(fileManager: fileManager, defaults: defaults)
             try assertions(store)
         }
     }

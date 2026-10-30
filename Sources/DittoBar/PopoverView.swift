@@ -62,7 +62,7 @@ struct PopoverView: View {
             }
         }
         .sheet(isPresented: $store.isSettingsPresented) {
-            DisplaySettingsView()
+            DisplaySettingsView(store: store)
                 .tint(.dittoAccent)
         }
         .overlay {

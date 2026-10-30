@@ -39,7 +39,7 @@ open "dist/DittoBar.app"
 | `C` | Copy the full cheat-sheets directory path while More Options is open |
 | `Escape` | Close the popover |
 
-**More Options → Settings** controls the popover width, text and code fonts, text sizes,
+**More Options → Settings** controls the sheets folder, popover width, text and code fonts, text sizes,
 and editor, and lists every keyboard shortcut. Changes are saved automatically. The editor
 can use the system default, Visual Studio Code, TextEdit, or any custom application.
 
@@ -57,6 +57,10 @@ folder and copy its full path. Copied paths escape spaces for shell use. Files l
 ```text
 ~/Library/Application Support/DittoBar/CheatSheets/
 ```
+
+Choose another folder in **Settings → Sheets → Choose Folder…**. The selection is
+saved and sheets reload immediately. New sheets are created in the selected folder;
+existing files are not moved. **Reset to Defaults** switches back to the folder above.
 
 Each Markdown file becomes a tab. Before any entries or sections, use one optional H1
 for the tab name. Use H3 headings followed by fenced code blocks for entries. Optional

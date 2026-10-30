@@ -3,6 +3,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct DisplaySettingsView: View {
+    @ObservedObject var store: CheatSheetStore
+    @State private var isChoosingSheetsDirectory = false
+    @State private var directoryError: String?
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTab: SettingsTab? = .layout
     @State private var isChoosingCustomEditor = false
@@ -46,6 +49,27 @@ struct DisplaySettingsView: View {
             customEditorPath = applicationURL.path
             selectedEditor = EditorOption.custom.rawValue
         }
+        .fileImporter(
+            isPresented: $isChoosingSheetsDirectory,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            do {
+                if let url = try result.get().first {
+                    try store.setSheetsDirectory(url)
+                }
+            } catch {
+                directoryError = error.localizedDescription
+            }
+        }
+        .alert("Could Not Open Sheets Folder", isPresented: Binding(
+            get: { directoryError != nil },
+            set: { if !$0 { directoryError = nil } }
+        )) {
+            Button("OK", role: .cancel) { directoryError = nil }
+        } message: {
+            Text(directoryError ?? "")
+        }
     }
 
     private var sidebar: some View {
@@ -73,6 +97,8 @@ struct DisplaySettingsView: View {
                 layout
             case .text:
                 text
+            case .sheets:
+                sheets
             case .editor:
                 editor
             case .shortcuts:
@@ -193,6 +219,29 @@ struct DisplaySettingsView: View {
         }
     }
 
+    private var sheets: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Sheets")
+                .font(.title2.bold())
+
+            Text("Choose the folder containing your Markdown cheat sheets.")
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Sheets Folder")
+                    .font(.headline)
+                Text(store.folderURL.path)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button("Choose Folder…") {
+                isChoosingSheetsDirectory = true
+            }
+        }
+    }
+
     private var editor: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Editor")
@@ -265,6 +314,8 @@ struct DisplaySettingsView: View {
                 && descriptionFontSize == DisplayPreferences.defaultDescriptionFontSize
                 && noteFontSize == DisplayPreferences.defaultNoteFontSize
                 && payloadFontSize == DisplayPreferences.defaultPayloadFontSize
+        case .sheets:
+            store.folderURL.standardizedFileURL == store.defaultFolderURL.standardizedFileURL
         case .editor:
             selectedEditor == EditorPreferences.defaultEditor.rawValue
                 && customEditorPath.isEmpty
@@ -285,6 +336,12 @@ struct DisplaySettingsView: View {
             descriptionFontSize = DisplayPreferences.defaultDescriptionFontSize
             noteFontSize = DisplayPreferences.defaultNoteFontSize
             payloadFontSize = DisplayPreferences.defaultPayloadFontSize
+        case .sheets:
+            do {
+                try store.resetSheetsDirectory()
+            } catch {
+                directoryError = error.localizedDescription
+            }
         case .editor:
             selectedEditor = EditorPreferences.defaultEditor.rawValue
             customEditorPath = ""
@@ -299,6 +356,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case layout
     case text
     case editor
+    case sheets
     case shortcuts
 
     var id: Self { self }
@@ -307,6 +365,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .layout: "Layout"
         case .text: "Text"
+        case .sheets: "Sheets"
         case .editor: "Editor"
         case .shortcuts: "Shortcuts"
         }
@@ -316,6 +375,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .layout: "rectangle.expand.horizontal"
         case .text: "textformat.size"
+        case .sheets: "folder"
         case .editor: "square.and.pencil"
         case .shortcuts: "keyboard"
         }
