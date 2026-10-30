@@ -648,53 +648,12 @@ final class CheatSheetStore: ObservableObject {
         }
     }
 
-    /// The section and its visible entries in cheat-sheet Markdown, with
-    /// each text resolved. URLs become bare lines, which most Markdown
-    /// renderers turn into links, rather than `url` fences. Paths keep
-    /// their `file` fences, since no renderer would link a bare path.
     func markdown(for section: CheatSheetSection) -> String {
-        let blocks = entries(in: section).map { entry -> String in
-            var parts = ["### \(entry.title)"]
-            switch entry {
-            case .note(let note):
-                parts.append(output(note.rawContent, for: entry, textForm: .resolved))
-            case .command(let command):
-                if let rawDescription = command.rawDescription {
-                    parts.append(output(rawDescription, for: entry, textForm: .resolved))
-                }
-                parts.append(Self.fenced(
-                    output(command.rawCommand, for: entry, textForm: .resolved),
-                    language: command.language
-                ))
-            case .url(let url):
-                if let rawDescription = url.rawDescription {
-                    parts.append(output(rawDescription, for: entry, textForm: .resolved))
-                }
-                parts.append(output(url.rawURL, for: entry, textForm: .resolved))
-            case .file(let file):
-                if let rawDescription = file.rawDescription {
-                    parts.append(output(rawDescription, for: entry, textForm: .resolved))
-                }
-                parts.append(Self.fenced(
-                    output(file.rawPath, for: entry, textForm: .resolved),
-                    language: "file"
-                ))
-            }
-            return parts
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .joined(separator: "\n\n")
-        }
-        return (["## \(section.title)"] + blocks).joined(separator: "\n\n")
-    }
-
-    /// Uses a fence longer than any backtick run in the code.
-    private static func fenced(_ code: String, language: String?) -> String {
-        var fence = "```"
-        while code.contains(fence) {
-            fence += "`"
-        }
-        let trimmed = code.trimmingCharacters(in: .newlines)
-        return "\(fence)\(language ?? "")\n\(trimmed)\n\(fence)"
+        SectionMarkdownExporter.markdown(
+            for: section,
+            entries: entries(in: section),
+            values: effectiveValues(for:)
+        )
     }
 
     /// The text an entry's primary action copies or, for a URL, opens. For a
