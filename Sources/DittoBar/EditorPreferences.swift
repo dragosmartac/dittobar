@@ -56,7 +56,13 @@ enum EditorOption: String, CaseIterable, Identifiable {
 enum EditorPreferences {
     static let selectedEditorKey = "editor.selected"
     static let customEditorPathKey = "editor.customApplicationPath"
+    static let includeInstructionsKey = "editor.includeInstructionsInNewSheets"
+    static let defaultIncludeInstructions = true
     static let defaultEditor = EditorOption.visualStudioCode
+
+    static func includeInstructions(defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: includeInstructionsKey) as? Bool ?? defaultIncludeInstructions
+    }
 
     static func selectedEditor(defaults: UserDefaults = .standard) -> EditorOption {
         guard let rawValue = defaults.string(forKey: selectedEditorKey),

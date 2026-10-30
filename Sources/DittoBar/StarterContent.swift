@@ -3,7 +3,7 @@ import Foundation
 /// Markdown the app writes into the cheat-sheet folder: the starter sheets
 /// created on first launch and the template for new sheets.
 enum StarterContent {
-    /// Prepended to every sheet this app creates. The parser skips HTML
+    /// Optional instructions for new sheets, always included in starter sheets. The parser skips HTML
     /// comments, so this block can safely show headings and code fences.
     static let instructions = """
     <!--
@@ -277,8 +277,8 @@ enum StarterContent {
     ```
     """)
 
-    static func newSheet(named name: String) -> String {
-        withInstructions("""
+    static func newSheet(named name: String, includeInstructions: Bool = true) -> String {
+        let sheet = """
         # \(name)
 
         ### Command name
@@ -294,7 +294,8 @@ enum StarterContent {
         ```sh
         echo {{message=hello}}
         ```
-        """)
+        """
+        return includeInstructions ? withInstructions(sheet) : sheet
     }
 
     private static func withInstructions(_ sheet: String) -> String {

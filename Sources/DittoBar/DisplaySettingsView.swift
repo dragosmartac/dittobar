@@ -30,6 +30,8 @@ struct DisplaySettingsView: View {
     private var selectedEditor = EditorPreferences.defaultEditor.rawValue
     @AppStorage(EditorPreferences.customEditorPathKey)
     private var customEditorPath = ""
+    @AppStorage(EditorPreferences.includeInstructionsKey)
+    private var includeInstructions = EditorPreferences.defaultIncludeInstructions
 
     var body: some View {
         HStack(spacing: 0) {
@@ -277,6 +279,17 @@ struct DisplaySettingsView: View {
                     }
                 }
             }
+
+            Divider()
+
+            HStack {
+                Text("Include top-level instructions when creating a new sheet")
+                    .lineLimit(1)
+                Spacer()
+                Toggle("Include top-level instructions with new sheets", isOn: $includeInstructions)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
         }
     }
 
@@ -324,6 +337,7 @@ struct DisplaySettingsView: View {
         case .editor:
             selectedEditor == EditorPreferences.defaultEditor.rawValue
                 && customEditorPath.isEmpty
+                && includeInstructions == EditorPreferences.defaultIncludeInstructions
         case .shortcuts:
             true
         }
@@ -350,6 +364,7 @@ struct DisplaySettingsView: View {
         case .editor:
             selectedEditor = EditorPreferences.defaultEditor.rawValue
             customEditorPath = ""
+            includeInstructions = EditorPreferences.defaultIncludeInstructions
         case .shortcuts:
             break
         }

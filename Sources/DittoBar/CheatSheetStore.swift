@@ -731,7 +731,10 @@ final class CheatSheetStore: ObservableObject {
             return
         }
 
-        let template = StarterContent.newSheet(named: name)
+        let template = StarterContent.newSheet(
+            named: name,
+            includeInstructions: EditorPreferences.includeInstructions()
+        )
 
         do {
             try template.write(to: fileURL, atomically: true, encoding: .utf8)
