@@ -9,3 +9,7 @@ extension NSColor {
 extension Color {
     static let dittoAccent = Color(nsColor: .dittoAccent)
 }
+
+enum PanelStyle {
+    static let mutedFill = Color.primary.opacity(0.05)
+}
