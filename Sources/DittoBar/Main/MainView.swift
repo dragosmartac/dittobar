@@ -36,7 +36,7 @@ struct MainView: View {
             }
         }
         .sheet(isPresented: $store.isSettingsPresented) {
-            DisplaySettingsView(store: store)
+            SettingsView(store: store)
                 .tint(.dittoAccent)
         }
         .overlay {
