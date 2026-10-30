@@ -81,8 +81,13 @@ struct DisplaySettingsView: View {
                 .padding(.bottom, 10)
 
             List(SettingsTab.allCases, selection: $selectedTab) { tab in
-                Label(tab.title, systemImage: tab.systemImage)
-                    .tag(tab)
+                HStack(spacing: 10) {
+                    Image(systemName: tab.systemImage)
+                        .frame(width: 20)
+                        .accessibilityHidden(true)
+                    Text(tab.title)
+                }
+                .tag(tab)
             }
             .listStyle(.sidebar)
         }
@@ -373,7 +378,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
-        case .layout: "rectangle.expand.horizontal"
+        case .layout: "rectangle.split.2x1"
         case .text: "textformat.size"
         case .sheets: "folder"
         case .editor: "square.and.pencil"
