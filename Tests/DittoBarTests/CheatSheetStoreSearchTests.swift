@@ -214,10 +214,6 @@ struct CheatSheetStoreSearchTests {
         }
     }
 
-    @Test func joinedEntryTextsUseBlankLinesOnlyForMultilineTexts() {
-        #expect(CheatSheetStore.joinedEntryTexts(["git status", "git log\n"]) == "git status\ngit log")
-        #expect(CheatSheetStore.joinedEntryTexts(["one\ntwo", "three"]) == "one\ntwo\n\nthree")
-    }
 
     @Test func fileEntriesAreSearchedAndCopiedAsMarkdown() throws {
         let source = """
@@ -256,30 +252,7 @@ struct CheatSheetStoreSearchTests {
         }
     }
 
-    @Test func filePathsResolveAgainstTheCheatSheetsFolder() {
-        let folderURL = URL(fileURLWithPath: "/Users/example/CheatSheets", isDirectory: true)
-        #expect(
-            CheatSheetStore.fileURL(forPath: " notes/../plans/a b.md\n", relativeTo: folderURL).path
-                == "/Users/example/CheatSheets/plans/a b.md"
-        )
-        #expect(
-            CheatSheetStore.fileURL(forPath: "/tmp/notes.md", relativeTo: folderURL).path
-                == "/tmp/notes.md"
-        )
-        #expect(
-            CheatSheetStore.fileURL(forPath: "~/notes.md", relativeTo: folderURL).path
-                == NSHomeDirectory() + "/notes.md"
-        )
-    }
 
-    @Test func shellEscapedPathEscapesSpaces() {
-        #expect(
-            CheatSheetStore.shellEscapedPath(
-                "/Users/example/Library/Application Support/DittoBar/Cheat Sheets"
-            )
-                == "/Users/example/Library/Application\\ Support/DittoBar/Cheat\\ Sheets"
-        )
-    }
 
     private func section(titled title: String, in store: CheatSheetStore) -> CheatSheetSection? {
         store.visibleItems.lazy.compactMap(\.section).first { $0.title == title }

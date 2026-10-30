@@ -60,6 +60,7 @@ final class CheatSheetStore: ObservableObject {
 
     private var entrySelectionSource = EntrySelectionSource.other
 
+    private let actionExecutor = EntryActionExecutor()
     private var watcher: DirectoryWatcher?
 
     init(fileManager: FileManager = .default, defaults: UserDefaults = .standard) {
@@ -475,19 +476,13 @@ final class CheatSheetStore: ObservableObject {
     /// Finishes an action once its text is resolved, with or without the
     /// variable form.
     private func complete(_ action: EntryAction, output: String, entryID: String) {
-        switch action {
-        case .openURL:
-            openURL(output)
-        case .openFile:
-            openFile(atPath: output)
-        case .copyPath:
-            writeToPasteboard(copiedPath(for: output), flashing: [entryID])
-        case .revealInFinder:
-            guard let fileURL = existingFileURL(forPath: output) else { return }
-            NSWorkspace.shared.activateFileViewerSelecting([fileURL])
+        switch actionExecutor.execute(action, output: output, folderURL: folderURL) {
+        case .opened:
             onRequestClose?()
-        default:
-            writeToPasteboard(output, flashing: [entryID])
+        case .copied:
+            flashCopiedEntries([entryID])
+        case .failed(let message):
+            editorErrorMessage = message
         }
     }
 
@@ -496,80 +491,23 @@ final class CheatSheetStore: ObservableObject {
         return textForm == .markdownStripped ? MarkdownText.stripped(resolved) : resolved
     }
 
-    private func openURL(_ value: String) {
-        if openURLWithoutClosing(value) {
+    /// Open all values, retaining the last failure and closing only if all opened.
+    private func openAll(_ action: EntryAction, values: [String]) {
+        let outcomes = values.map { actionExecutor.execute(action, output: $0, folderURL: folderURL) }
+        for case .failed(let message) in outcomes {
+            editorErrorMessage = message
+        }
+        if !outcomes.isEmpty, outcomes.allSatisfy({ $0 == .opened }) {
             onRequestClose?()
         }
-    }
-
-    /// Reports a failure through `editorErrorMessage` and returns false.
-    private func openURLWithoutClosing(_ value: String) -> Bool {
-        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmedValue), url.scheme != nil else {
-            editorErrorMessage = "\"\(trimmedValue)\" is not a valid URL."
-            return false
-        }
-
-        guard NSWorkspace.shared.open(url) else {
-            editorErrorMessage = "The URL could not be opened."
-            return false
-        }
-        return true
-    }
-
-    private func openFile(atPath path: String) {
-        if openFileWithoutClosing(atPath: path) {
-            onRequestClose?()
-        }
-    }
-
-    /// Opens the file in its default application, as Finder would, so a PDF
-    /// or image does not land in a text editor. Reports a failure through
-    /// `editorErrorMessage` and returns false.
-    private func openFileWithoutClosing(atPath path: String) -> Bool {
-        guard let fileURL = existingFileURL(forPath: path) else { return false }
-        guard NSWorkspace.shared.open(fileURL) else {
-            editorErrorMessage = "No application could open \"\(fileURL.path)\"."
-            return false
-        }
-        return true
-    }
-
-    /// Reports a missing file, or a folder, through `editorErrorMessage`
-    /// and returns nil.
-    private func existingFileURL(forPath path: String) -> URL? {
-        let fileURL = Self.fileURL(forPath: path, relativeTo: folderURL)
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: fileURL.path, isDirectory: &isDirectory) else {
-            editorErrorMessage = "\"\(fileURL.path)\" does not exist."
-            return nil
-        }
-        guard !isDirectory.boolValue else {
-            editorErrorMessage = "\"\(fileURL.path)\" is a folder. File entries can only open files."
-            return nil
-        }
-        return fileURL
-    }
-
-    /// The full path, ready to paste into a shell.
-    private func copiedPath(for path: String) -> String {
-        Self.shellEscapedPath(Self.fileURL(forPath: path, relativeTo: folderURL).path)
-    }
-
-    /// Expands `~` and resolves a relative path against `folderURL`.
-    static func fileURL(forPath path: String, relativeTo folderURL: URL) -> URL {
-        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        let expandedPath = (trimmedPath as NSString).expandingTildeInPath
-        let fileURL = expandedPath.hasPrefix("/")
-            ? URL(fileURLWithPath: expandedPath)
-            : folderURL.appendingPathComponent(expandedPath)
-        return fileURL.standardizedFileURL
     }
 
     private func writeToPasteboard(_ value: String, flashing entryIDs: Set<String>) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(value, forType: .string)
+        actionExecutor.copy(value)
+        flashCopiedEntries(entryIDs)
+    }
+
+    private func flashCopiedEntries(_ entryIDs: Set<String>) {
         copiedEntryIDs = entryIDs
 
         Task { @MainActor [weak self] in
@@ -618,27 +556,19 @@ final class CheatSheetStore: ObservableObject {
                 guard case .url(let url) = entry else { return nil }
                 return output(url.rawURL, for: entry, textForm: .resolved)
             }
-            // Open every URL even if one fails, then close only if all opened.
-            let failures = urls.filter { !openURLWithoutClosing($0) }
-            if failures.isEmpty, !urls.isEmpty {
-                onRequestClose?()
-            }
+            openAll(.openURL, values: urls)
 
         case .openAllFiles:
             let paths = entries.compactMap { entry -> String? in
                 guard case .file(let file) = entry else { return nil }
                 return output(file.rawPath, for: entry, textForm: .resolved)
             }
-            // Open every file even if one fails, then close only if all opened.
-            let failures = paths.filter { !openFileWithoutClosing(atPath: $0) }
-            if failures.isEmpty, !paths.isEmpty {
-                onRequestClose?()
-            }
+            openAll(.openFile, values: paths)
 
         case .copyAllEntries:
             guard !entries.isEmpty else { return }
             writeToPasteboard(
-                Self.joinedEntryTexts(entries.map(primaryText(for:))),
+                EntryActionExecutor.joinedEntryTexts(entries.map(primaryText(for:))),
                 flashing: Set(entries.map(\.id))
             )
 
@@ -667,26 +597,19 @@ final class CheatSheetStore: ObservableObject {
         case .url(let url):
             return output(url.rawURL, for: entry, textForm: .resolved)
         case .file(let file):
-            return copiedPath(for: output(file.rawPath, for: entry, textForm: .resolved))
+            return EntryActionExecutor.copiedPath(
+                for: output(file.rawPath, for: entry, textForm: .resolved),
+                relativeTo: folderURL
+            )
         }
     }
 
-    /// One text per line when every text fits on one line, so commands paste
-    /// as a script and URLs as a list. Otherwise a blank line between texts.
-    static func joinedEntryTexts(_ texts: [String]) -> String {
-        let trimmed = texts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        let separator = trimmed.contains { $0.contains("\n") } ? "\n\n" : "\n"
-        return trimmed.joined(separator: separator)
-    }
-
     func openFolder() {
-        NSWorkspace.shared.open(folderURL)
+        _ = actionExecutor.open(folderURL)
     }
 
     func copyFolderPath() {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(Self.shellEscapedPath(folderURL.path), forType: .string)
+        actionExecutor.copy(EntryActionExecutor.shellEscapedPath(folderURL.path))
     }
 
     func copySelectedSheetPath() {
@@ -695,13 +618,7 @@ final class CheatSheetStore: ObservableObject {
             return
         }
 
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(Self.shellEscapedPath(sourceURL.path), forType: .string)
-    }
-
-    static func shellEscapedPath(_ path: String) -> String {
-        path.replacingOccurrences(of: " ", with: "\\ ")
+        actionExecutor.copy(EntryActionExecutor.shellEscapedPath(sourceURL.path))
     }
 
     func openSelectedSheetInEditor() {
