@@ -18,7 +18,7 @@ enum EditorOption: String, CaseIterable, Identifiable {
         }
     }
 
-    fileprivate var bundleIdentifiers: [String] {
+    var bundleIdentifiers: [String] {
         switch self {
         case .visualStudioCode:
             [
@@ -35,7 +35,7 @@ enum EditorOption: String, CaseIterable, Identifiable {
         }
     }
 
-    fileprivate var applicationNames: [String] {
+    var applicationNames: [String] {
         switch self {
         case .visualStudioCode:
             [
@@ -70,42 +70,5 @@ enum EditorPreferences {
             return defaultEditor
         }
         return editor
-    }
-
-    static func applicationURL(
-        for editor: EditorOption,
-        defaults: UserDefaults = .standard,
-        workspace: NSWorkspace = .shared,
-        fileManager: FileManager = .default
-    ) -> URL? {
-        if editor == .custom {
-            guard let path = defaults.string(forKey: customEditorPathKey),
-                  !path.isEmpty,
-                  fileManager.fileExists(atPath: path) else { return nil }
-            return URL(fileURLWithPath: path)
-        }
-
-        if let installedURL = editor.bundleIdentifiers.lazy.compactMap({
-            workspace.urlForApplication(withBundleIdentifier: $0)
-        }).first {
-            return installedURL
-        }
-
-        let applicationFolders = [
-            URL(fileURLWithPath: "/Applications", isDirectory: true),
-            fileManager.homeDirectoryForCurrentUser
-                .appendingPathComponent("Applications", isDirectory: true)
-        ]
-
-        for folder in applicationFolders {
-            for name in editor.applicationNames {
-                let url = folder.appendingPathComponent(name, isDirectory: true)
-                if fileManager.fileExists(atPath: url.path) {
-                    return url
-                }
-            }
-        }
-
-        return nil
     }
 }

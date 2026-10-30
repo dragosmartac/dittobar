@@ -77,7 +77,7 @@ final class CheatSheetStore: ObservableObject {
             folderURL = URL(fileURLWithPath: path, isDirectory: true)
         } else {
             folderURL = defaultFolderURL
-            createInitialFilesIfNeeded(fileManager: fileManager)
+            SheetFiles.createInitialFilesIfNeeded(in: folderURL, fileManager: fileManager)
         }
         reload(fileManager: fileManager)
         selectFirstEntry()
@@ -762,34 +762,13 @@ final class CheatSheetStore: ObservableObject {
     }
 
     func createNewSheetInEditor(named proposedName: String, fileManager: FileManager = .default) {
-        var name = proposedName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if name.lowercased().hasSuffix(".md") {
-            name = String(name.dropLast(3)).trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
-        guard !name.isEmpty else {
-            editorErrorMessage = "Enter a name for the new cheat sheet."
-            return
-        }
-
-        guard !name.contains("/") else {
-            editorErrorMessage = "Cheat sheet names cannot contain a slash (/)."
-            return
-        }
-
-        let fileURL = folderURL.appendingPathComponent(name).appendingPathExtension("md")
-        guard !fileManager.fileExists(atPath: fileURL.path) else {
-            editorErrorMessage = "A cheat sheet named \"\(name)\" already exists."
-            return
-        }
-
-        let template = StarterContent.newSheet(
-            named: name,
-            includeInstructions: EditorPreferences.includeInstructions()
-        )
-
         do {
-            try template.write(to: fileURL, atomically: true, encoding: .utf8)
+            let fileURL = try SheetFiles.create(
+                named: proposedName,
+                in: folderURL,
+                includeInstructions: EditorPreferences.includeInstructions(),
+                fileManager: fileManager
+            )
             reload(fileManager: fileManager)
             if let index = sheets.firstIndex(where: { $0.sourceURL == fileURL }) {
                 selectSheet(at: index)
@@ -798,59 +777,28 @@ final class CheatSheetStore: ObservableObject {
                 onRequestClose?()
             }
         } catch {
-            editorErrorMessage = "The new cheat sheet could not be created: \(error.localizedDescription)"
+            editorErrorMessage = error.localizedDescription
         }
     }
 
     @discardableResult
     private func openInConfiguredEditor(_ sourceURL: URL) -> Bool {
-        let editor = EditorPreferences.selectedEditor()
-        let applicationURL = editor == .systemDefault
-            ? NSWorkspace.shared.urlForApplication(toOpen: sourceURL)
-            : EditorPreferences.applicationURL(for: editor)
-
-        guard let applicationURL else {
-            editorErrorMessage = editor == .systemDefault
-                ? "No default Markdown editor could be found. Choose an editor in Settings."
-                : "\(editor.title) could not be found. Choose another editor in Settings."
+        do {
+            try EditorLauncher.open(sourceURL) { [weak self] error in
+                self?.editorErrorMessage = error.localizedDescription
+            }
+            return true
+        } catch {
+            editorErrorMessage = error.localizedDescription
             return false
         }
-
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = true
-        NSWorkspace.shared.open(
-            [sourceURL],
-            withApplicationAt: applicationURL,
-            configuration: configuration
-        ) { [weak self] application, error in
-            DispatchQueue.main.async {
-                if let error {
-                    self?.editorErrorMessage = error.localizedDescription
-                } else {
-                    application?.activate(options: [.activateAllWindows])
-                }
-            }
-        }
-        return true
     }
 
     func reload(fileManager: FileManager = .default) {
         let previousSheetID = selectedSheet?.id
         // Before the sheets, whose filtering reads the values.
         rememberedValues = EntryVariableStorage.allValues()
-        let urls = (try? fileManager.contentsOfDirectory(
-            at: folderURL,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        )) ?? []
-
-        sheets = urls
-            .filter { $0.pathExtension.lowercased() == "md" }
-            .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-            .compactMap { url in
-                guard let source = try? String(contentsOf: url, encoding: .utf8) else { return nil }
-                return CheatSheetParser.parse(source, fileURL: url)
-            }
+        sheets = SheetFiles.load(from: folderURL, fileManager: fileManager)
 
         if let previousSheetID,
            let index = sheets.firstIndex(where: { $0.id == previousSheetID }) {
@@ -859,27 +807,5 @@ final class CheatSheetStore: ObservableObject {
             selectedSheetIndex = min(selectedSheetIndex, max(0, sheets.count - 1))
         }
         selectedItemIndex = min(selectedItemIndex, max(0, selectableItems.count - 1))
-    }
-
-    private func createInitialFilesIfNeeded(fileManager: FileManager) {
-        try? fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
-        let hasMarkdown = ((try? fileManager.contentsOfDirectory(
-            at: folderURL,
-            includingPropertiesForKeys: nil
-        )) ?? []).contains { $0.pathExtension.lowercased() == "md" }
-
-        guard !hasMarkdown else { return }
-
-        try? StarterContent.vimSheet.write(
-            to: folderURL.appendingPathComponent("vim.md"),
-            atomically: true,
-            encoding: .utf8
-        )
-
-        try? StarterContent.gitSheet.write(
-            to: folderURL.appendingPathComponent("git.md"),
-            atomically: true,
-            encoding: .utf8
-        )
     }
 }
