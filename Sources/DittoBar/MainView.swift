@@ -10,7 +10,7 @@ extension Notification.Name {
     static let openCheatSheetMoreOptions = Notification.Name("openCheatSheetMoreOptions")
 }
 
-struct PopoverView: View {
+struct MainView: View {
     @ObservedObject var store: CheatSheetStore
     @FocusState private var searchIsFocused: Bool
     @State private var hoveredItemID: CheatSheetItem.ID?

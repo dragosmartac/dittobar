@@ -9,7 +9,7 @@ Requires macOS 14 or newer and Xcode command-line tools.
 swift run --disable-sandbox
 ```
 
-The menu-bar icon and global `Option-Space` shortcut both toggle the popover.
+The menu-bar icon and global `Option-Space` shortcut both toggle the panel.
 
 To build a standalone application:
 
@@ -22,7 +22,7 @@ open "dist/DittoBar.app"
 
 | Key | Action |
 | --- | --- |
-| `Option-Space` | Open or close the popover globally |
+| `Option-Space` | Open or close the panel globally |
 | `Command-1` … `Command-9` | Select a cheat-sheet tab |
 | `Command-Option-Left` / `Command-Option-Right` | Select the previous or next cheat-sheet tab |
 | `Tab` / `Shift-Tab` | Select the next or previous entry or section |
@@ -37,9 +37,9 @@ open "dist/DittoBar.app"
 | `Command-Shift-N` | Create a new cheat sheet and open it in the configured editor |
 | `Command-Shift-M` | Open the More Options menu |
 | `C` | Copy the full cheat-sheets directory path while More Options is open |
-| `Escape` | Close the popover |
+| `Escape` | Close the panel |
 
-**More Options → Settings** controls the sheets folder, popover width, text and code fonts, text sizes,
+**More Options → Settings** controls the sheets folder, panel width, text and code fonts, text sizes,
 and editor, and lists every keyboard shortcut. Changes are saved automatically. The editor
 can use the system default, Visual Studio Code, TextEdit, or any custom application.
 
@@ -180,7 +180,7 @@ Copying that command with `Return` opens a form instead of copying straight away
 | `Escape` | Close the form without copying |
 
 The live preview tints every substituted value, and the entry list shows each entry with
-its current values already filled in. If the menu-bar popover closes while the form
+its current values already filled in. If the menu-bar panel closes while the form
 is open, reopening it restores the form and all values entered so far.
 
 Other details:

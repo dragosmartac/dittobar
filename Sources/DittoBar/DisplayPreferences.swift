@@ -7,7 +7,8 @@ enum DisplayPreferences {
     static let noteFontSizeKey = "display.noteFontSize"
     // Keep the persisted key unchanged so existing preferences survive the rename.
     static let payloadFontSizeKey = "display.commandFontSize"
-    static let popoverWidthFractionKey = "display.popoverWidthFraction"
+    // Preserve the existing saved width preference.
+    static let panelWidthFractionKey = "display.popoverWidthFraction"
     static let textFontFamilyKey = "display.textFontFamily"
     static let codeFontFamilyKey = "display.codeFontFamily"
 
@@ -16,21 +17,21 @@ enum DisplayPreferences {
     static let defaultDescriptionFontSize = Double(NSFont.smallSystemFontSize)
     static let defaultNoteFontSize = Double(NSFont.systemFontSize)
     static let defaultPayloadFontSize = Double(NSFont.systemFontSize)
-    static let defaultPopoverWidthFraction = 0.85
+    static let defaultPanelWidthFraction = 0.85
 
     static let sectionTitleFontSizeRange = 9.0...28.0
     static let titleFontSizeRange = 9.0...28.0
     static let descriptionFontSizeRange = 9.0...24.0
     static let noteFontSizeRange = 9.0...28.0
     static let payloadFontSizeRange = 9.0...28.0
-    static let popoverWidthFractionRange = 0.5...0.95
+    static let panelWidthFractionRange = 0.5...0.95
 
-    static func popoverWidthFraction(defaults: UserDefaults = .standard) -> Double {
-        let storedValue = (defaults.object(forKey: popoverWidthFractionKey) as? NSNumber)?
+    static func panelWidthFraction(defaults: UserDefaults = .standard) -> Double {
+        let storedValue = (defaults.object(forKey: panelWidthFractionKey) as? NSNumber)?
             .doubleValue
         return min(
-            max(storedValue ?? defaultPopoverWidthFraction, popoverWidthFractionRange.lowerBound),
-            popoverWidthFractionRange.upperBound
+            max(storedValue ?? defaultPanelWidthFraction, panelWidthFractionRange.lowerBound),
+            panelWidthFractionRange.upperBound
         )
     }
 }

@@ -84,7 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func configurePanel() {
-        panel = CheatSheetPanel(rootView: PopoverView(store: store).tint(.dittoAccent))
+        panel = CheatSheetPanel(rootView: MainView(store: store).tint(.dittoAccent))
         panel.delegate = self
         store.onRequestClose = { [weak self] in
             self?.closePanel(restoringFocus: false)
@@ -255,7 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return NSSize(width: 900, height: 800)
         }
 
-        let widthFraction = DisplayPreferences.popoverWidthFraction()
+        let widthFraction = DisplayPreferences.panelWidthFraction()
         return NSSize(
             width: floor(screen.visibleFrame.width * widthFraction),
             height: floor(screen.visibleFrame.height * Self.panelScreenHeightFraction)
@@ -274,7 +274,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     /// Clicks in other apps close the panel, as they would a transient
-    /// popover. Clicks on the status item reach `statusItemClicked` instead.
+    /// panel. Clicks on the status item reach `statusItemClicked` instead.
     /// File pickers can run in a separate system process, so their clicks also
     /// reach this monitor. Keep the panel visible while settings or a sheet
     /// owns the interaction, including the picker's presentation transitions.

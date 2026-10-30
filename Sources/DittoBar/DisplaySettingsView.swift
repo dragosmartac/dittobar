@@ -20,8 +20,8 @@ struct DisplaySettingsView: View {
     private var noteFontSize = DisplayPreferences.defaultNoteFontSize
     @AppStorage(DisplayPreferences.payloadFontSizeKey)
     private var payloadFontSize = DisplayPreferences.defaultPayloadFontSize
-    @AppStorage(DisplayPreferences.popoverWidthFractionKey)
-    private var popoverWidthFraction = DisplayPreferences.defaultPopoverWidthFraction
+    @AppStorage(DisplayPreferences.panelWidthFractionKey)
+    private var panelWidthFraction = DisplayPreferences.defaultPanelWidthFraction
     @AppStorage(DisplayPreferences.textFontFamilyKey)
     private var textFontFamily = ""
     @AppStorage(DisplayPreferences.codeFontFamilyKey)
@@ -146,21 +146,21 @@ struct DisplaySettingsView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Popover Width")
+                    Text("Panel Width")
                     Spacer()
-                    Text("\(Int((popoverWidthFraction * 100).rounded()))%")
+                    Text("\(Int((panelWidthFraction * 100).rounded()))%")
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
 
                 Slider(
-                    value: $popoverWidthFraction,
-                    in: DisplayPreferences.popoverWidthFractionRange,
+                    value: $panelWidthFraction,
+                    in: DisplayPreferences.panelWidthFractionRange,
                     step: 0.05
                 )
-                .accessibilityLabel("Popover width")
+                .accessibilityLabel("Panel width")
                 .accessibilityValue(
-                    "\(Int((popoverWidthFraction * 100).rounded())) percent of the screen"
+                    "\(Int((panelWidthFraction * 100).rounded())) percent of the screen"
                 )
             }
         }
@@ -323,7 +323,7 @@ struct DisplaySettingsView: View {
     private var selectedTabIsUsingDefaults: Bool {
         switch selectedTab ?? .layout {
         case .layout:
-            popoverWidthFraction == DisplayPreferences.defaultPopoverWidthFraction
+            panelWidthFraction == DisplayPreferences.defaultPanelWidthFraction
         case .text:
             textFontFamily.isEmpty
                 && codeFontFamily.isEmpty
@@ -346,7 +346,7 @@ struct DisplaySettingsView: View {
     private func resetSelectedTab() {
         switch selectedTab ?? .layout {
         case .layout:
-            popoverWidthFraction = DisplayPreferences.defaultPopoverWidthFraction
+            panelWidthFraction = DisplayPreferences.defaultPanelWidthFraction
         case .text:
             textFontFamily = ""
             codeFontFamily = ""
