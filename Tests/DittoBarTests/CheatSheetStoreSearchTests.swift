@@ -140,6 +140,59 @@ struct CheatSheetStoreSearchTests {
         }
     }
 
+    @Test func collapsingHidesEntriesButKeepsSectionSelectableAndActionsAvailable() throws {
+        try withStore { store in
+            let section = try #require(section(titled: "Git tools", in: store))
+            store.selectItem(.section(section))
+            store.performPrimaryActionForSelectedEntry()
+
+            #expect(store.isCollapsed(section))
+            #expect(store.visibleEntries.map(\.title) == ["Before sections"])
+            #expect(store.selectedItem == .section(section))
+            #expect(store.entries(in: section).count == 3)
+            #expect(store.actions(for: section) == [.copyAllEntries, .copyAsMarkdown])
+            store.moveSelection(by: 1)
+            #expect(store.selectedEntry?.title == "Before sections")
+
+            store.selectItem(.section(section))
+            store.performPrimaryActionForSelectedEntry()
+            #expect(!store.isCollapsed(section))
+            #expect(store.visibleEntries.count == 4)
+        }
+    }
+
+    @Test func searchRevealsCollapsedMatchesAndRestoresSavedState() throws {
+        try withStore { store in
+            let section = try #require(section(titled: "Git tools", in: store))
+            store.toggleSection(section)
+            store.query = "clone"
+            #expect(!store.isCollapsed(section))
+            #expect(store.visibleEntries.map(\.title) == ["Clone repository"])
+            store.toggleSection(section)
+            #expect(store.visibleEntries.isEmpty)
+            store.query = "deploy"
+            #expect(!store.isCollapsed(section))
+            #expect(store.visibleEntries.count == 2)
+            store.query = ""
+            #expect(store.isCollapsed(section))
+            #expect(store.visibleEntries.map(\.title) == ["Before sections"])
+        }
+    }
+
+    @Test func collapsedAndExpandedStatesSurviveStoreRecreation() throws {
+        try withStore { store, fileManager, defaults in
+            let section = try #require(section(titled: "Git tools", in: store))
+            store.toggleSection(section)
+            let reopened = CheatSheetStore(fileManager: fileManager, defaults: defaults)
+            #expect(reopened.isCollapsed(section))
+            #expect(reopened.visibleEntries.map(\.title) == ["Before sections"])
+            reopened.toggleSection(section)
+            let reopenedAgain = CheatSheetStore(fileManager: fileManager, defaults: defaults)
+            #expect(!reopenedAgain.isCollapsed(section))
+            #expect(reopenedAgain.visibleEntries.count == 4)
+        }
+    }
+
     @Test func sectionMarkdownResolvesVariablesAndKeepsFormatting() throws {
         try withStore { store in
             let gitTools = try #require(section(titled: "Git tools", in: store))
@@ -247,6 +300,15 @@ struct CheatSheetStoreSearchTests {
         source: String = Self.source,
         _ assertions: (CheatSheetStore) throws -> Void
     ) throws {
+        try withStore(source: source) { store, _, _ in
+            try assertions(store)
+        }
+    }
+
+    private func withStore(
+        source: String = Self.source,
+        _ assertions: (CheatSheetStore, FileManager, UserDefaults) throws -> Void
+    ) throws {
         let rootURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("DittoBarSearchTests-\(UUID().uuidString)", isDirectory: true)
         let cheatSheetsURL = rootURL
@@ -267,7 +329,7 @@ struct CheatSheetStoreSearchTests {
             let defaults = UserDefaults(suiteName: suiteName)!
             defer { defaults.removePersistentDomain(forName: suiteName) }
             let store = CheatSheetStore(fileManager: fileManager, defaults: defaults)
-            try assertions(store)
+            try assertions(store, fileManager, defaults)
         }
     }
 

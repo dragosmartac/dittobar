@@ -27,8 +27,8 @@ open "dist/DittoBar.app"
 | `Command-Option-Left` / `Command-Option-Right` | Select the previous or next cheat-sheet tab |
 | `Tab` / `Shift-Tab` | Select the next or previous entry or section |
 | `Up` / `Down` | Select the previous or next entry or section |
-| `Return` | Perform the selected entry's primary action, or open its variable form. URLs and files open; other entries copy. On a section, open its action menu |
-| `Option-Return` | Open the selected entry's action menu |
+| `Return` | Perform the selected entry's primary action, or open its variable form. URLs and files open; other entries copy. On a section, collapse or expand it |
+| `Option-Return` | Open the selected entry or section's action menu |
 | `Command-Return` | Perform the primary action without opening the variable form |
 | `Command-C` | Copy text selected inside an entry |
 | `Command-E` | Open the current Markdown file in the configured editor |
@@ -100,8 +100,12 @@ https://dashboards.example.com/services/production
 ```
 ````
 
-Right-click a section heading, or select it and press Return, to act on every entry
-shown under it. **Copy All Entries** copies each entry's command, note content, URL, or
+Click a section heading, or select it and press Return, to collapse or expand it.
+Each section’s state is remembered across tab switches and app restarts. Search
+temporarily reveals matching entries without changing the saved state.
+
+Right-click a section heading, or select it and press Option-Return, to act on every
+entry under it, including entries hidden by collapsing. **Copy All Entries** copies each entry's command, note content, URL, or
 full path, one per line, or separated by blank lines when any of them spans several lines. **Open All URLs**
 opens each URL entry, and **Open All Files** each file entry. **Copy as Markdown** copies the section heading and its entries
 as Markdown, with commands in fenced code blocks. All three use each entry's current

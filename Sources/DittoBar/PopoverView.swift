@@ -193,6 +193,7 @@ struct PopoverView: View {
                 case .section(let section):
                     SectionHeaderRow(
                         title: section.title,
+                        isCollapsed: store.isCollapsed(section),
                         fontSize: CGFloat(sectionTitleFontSize),
                         fonts: fonts
                     )
@@ -204,8 +205,11 @@ struct PopoverView: View {
                     )
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        store.selectItem(item)
+                        store.toggleSection(section)
                     }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityValue(store.isCollapsed(section) ? "Collapsed" : "Expanded")
+                    .accessibilityAction { store.toggleSection(section) }
                     .listRowBackground(
                         item.id == selectedItemID
                             ? Color.dittoAccent.opacity(0.12)
@@ -453,9 +457,9 @@ struct PopoverView: View {
                 if entry.hasVariables {
                     footerShortcut("⌘↩", label: "skip form")
                 }
-            case .section:
-                // Return already opens the options menu on a section.
-                footerShortcut("↩", label: "options")
+            case .section(let section):
+                footerShortcut("↩", label: store.isCollapsed(section) ? "expand" : "collapse")
+                footerShortcut("⌥↩", label: "options")
             case nil:
                 EmptyView()
             }
@@ -976,6 +980,7 @@ private struct MarkdownDescriptionView: View {
 
 private struct SectionHeaderRow: View {
     let title: String
+    let isCollapsed: Bool
     let fontSize: CGFloat
     let fonts: EntryFonts
 
@@ -983,6 +988,10 @@ private struct SectionHeaderRow: View {
         // Uppercase and a trailing rule mark a heading, so a large gray
         // title is not mistaken for a disabled entry.
         HStack(spacing: 8) {
+            Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                .font(.system(size: fontSize * 0.65, weight: .semibold))
+                .frame(width: fontSize * 0.8)
+                .accessibilityHidden(true)
             Text(title.uppercased())
                 .font(Font(fonts.text(size: fontSize * 0.8, weight: .semibold)))
                 .tracking(fontSize * 0.06)

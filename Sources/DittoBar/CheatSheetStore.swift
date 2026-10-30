@@ -13,15 +13,22 @@ final class CheatSheetStore: ObservableObject {
     /// Indexes `selectableItems`.
     @Published var selectedItemIndex = 0
     @Published var query = "" {
-        didSet { updateVisibleItems() }
+        didSet {
+            searchCollapsedSectionKeys = []
+            updateVisibleItems()
+        }
     }
     /// The selected sheet's items that match `query`. Stored rather than
     /// computed: a single key press reads it several times, and each read
     /// would filter the whole sheet again.
     @Published private(set) var visibleItems: [CheatSheetItem] = []
     private(set) var visibleEntries: [CheatSheetEntry] = []
-    /// The visible entries, plus each section that has visible entries for
-    /// its actions to act on.
+    private var matchingItems: [CheatSheetItem] = []
+    private var collapsedSectionKeys: Set<String> = []
+    private var searchCollapsedSectionKeys: Set<String> = []
+    static let collapsedSectionsKey = "collapsedSections"
+
+    /// Visible entries and nonempty sections, including collapsed sections.
     private(set) var selectableItems: [CheatSheetItem] = []
     @Published private(set) var copiedEntryIDs: Set<String> = []
     @Published var editorErrorMessage: String?
@@ -57,6 +64,7 @@ final class CheatSheetStore: ObservableObject {
 
     init(fileManager: FileManager = .default, defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        collapsedSectionKeys = Set(defaults.stringArray(forKey: Self.collapsedSectionsKey) ?? [])
         let applicationSupport = fileManager.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -119,21 +127,61 @@ final class CheatSheetStore: ObservableObject {
 
     private func updateVisibleItems() {
         if let sheet = selectedSheet {
-            visibleItems = CheatSheetSearch.filteredItems(in: sheet, matching: query) { entry in
+            matchingItems = CheatSheetSearch.filteredItems(in: sheet, matching: query) { entry in
                 effectiveValues(for: entry)
             }
         } else {
-            visibleItems = []
+            matchingItems = []
+        }
+        var sectionIsCollapsed = false
+        visibleItems = matchingItems.filter { item in
+            if let section = item.section {
+                sectionIsCollapsed = isCollapsed(section)
+                return true
+            }
+            return !sectionIsCollapsed
         }
         visibleEntries = visibleItems.compactMap(\.entry)
-        selectableItems = visibleItems.indices.compactMap { index in
-            let item = visibleItems[index]
-            guard item.section != nil else { return item }
-            let nextIndex = visibleItems.index(after: index)
-            let hasEntries = visibleItems.indices.contains(nextIndex)
-                && visibleItems[nextIndex].entry != nil
-            return hasEntries ? item : nil
+        let nonemptySectionIDs = Set(matchingItems.indices.compactMap { index -> String? in
+            guard let section = matchingItems[index].section,
+                  matchingItems.indices.contains(index + 1),
+                  matchingItems[index + 1].entry != nil else { return nil }
+            return section.id
+        })
+        selectableItems = visibleItems.filter { item in
+            item.section.map { nonemptySectionIDs.contains($0.id) } ?? true
         }
+    }
+
+    private var isSearching: Bool {
+        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func collapseKey(for section: CheatSheetSection) -> String {
+        "\(selectedSheet?.sourceURL.standardizedFileURL.path ?? "")|\(section.id)"
+    }
+
+    func isCollapsed(_ section: CheatSheetSection) -> Bool {
+        let keys = isSearching ? searchCollapsedSectionKeys : collapsedSectionKeys
+        return keys.contains(collapseKey(for: section))
+    }
+
+    func toggleSection(_ section: CheatSheetSection) {
+        guard !entries(in: section).isEmpty else { return }
+        let key = collapseKey(for: section)
+        if isSearching {
+            if !searchCollapsedSectionKeys.insert(key).inserted {
+                searchCollapsedSectionKeys.remove(key)
+            }
+        } else {
+            if !collapsedSectionKeys.insert(key).inserted {
+                collapsedSectionKeys.remove(key)
+            }
+            defaults.set(collapsedSectionKeys.sorted(), forKey: Self.collapsedSectionsKey)
+        }
+        updateVisibleItems()
+        // Keep focus on the heading after its entries disappear or reappear.
+        selectItem(.section(section))
     }
 
     var selectedItem: CheatSheetItem? {
@@ -288,6 +336,10 @@ final class CheatSheetStore: ObservableObject {
     // MARK: - Entry actions
 
     func performPrimaryActionForSelectedEntry(skippingVariableForm: Bool = false) {
+        if let section = selectedItem?.section {
+            toggleSection(section)
+            return
+        }
         guard let selectedEntry else { return }
         perform(
             selectedEntry.actions.primary,
@@ -530,12 +582,12 @@ final class CheatSheetStore: ObservableObject {
 
     // MARK: - Section actions
 
-    /// The visible entries under a section heading, up to the next heading.
+    /// The matching entries under a section heading, even when collapsed.
     /// While searching, only the entries that match are included.
     func entries(in section: CheatSheetSection) -> [CheatSheetEntry] {
-        guard let start = visibleItems.firstIndex(of: .section(section)) else { return [] }
+        guard let start = matchingItems.firstIndex(of: .section(section)) else { return [] }
         return Array(
-            visibleItems[(start + 1)...]
+            matchingItems[(start + 1)...]
                 .prefix { $0.section == nil }
                 .compactMap(\.entry)
         )

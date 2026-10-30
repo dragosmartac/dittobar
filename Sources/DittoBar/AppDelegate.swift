@@ -431,10 +431,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // Return copies, leaving ⌘C to the system so text in the list stays
         // selectable and copyable. ⌥Return opens copy options, while ⌘Return
-        // copies without opening the variable form. A section has no primary
-        // action, so any Return opens its menu.
+        // copies without opening the variable form. Return toggles sections.
         if event.keyCode == 36 || event.keyCode == 76 {
-            if let item = store.selectedItem, modifiers == .option || item.section != nil {
+            if let item = store.selectedItem, modifiers == .option {
                 presentCopyOptionsMenu(for: item)
             } else if modifiers.contains(.command) {
                 store.performPrimaryActionForSelectedEntry(skippingVariableForm: true)
