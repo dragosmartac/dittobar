@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct EntryListView: View {
+    @Environment(\.dittoAccent) private var accentColor
     @ObservedObject var store: CheatSheetStore
     @State private var hoveredItemID: CheatSheetItem.ID?
     @AppStorage(DisplayPreferences.sectionTitleFontSizeKey)
@@ -51,8 +52,8 @@ struct EntryListView: View {
                     .accessibilityAction { store.toggleSection(section) }
                     .listRowBackground(
                         item.id == selectedItemID
-                            ? Color.dittoAccent.opacity(0.12)
-                            : item.id == hoveredItemID ? Color.dittoAccent.opacity(0.05) : Color.clear
+                            ? accentColor.opacity(0.12)
+                            : item.id == hoveredItemID ? accentColor.opacity(0.05) : Color.clear
                     )
                     .onHover { hovering in
                         if hovering { hoveredItemID = item.id }
@@ -99,8 +100,8 @@ struct EntryListView: View {
                         store.copiedEntryIDs.contains(entry.id)
                             ? Color.green.opacity(0.24)
                             : item.id == selectedItemID
-                                ? Color.dittoAccent.opacity(0.12)
-                                : item.id == hoveredItemID ? Color.dittoAccent.opacity(0.05) : Color.clear
+                                ? accentColor.opacity(0.12)
+                                : item.id == hoveredItemID ? accentColor.opacity(0.05) : Color.clear
                     )
                     .onHover { hovering in
                         if hovering { hoveredItemID = item.id }

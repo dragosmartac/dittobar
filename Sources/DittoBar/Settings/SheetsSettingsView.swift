@@ -3,6 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SheetsSettingsView: View {
+    @Environment(\.dittoAccent) private var accentColor
     @ObservedObject var store: CheatSheetStore
     @AppStorage(EditorPreferences.includeInstructionsKey)
     private var includeInstructions = EditorPreferences.defaultIncludeInstructions
@@ -155,10 +156,10 @@ struct SheetsSettingsView: View {
                     if isActive {
                         Text("Active")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Color.dittoAccent)
+                            .foregroundStyle(accentColor)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
-                            .background(Color.dittoAccent.opacity(0.15), in: Capsule())
+                            .background(accentColor.opacity(0.15), in: Capsule())
                     }
                 }
                 .contentShape(Rectangle())
@@ -170,7 +171,7 @@ struct SheetsSettingsView: View {
         }
         .padding(10)
         .background(
-            selectedFolderURL == url ? Color.dittoAccent.opacity(0.1) : Color(nsColor: .controlBackgroundColor),
+            selectedFolderURL == url ? accentColor.opacity(0.1) : Color(nsColor: .controlBackgroundColor),
             in: RoundedRectangle(cornerRadius: 8)
         )
     }

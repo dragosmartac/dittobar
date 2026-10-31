@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct MarkdownDescriptionView: View {
+    @Environment(\.dittoAccent) private var accentColor
     let raw: String
     let values: [String: String]
     let fontSize: CGFloat
@@ -25,6 +26,7 @@ struct MarkdownDescriptionView: View {
                 }
             }
         }
+        .tint(accentColor)
     }
 
     private var renderBlocks: [MarkdownText.Block] {

@@ -19,6 +19,7 @@ enum EntryTextStyle {
     static let lineSpacing = InlineCodeStyle.minimumLineSpacing
 
     private struct MarkdownRenderedKey: Hashable {
+        var accentColor: NSColor = .dittoAccent
         let segments: [TextVariables.Segment]
         let size: CGFloat
         let fonts: EntryFonts
@@ -41,6 +42,7 @@ enum EntryTextStyle {
     }
 
     private struct MarkdownRenderedListKey: Hashable {
+        var accentColor: NSColor = .dittoAccent
         let items: [ListItemSegments]
         let size: CGFloat
         let fonts: EntryFonts

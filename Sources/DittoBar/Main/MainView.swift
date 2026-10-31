@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct MainView: View {
+    @Environment(\.dittoAccent) private var accentColor
     @ObservedObject var store: CheatSheetStore
     @FocusState private var searchIsFocused: Bool
     @AppStorage(DisplayPreferences.titleFontSizeKey)
@@ -37,7 +38,7 @@ struct MainView: View {
         }
         .sheet(isPresented: $store.isSettingsPresented) {
             SettingsView(store: store)
-                .tint(.dittoAccent)
+                .modifier(AccentTheme())
         }
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -99,7 +100,7 @@ struct MainView: View {
                             .padding(.vertical, 5)
                             .background(
                                 index == store.selectedSheetIndex
-                                    ? Color.dittoAccent.opacity(0.18)
+                                    ? accentColor.opacity(0.18)
                                     : Color.clear,
                                 in: RoundedRectangle(cornerRadius: 7)
                             )
@@ -152,7 +153,7 @@ struct MainView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 7)
                 .strokeBorder(
-                    searchIsFocused ? Color.dittoAccent.opacity(0.5) : Color.primary.opacity(0.08),
+                    searchIsFocused ? accentColor.opacity(0.5) : Color.primary.opacity(0.08),
                     lineWidth: 1
                 )
         }

@@ -1,6 +1,24 @@
 import AppKit
 
 enum DisplayPreferences {
+    static let accentColorKey = "display.accentColor"
+
+    static func accentColor(from value: String) -> NSColor {
+        let parts = value.split(separator: ",", omittingEmptySubsequences: false)
+        let components = parts.compactMap { Double($0) }
+        guard parts.count == 3, components.count == 3,
+              components.allSatisfy({ $0.isFinite && (0...1).contains($0) }) else {
+            return .systemOrange
+        }
+        return NSColor(srgbRed: components[0], green: components[1], blue: components[2], alpha: 1)
+    }
+
+    static func encodeAccentColor(_ color: NSColor) -> String {
+        guard let rgb = color.usingColorSpace(.sRGB) else { return "" }
+        return [rgb.redComponent, rgb.greenComponent, rgb.blueComponent]
+            .map { String(Double(min(1, max(0, $0)))) }.joined(separator: ",")
+    }
+
     static let sectionTitleFontSizeKey = "display.sectionTitleFontSize"
     static let titleFontSizeKey = "display.titleFontSize"
     static let descriptionFontSizeKey = "display.descriptionFontSize"

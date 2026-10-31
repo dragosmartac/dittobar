@@ -79,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func configurePanel() {
-        panel = CheatSheetPanel(rootView: MainView(store: store).tint(.dittoAccent))
+        panel = CheatSheetPanel(rootView: MainView(store: store).modifier(AccentTheme()))
         panel.delegate = self
         copyOptionsController = CopyOptionsMenuController(store: store, panel: panel)
         store.onRequestClose = { [weak self] in

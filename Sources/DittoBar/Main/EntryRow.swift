@@ -5,6 +5,7 @@ import SwiftUI
 /// or copied state changed. Otherwise the `onSelect` closure, which SwiftUI
 /// cannot compare, makes every row re-parse its Markdown on each key press.
 struct EntryRow: View, Equatable {
+    @Environment(\.dittoAccent) private var accentColor
     let entry: CheatSheetEntry
     let values: [String: String]
     let titleFontSize: CGFloat
@@ -86,7 +87,7 @@ struct EntryRow: View, Equatable {
         .overlay(alignment: .leading) {
             if isSelected {
                 RoundedRectangle(cornerRadius: 1.5)
-                    .fill(Color.dittoAccent)
+                    .fill(accentColor)
                     .frame(width: 3)
                     .padding(.vertical, 8)
                     .padding(.leading, 4)
@@ -139,6 +140,7 @@ struct EntryRow: View, Equatable {
 }
 
 private struct EntryBadge: View {
+    @Environment(\.dittoAccent) private var accentColor
     let title: String
     let symbol: String
     let titleFontSize: CGFloat
@@ -153,6 +155,6 @@ private struct EntryBadge: View {
         .fixedSize()
         .padding(.horizontal, badgeFontSize * 0.6)
         .padding(.vertical, badgeFontSize * 0.2)
-        .background(Color.dittoAccent.opacity(0.14), in: Capsule())
+        .background(accentColor.opacity(0.14), in: Capsule())
     }
 }

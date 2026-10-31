@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var store: CheatSheetStore
-    @State private var selectedTab: SettingsTab? = .layout
+    @State private var selectedTab: SettingsTab? = .appearance
 
     var body: some View {
         HStack(spacing: 0) {
@@ -38,8 +38,8 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var detail: some View {
-        switch selectedTab ?? .layout {
-        case .layout: LayoutSettingsView()
+        switch selectedTab ?? .appearance {
+        case .appearance: AppearanceSettingsView()
         case .text: TextSettingsView()
         case .sheets: SheetsSettingsView(store: store)
         case .editor: EditorSettingsView()
@@ -76,7 +76,7 @@ struct SettingsPane<Content: View>: View {
 }
 
 private enum SettingsTab: String, CaseIterable, Identifiable {
-    case layout
+    case appearance
     case text
     case editor
     case sheets
@@ -86,7 +86,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .layout: "Layout"
+        case .appearance: "Appearance"
         case .text: "Text"
         case .sheets: "Sheets"
         case .editor: "Editor"
@@ -96,7 +96,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
-        case .layout: "rectangle.split.2x1"
+        case .appearance: "paintpalette"
         case .text: "textformat.size"
         case .sheets: "folder"
         case .editor: "square.and.pencil"
