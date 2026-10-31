@@ -4,6 +4,7 @@ import Foundation
 enum EditorOption: String, CaseIterable, Identifiable {
     case systemDefault
     case visualStudioCode
+    case obsidian
     case textEdit
     case custom
 
@@ -13,6 +14,7 @@ enum EditorOption: String, CaseIterable, Identifiable {
         switch self {
         case .systemDefault: "System Default"
         case .visualStudioCode: "Visual Studio Code"
+        case .obsidian: "Obsidian"
         case .textEdit: "TextEdit"
         case .custom: "Custom Application"
         }
@@ -28,6 +30,8 @@ enum EditorOption: String, CaseIterable, Identifiable {
                 "com.microsoft.VSCode",
                 "com.microsoft.VSCodeInsiders"
             ]
+        case .obsidian:
+            ["md.obsidian"]
         case .textEdit:
             ["com.apple.TextEdit"]
         case .systemDefault, .custom:
@@ -45,6 +49,8 @@ enum EditorOption: String, CaseIterable, Identifiable {
                 "Visual Studio Code.app",
                 "Visual Studio Code - Insiders.app"
             ]
+        case .obsidian:
+            ["Obsidian.app"]
         case .textEdit:
             ["TextEdit.app"]
         case .systemDefault, .custom:
