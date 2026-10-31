@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 
 struct SheetsSettingsView: View {
     @ObservedObject var store: CheatSheetStore
+    @AppStorage(EditorPreferences.includeInstructionsKey)
+    private var includeInstructions = EditorPreferences.defaultIncludeInstructions
     @State private var isChoosingSheetsDirectory = false
     @State private var directoryError: String?
 
@@ -54,14 +56,27 @@ struct SheetsSettingsView: View {
             Button("Choose Folder…") {
                 isChoosingSheetsDirectory = true
             }
+
+            Divider()
+
+            HStack {
+                Text("Include top-level instructions when creating a new sheet")
+                    .lineLimit(1)
+                Spacer()
+                Toggle("Include top-level instructions with new sheets", isOn: $includeInstructions)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
         }
     }
 
     private var isUsingDefaults: Bool {
         store.folderURL.standardizedFileURL == store.defaultFolderURL.standardizedFileURL
+            && includeInstructions == EditorPreferences.defaultIncludeInstructions
     }
 
     private func reset() {
+        includeInstructions = EditorPreferences.defaultIncludeInstructions
         do {
             try store.resetSheetsDirectory()
         } catch {

@@ -7,8 +7,6 @@ struct EditorSettingsView: View {
     private var selectedEditor = EditorPreferences.defaultEditor.rawValue
     @AppStorage(EditorPreferences.customEditorPathKey)
     private var customEditorPath = ""
-    @AppStorage(EditorPreferences.includeInstructionsKey)
-    private var includeInstructions = EditorPreferences.defaultIncludeInstructions
     @State private var isChoosingCustomEditor = false
 
     var body: some View {
@@ -62,28 +60,16 @@ struct EditorSettingsView: View {
                 }
             }
 
-            Divider()
-
-            HStack {
-                Text("Include top-level instructions when creating a new sheet")
-                    .lineLimit(1)
-                Spacer()
-                Toggle("Include top-level instructions with new sheets", isOn: $includeInstructions)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-            }
         }
     }
 
     private var isUsingDefaults: Bool {
         selectedEditor == EditorPreferences.defaultEditor.rawValue
             && customEditorPath.isEmpty
-            && includeInstructions == EditorPreferences.defaultIncludeInstructions
     }
 
     private func reset() {
         selectedEditor = EditorPreferences.defaultEditor.rawValue
         customEditorPath = ""
-        includeInstructions = EditorPreferences.defaultIncludeInstructions
     }
 }
