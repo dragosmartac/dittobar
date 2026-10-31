@@ -29,9 +29,6 @@ struct TextSettingsView: View {
             Text("Text")
                 .font(.title2.bold())
 
-            Text("Adjust the text shown in the list. Changes are applied immediately.")
-                .foregroundStyle(.secondary)
-
             ScrollView(.vertical) {
                 VStack(spacing: 14) {
                     FontFamilyPicker(
@@ -79,7 +76,8 @@ struct TextSettingsView: View {
             FontSizeControl(
                 title: "Entry Payload",
                 value: $payloadFontSize,
-                range: DisplayPreferences.payloadFontSizeRange
+                range: DisplayPreferences.payloadFontSizeRange,
+                description: "Commands, URLs, and file paths shown in entries."
             )
         }
     }
@@ -109,6 +107,7 @@ private struct FontSizeControl: View {
     let title: String
     @Binding var value: Double
     let range: ClosedRange<Double>
+    var description: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -118,6 +117,12 @@ private struct FontSizeControl: View {
                 Text("\(Int(value)) pt")
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
+            }
+
+            if let description {
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Slider(value: $value, in: range, step: 1)
