@@ -33,15 +33,18 @@ struct EditorSettingsView: View {
             Text("Editor")
                 .font(.title2.bold())
 
-            Text("Choose the application used to open new and existing cheat sheets.")
-                .foregroundStyle(.secondary)
-
-            Picker("Editor", selection: $selectedEditor) {
-                ForEach(EditorOption.allCases) { editor in
-                    Text(editor.title).tag(editor.rawValue)
+            VStack(alignment: .leading, spacing: 6) {
+                Picker("Editor", selection: $selectedEditor) {
+                    ForEach(EditorOption.allCases) { editor in
+                        Text(editor.title).tag(editor.rawValue)
+                    }
                 }
+                .pickerStyle(.radioGroup)
+
+                Text("Application used to open new and existing sheets.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .pickerStyle(.radioGroup)
 
             if selectedEditor == EditorOption.custom.rawValue {
                 HStack {

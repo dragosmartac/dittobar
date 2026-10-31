@@ -17,9 +17,6 @@ struct LayoutSettingsView: View {
             Text("Layout")
                 .font(.title2.bold())
 
-            Text("Choose how far the dropdown expands horizontally.")
-                .foregroundStyle(.secondary)
-
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Panel Width")
@@ -28,6 +25,10 @@ struct LayoutSettingsView: View {
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
+
+                Text("Width of the dropdown as a percentage of the screen.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Slider(
                     value: $panelWidthFraction,

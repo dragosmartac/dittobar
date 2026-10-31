@@ -39,12 +39,12 @@ struct SheetsSettingsView: View {
             Text("Sheets")
                 .font(.title2.bold())
 
-            Text("Choose the folder containing your Markdown cheat sheets.")
-                .foregroundStyle(.secondary)
-
             VStack(alignment: .leading, spacing: 8) {
                 Text("Sheets Folder")
                     .font(.headline)
+                Text("Folder containing your Markdown cheat sheets.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Text(store.folderURL.path)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
