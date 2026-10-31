@@ -7,15 +7,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let store = CheatSheetStore()
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
-    private var copyOptionsMenu: NSMenu!
-    /// Run by the copy options menu's items, indexed by their tags.
-    private var displayedActions: [() -> Void] = []
+    private var copyOptionsController: CopyOptionsMenuController!
     private var hotKeyManager: HotKeyManager?
     private var keyMonitor: Any?
     private var outsideClickMonitor: Any?
     private var previouslyActiveApplication: NSRunningApplication?
-    private var isCopyOptionsPresented = false
-    private var copyOptionsItem: CheatSheetItem?
 
     private static let panelScreenHeightFraction: CGFloat = 0.85
 
@@ -23,7 +19,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         configureMainMenu()
         configurePanel()
         configureStatusItem()
-        configureCopyOptionsMenu()
 
         hotKeyManager = HotKeyManager { [weak self] in
             DispatchQueue.main.async {
@@ -86,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func configurePanel() {
         panel = CheatSheetPanel(rootView: MainView(store: store).tint(.dittoAccent))
         panel.delegate = self
+        copyOptionsController = CopyOptionsMenuController(store: store, panel: panel)
         store.onRequestClose = { [weak self] in
             self?.closePanel(restoringFocus: false)
         }
@@ -114,12 +110,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItemMenu = menu
     }
 
-    private func configureCopyOptionsMenu() {
-        let menu = NSMenu(title: "Copy Options")
-        menu.autoenablesItems = false
-        copyOptionsMenu = menu
-    }
-
     @objc private func statusItemClicked() {
         if let event = NSApp.currentEvent, event.type == .rightMouseUp,
            let button = statusItem.button {
@@ -132,86 +122,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func quitApplication() {
         NSApp.terminate(nil)
-    }
-
-    @objc private func performDisplayedAction(_ sender: NSMenuItem) {
-        guard copyOptionsItem != nil,
-              displayedActions.indices.contains(sender.tag) else { return }
-        displayedActions[sender.tag]()
-    }
-
-    private func presentCopyOptionsMenu(for item: CheatSheetItem) {
-        copyOptionsItem = item
-        store.pinSelection(item)
-        isCopyOptionsPresented = true
-        DispatchQueue.main.async { [weak self] in
-            self?.showCopyOptionsMenu(for: item)
-        }
-    }
-
-    private func showCopyOptionsMenu(for item: CheatSheetItem) {
-        guard panel.isVisible,
-              let fallbackView = panel.contentView else {
-            isCopyOptionsPresented = false
-            copyOptionsItem = nil
-            store.restorePinnedSelection()
-            return
-        }
-
-        rebuildCopyOptionsMenu(for: item)
-
-        let anchorView = store.selectedRowAnchorView?.window == fallbackView.window
-            ? store.selectedRowAnchorView ?? fallbackView
-            : fallbackView
-        let anchorPoint: NSPoint
-        if anchorView === fallbackView {
-            anchorPoint = NSPoint(x: fallbackView.bounds.midX, y: fallbackView.bounds.midY)
-        } else {
-            anchorPoint = NSPoint(x: min(120, anchorView.bounds.midX), y: anchorView.bounds.midY)
-        }
-
-        copyOptionsMenu.popUp(
-            positioning: copyOptionsMenu.items.first,
-            at: anchorPoint,
-            in: anchorView
-        )
-        store.restorePinnedSelection()
-        isCopyOptionsPresented = false
-        copyOptionsItem = nil
-    }
-
-    private func rebuildCopyOptionsMenu(for item: CheatSheetItem) {
-        copyOptionsMenu.removeAllItems()
-        let titledActions: [(title: String, perform: () -> Void)]
-        // An entry's primary action stands apart from its secondary ones.
-        let separatorIndex: Int?
-        switch item {
-        case .entry(let entry):
-            titledActions = entry.actions.all.map { action in
-                (action.title, { [store] in store.perform(action, for: entry) })
-            }
-            separatorIndex = 1
-        case .section(let section):
-            titledActions = store.actions(for: section).map { action in
-                (action.title, { [store] in store.perform(action, for: section) })
-            }
-            separatorIndex = nil
-        }
-        displayedActions = titledActions.map(\.perform)
-
-        for (index, action) in titledActions.enumerated() {
-            if index == separatorIndex {
-                copyOptionsMenu.addItem(.separator())
-            }
-            let menuItem = NSMenuItem(
-                title: action.title,
-                action: #selector(performDisplayedAction(_:)),
-                keyEquivalent: ""
-            )
-            menuItem.target = self
-            menuItem.tag = index
-            copyOptionsMenu.addItem(menuItem)
-        }
     }
 
     private func togglePanel(restoringFocusOnClose: Bool) {
@@ -273,8 +183,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return buttonFrame.contains(NSEvent.mouseLocation)
     }
 
-    /// Clicks in other apps close the panel, as they would a transient
-    /// panel. Clicks on the status item reach `statusItemClicked` instead.
+    /// Clicks in other apps close the panel. Clicks on the status item
+    /// reach `statusItemClicked` instead.
     /// File pickers can run in a separate system process, so their clicks also
     /// reach this monitor. Keep the panel visible while settings or a sheet
     /// owns the interaction, including the picker's presentation transitions.
@@ -306,7 +216,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.panel.isVisible, !self.panel.isKeyWindow,
                   self.panel.attachedSheet == nil, !self.store.isSettingsPresented,
-                  !self.isCopyOptionsPresented else { return }
+                  !self.copyOptionsController.isPresented else { return }
             // Clicking the status item can take key focus before its mouse-up
             // action. Leave the panel visible so that action toggles it closed.
             if NSEvent.pressedMouseButtons != 0, self.isMouseOverStatusItem { return }
@@ -323,9 +233,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // This lets someone switch to another app to look up or copy a value,
         // then reopen the panel and continue exactly where they left off.
         // The form's own Cancel button and Escape handling still discard it.
-        store.restorePinnedSelection()
-        isCopyOptionsPresented = false
-        copyOptionsItem = nil
+        copyOptionsController.reset()
 
         defer { previouslyActiveApplication = nil }
 
@@ -341,7 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // Alerts bring their own Return and Escape handling.
         if store.isNewSheetPromptPresented || store.editorErrorMessage != nil
-            || isCopyOptionsPresented {
+            || copyOptionsController.isPresented {
             return event
         }
 
@@ -434,7 +342,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // copies without opening the variable form. Return toggles sections.
         if event.keyCode == 36 || event.keyCode == 76 {
             if let item = store.selectedItem, modifiers == .option {
-                presentCopyOptionsMenu(for: item)
+                copyOptionsController.present(for: item)
             } else if modifiers.contains(.command) {
                 store.performPrimaryActionForSelectedEntry(skippingVariableForm: true)
             } else {
@@ -445,43 +353,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         return event
     }
-}
-
-/// A floating panel that takes keyboard focus without activating the app.
-///
-/// An `NSPopover` only works while its app is active. Over a fullscreen app,
-/// macOS hands activation straight back to that app, and the popover closes
-/// as soon as it opens.
-final class CheatSheetPanel: NSPanel {
-    init<Content: View>(rootView: Content) {
-        super.init(
-            contentRect: .zero,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: true
-        )
-        animationBehavior = .documentWindow
-        isFloatingPanel = true
-        level = .statusBar
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
-        hidesOnDeactivate = false
-        becomesKeyOnlyIfNeeded = false
-        isReleasedWhenClosed = false
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = true
-        let hostingView = NSHostingView(rootView: rootView)
-        // The app sizes the panel from the screen, not from its content.
-        hostingView.sizingOptions = []
-        hostingView.wantsLayer = true
-        hostingView.layer?.cornerRadius = 14
-        hostingView.layer?.cornerCurve = .continuous
-        hostingView.layer?.masksToBounds = true
-        contentView = hostingView
-    }
-
-    // Borderless windows refuse key status by default, which would leave the
-    // search field unable to receive typing.
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
 }
