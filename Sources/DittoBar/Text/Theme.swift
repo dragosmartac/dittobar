@@ -36,3 +36,34 @@ struct AccentTheme: ViewModifier {
 enum PanelStyle {
     static let mutedFill = Color.primary.opacity(0.05)
 }
+
+struct PanelBackground: View {
+    @AppStorage(DisplayPreferences.backgroundStyleKey)
+    private var style = DisplayPreferences.defaultBackgroundStyle
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        Group {
+            if style == .translucent && !reduceTransparency {
+                TranslucentPanelBackground()
+            } else {
+                Color(nsColor: .windowBackgroundColor)
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct TranslucentPanelBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .popover
+        // Blur other windows, rather than just the panel's own content.
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}

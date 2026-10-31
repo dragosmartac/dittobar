@@ -28,7 +28,7 @@ struct MainView: View {
             footer
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background { PanelBackground() }
         .overlay {
             // Built only while a form is up, so its @FocusState starts fresh
             // each time instead of carrying focus over from the last entry.

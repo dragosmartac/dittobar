@@ -3,6 +3,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct AppearanceSettingsView: View {
+    @AppStorage(DisplayPreferences.backgroundStyleKey)
+    private var backgroundStyle = DisplayPreferences.defaultBackgroundStyle
+
     @AppStorage(DisplayPreferences.panelWidthFractionKey)
     private var panelWidthFraction = DisplayPreferences.defaultPanelWidthFraction
 
@@ -12,7 +15,13 @@ struct AppearanceSettingsView: View {
 
     var body: some View {
         SettingsPane(isUsingDefaults: isUsingDefaults, reset: reset) {
-            appearance
+            Text("Appearance")
+                .font(.title2.bold())
+
+            ScrollView(.vertical) {
+                appearance
+                    .padding(.trailing, 12)
+            }
         }
         .background {
             SettingsWindowAnchor(controller: colorPanel)
@@ -26,9 +35,6 @@ struct AppearanceSettingsView: View {
 
     private var appearance: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Appearance")
-                .font(.title2.bold())
-
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Accent Colour")
@@ -71,6 +77,24 @@ struct AppearanceSettingsView: View {
 
             Divider()
 
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Translucent Window")
+                    Text("Blurs the desktop and windows behind the panel.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Toggle("Translucent Window", isOn: Binding(
+                    get: { backgroundStyle == .translucent },
+                    set: { backgroundStyle = $0 ? .translucent : .solid }
+                ))
+                .toggleStyle(.switch)
+                .labelsHidden()
+            }
+
+            Divider()
+
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Panel Width")
@@ -100,10 +124,12 @@ struct AppearanceSettingsView: View {
     private var isUsingDefaults: Bool {
         panelWidthFraction == DisplayPreferences.defaultPanelWidthFraction
             && accentColorValue.isEmpty
+            && backgroundStyle == DisplayPreferences.defaultBackgroundStyle
     }
 
     private func reset() {
         accentColorValue = ""
+        backgroundStyle = DisplayPreferences.defaultBackgroundStyle
         panelWidthFraction = DisplayPreferences.defaultPanelWidthFraction
     }
 }

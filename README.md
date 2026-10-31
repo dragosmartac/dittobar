@@ -39,9 +39,13 @@ open "dist/DittoBar.app"
 | `C` | Copy the full cheat-sheets directory path while More Options is open |
 | `Escape` | Close the panel |
 
-**More Options → Settings** controls the sheets folder, panel width, text and code fonts, text sizes,
+**More Options → Settings** controls the sheets folder, panel width and background style, accent colour, text and code fonts, text sizes,
 and editor, and lists every keyboard shortcut. Changes are saved automatically. The editor
 can use the system default, Visual Studio Code, TextEdit, or any custom application.
+
+**Appearance → Translucent Window** blurs the desktop and windows behind the panel
+when enabled. It is off by default, and changes apply immediately.
+The panel stays solid when macOS Reduce Transparency is enabled.
 
 Right-click any entry, or press `Option-Return`, to show its primary and secondary
 actions. Every entry supports copying its title. Commands and URLs with descriptions

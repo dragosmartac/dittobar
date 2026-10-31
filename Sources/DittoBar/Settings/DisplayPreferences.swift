@@ -1,6 +1,13 @@
 import AppKit
 
 enum DisplayPreferences {
+    enum BackgroundStyle: String {
+        case solid
+        case translucent
+    }
+
+    static let backgroundStyleKey = "display.backgroundStyle"
+    static let defaultBackgroundStyle = BackgroundStyle.solid
     static let accentColorKey = "display.accentColor"
 
     static func accentColor(from value: String) -> NSColor {
