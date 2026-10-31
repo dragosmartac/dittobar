@@ -62,22 +62,22 @@ struct TextSettingsView: View {
                 range: DisplayPreferences.sectionTitleFontSizeRange
             )
             FontSizeControl(
-                title: "Title",
+                title: "Entry Title",
                 value: $titleFontSize,
                 range: DisplayPreferences.titleFontSizeRange
             )
             FontSizeControl(
-                title: "Description",
+                title: "Entry Description",
                 value: $descriptionFontSize,
                 range: DisplayPreferences.descriptionFontSizeRange
             )
             FontSizeControl(
-                title: "Note",
+                title: "Note Entry Content",
                 value: $noteFontSize,
                 range: DisplayPreferences.noteFontSizeRange
             )
             FontSizeControl(
-                title: "Payload",
+                title: "Entry Payload",
                 value: $payloadFontSize,
                 range: DisplayPreferences.payloadFontSizeRange
             )
