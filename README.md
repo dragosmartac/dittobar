@@ -62,7 +62,11 @@ Choose another folder in **Settings → Sheets → Choose Folder…**. The selec
 saved and sheets reload immediately. New sheets are created in the selected folder;
 existing files are not moved. **Reset to Defaults** switches back to the folder above.
 
-Each Markdown file becomes a tab. Before any entries or sections, use one optional H1
+Use **Settings → Sheets → Create Instructions** to add an `instructions.md` guide
+to the active folder. Existing instructions are never overwritten, and this file
+is excluded from sheet parsing.
+
+Each other Markdown file becomes a tab. Before any entries or sections, use one optional H1
 for the tab name. Use H3 headings followed by fenced code blocks for entries. Optional
 H2 headings divide entries into sections:
 

@@ -2,9 +2,12 @@ import Foundation
 
 /// File operations only; the store owns folder selection and published state.
 enum SheetFiles {
+    static let instructionsFileName = "instructions.md"
+
     enum CreationError: LocalizedError {
         case emptyName
         case invalidName
+        case reservedName
         case alreadyExists(String)
         case writeFailed(Error)
 
@@ -12,6 +15,7 @@ enum SheetFiles {
             switch self {
             case .emptyName: "Enter a name for the new cheat sheet."
             case .invalidName: "Cheat sheet names cannot contain a slash (/)."
+            case .reservedName: "The name \"instructions.md\" is reserved for folder instructions."
             case .alreadyExists(let name): "A cheat sheet named \"\(name)\" already exists."
             case .writeFailed(let error): "The new cheat sheet could not be created: \(error.localizedDescription)"
             }
@@ -26,13 +30,30 @@ enum SheetFiles {
         )) ?? []
 
         return urls
-            .filter { $0.pathExtension.lowercased() == "md" }
+            .filter { isSheetFile($0) }
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
             .compactMap { url in
                 guard let source = try? String(contentsOf: url, encoding: .utf8) else { return nil }
                 return CheatSheetParser.parse(source, fileURL: url)
             }
 
+    }
+
+    private static func isSheetFile(_ url: URL) -> Bool {
+        url.pathExtension.lowercased() == "md"
+            && url.lastPathComponent.lowercased() != instructionsFileName
+    }
+
+    /// Exclusive creation also protects a file added after the settings view checks for it.
+    @discardableResult
+    static func createInstructionsIfNeeded(in folderURL: URL) throws -> URL {
+        let url = folderURL.appendingPathComponent(instructionsFileName)
+        do {
+            try Data(StarterContent.instructionsFile.utf8).write(to: url, options: .withoutOverwriting)
+        } catch CocoaError.fileWriteFileExists {
+            // Existing instructions belong to the user; keep them unchanged.
+        }
+        return url
     }
 
     static func create(
@@ -48,6 +69,7 @@ enum SheetFiles {
         guard !name.isEmpty else { throw CreationError.emptyName }
         guard !name.contains("/") else { throw CreationError.invalidName }
         let fileURL = folderURL.appendingPathComponent(name).appendingPathExtension("md")
+        guard isSheetFile(fileURL) else { throw CreationError.reservedName }
         guard !fileManager.fileExists(atPath: fileURL.path) else {
             throw CreationError.alreadyExists(name)
         }
@@ -65,7 +87,7 @@ enum SheetFiles {
         let hasMarkdown = ((try? fileManager.contentsOfDirectory(
             at: folderURL,
             includingPropertiesForKeys: nil
-        )) ?? []).contains { $0.pathExtension.lowercased() == "md" }
+        )) ?? []).contains { isSheetFile($0) }
 
         guard !hasMarkdown else { return }
 

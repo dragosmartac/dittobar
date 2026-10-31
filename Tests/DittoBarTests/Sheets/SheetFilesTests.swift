@@ -5,12 +5,35 @@ import Testing
 struct SheetFilesTests {
     @Test func loadingFiltersAndNaturallySortsMarkdownFiles() throws {
         try withFolder { folder in
-            for name in ["10.md", "2.MD", ".hidden.md", "notes.txt"] {
+            for name in ["10.md", "2.MD", ".hidden.md", "notes.txt", "INSTRUCTIONS.MD"] {
                 try "# \(name)\n\n### Note\nHello".write(
                     to: folder.appendingPathComponent(name), atomically: true, encoding: .utf8
                 )
             }
             #expect(SheetFiles.load(from: folder).map(\.sourceURL.lastPathComponent) == ["2.MD", "10.md"])
+        }
+    }
+
+    @Test func instructionsCreationPreservesExistingContentAndStaysOutOfSheets() throws {
+        try withFolder { folder in
+            let url = try SheetFiles.createInstructionsIfNeeded(in: folder)
+            #expect(url.lastPathComponent == "instructions.md")
+            #expect(try String(contentsOf: url, encoding: .utf8).contains("# DittoBar sheet instructions"))
+            #expect(SheetFiles.load(from: folder).isEmpty)
+
+            let customInstructions = "# My instructions\n\n### Keep this\nUser content"
+            try customInstructions.write(to: url, atomically: true, encoding: .utf8)
+            try SheetFiles.createInstructionsIfNeeded(in: folder)
+            #expect(try String(contentsOf: url, encoding: .utf8) == customInstructions)
+            #expect(SheetFiles.load(from: folder).isEmpty)
+        }
+    }
+
+    @Test func instructionsCreationReportsMissingFolder() throws {
+        try withFolder { folder in
+            #expect(throws: (any Error).self) {
+                try SheetFiles.createInstructionsIfNeeded(in: folder.appendingPathComponent("Missing"))
+            }
         }
     }
 
@@ -29,7 +52,7 @@ struct SheetFilesTests {
 
     @Test func invalidNamesDoNotCreateFiles() throws {
         try withFolder { folder in
-            for name in [" ", ".md", "nested/name"] {
+            for name in [" ", ".md", "nested/name", "Instructions.MD"] {
                 #expect(throws: SheetFiles.CreationError.self) {
                     try SheetFiles.create(named: name, in: folder, includeInstructions: false)
                 }

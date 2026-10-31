@@ -4,6 +4,32 @@ import Testing
 
 @MainActor
 struct SheetsDirectoryTests {
+    @Test func instructionsFollowActiveFolderAndRefreshAfterRemoval() throws {
+        try withStore { store, _, root in
+            let original = store.folderURL
+            let custom = root.appendingPathComponent("Custom")
+            try FileManager.default.createDirectory(at: custom, withIntermediateDirectories: true)
+            try store.setSheetsDirectory(custom)
+            #expect(!store.instructionsFileExists)
+
+            try store.createInstructionsFile()
+            #expect(store.instructionsFileExists)
+            #expect(store.sheets.isEmpty)
+            #expect(!FileManager.default.fileExists(
+                atPath: original.appendingPathComponent(SheetFiles.instructionsFileName).path
+            ))
+
+            try store.setSheetsDirectory(original)
+            #expect(!store.instructionsFileExists)
+            try store.setSheetsDirectory(custom)
+            #expect(store.instructionsFileExists)
+
+            try FileManager.default.removeItem(at: custom.appendingPathComponent(SheetFiles.instructionsFileName))
+            store.reload()
+            #expect(!store.instructionsFileExists)
+        }
+    }
+
     @Test func switchingFoldersReloadsPersistsAndResetsSelection() throws {
         try withStore { store, defaults, root in
             let custom = root.appendingPathComponent("Custom")

@@ -3,6 +3,67 @@ import Foundation
 /// Markdown the app writes into the cheat-sheet folder: the starter sheets
 /// created on first launch and the template for new sheets.
 enum StarterContent {
+    static let instructionsFile = """
+    # DittoBar sheet instructions
+
+    Create Markdown (`.md`) files in this folder to add sheets to DittoBar.
+    Each sheet appears as a tab and reloads automatically when you save it.
+    This `instructions.md` file is ignored by DittoBar and can be edited freely.
+
+    ## Sheet structure
+
+    - `# Title`: optional tab name, before any sections or entries. Without it,
+      DittoBar uses the file name.
+    - `## Section`: optional section heading for grouping entries.
+    - `### Entry`: an interactive entry with a description and optional fenced block.
+
+    ## Entry types
+
+    - **Command**: a non-empty fenced block with any language except `url` or `file`.
+    - **URL**: a non-empty fenced block labeled `url` containing a URL.
+    - **File**: a non-empty fenced block labeled `file` containing an absolute path,
+      a path starting with `~`, or a path relative to this folder.
+    - **Note**: content without a non-empty fenced block.
+
+    Descriptions support Markdown tables, block quotes, `inline code`, **bold**,
+    *italic*, ~~strikethrough~~, and [links](https://example.com).
+    HTML comments (`<!-- like this -->`) are ignored.
+
+    ## Variables
+
+    Use `{{name=default}}` in a fenced block or description to define a variable.
+    Defaults are optional. Reuse the same variable with `{{name}}`; define its
+    default only once.
+
+    ## Example sheet
+
+    ````markdown
+    # My tools
+
+    ## Everyday tasks
+
+    ### Check a branch
+    Show the latest commit on {{branch}}.
+
+    ```sh
+    git log -1 {{branch=main}}
+    ```
+
+    ### Project website
+    ```url
+    https://example.com
+    ```
+
+    ### Project file
+    ```file
+    ~/Documents/notes.txt
+    ```
+
+    ### Reminder
+    This entry is a note. **Markdown** is supported.
+    ````
+    """
+
     /// Optional instructions for new sheets, always included in starter sheets. The parser skips HTML
     /// comments, so this block can safely show headings and code fences.
     static let instructions = """

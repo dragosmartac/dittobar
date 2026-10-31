@@ -39,6 +39,7 @@ final class CheatSheetStore: ObservableObject {
     @Published private var pinnedItemID: String?
 
     @Published private(set) var folderURL: URL
+    @Published private(set) var instructionsFileExists = false
     @Published private(set) var savedFolderURLs: [URL] = []
     let defaultFolderURL: URL
     static let sheetsDirectoryPathKey = "sheetsDirectoryPath"
@@ -129,6 +130,11 @@ final class CheatSheetStore: ObservableObject {
     func resetSheetsDirectory() throws {
         try FileManager.default.createDirectory(at: defaultFolderURL, withIntermediateDirectories: true)
         try setSheetsDirectory(defaultFolderURL)
+    }
+
+    func createInstructionsFile() throws {
+        try SheetFiles.createInstructionsIfNeeded(in: folderURL)
+        reload()
     }
 
     /// Removes only the shortcut, leaving the active folder and its files untouched.
@@ -699,6 +705,9 @@ final class CheatSheetStore: ObservableObject {
     }
 
     func reload(fileManager: FileManager = .default) {
+        instructionsFileExists = fileManager.fileExists(
+            atPath: folderURL.appendingPathComponent(SheetFiles.instructionsFileName).path
+        )
         let previousSheetID = selectedSheet?.id
         // Before the sheets, whose filtering reads the values.
         rememberedValues = EntryVariableStorage.allValues()

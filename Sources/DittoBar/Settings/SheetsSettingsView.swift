@@ -9,6 +9,7 @@ struct SheetsSettingsView: View {
     private var includeInstructions = EditorPreferences.defaultIncludeInstructions
     @State private var isChoosingSheetsDirectory = false
     @State private var directoryError: String?
+    @State private var instructionsError: String?
     @State private var selectedFolderURL: URL?
 
     var body: some View {
@@ -40,6 +41,14 @@ struct SheetsSettingsView: View {
             Button("OK", role: .cancel) { directoryError = nil }
         } message: {
             Text(directoryError ?? "")
+        }
+        .alert("Could Not Create Instructions", isPresented: Binding(
+            get: { instructionsError != nil },
+            set: { if !$0 { instructionsError = nil } }
+        )) {
+            Button("OK", role: .cancel) { instructionsError = nil }
+        } message: {
+            Text(instructionsError ?? "")
         }
     }
 
@@ -113,6 +122,26 @@ struct SheetsSettingsView: View {
             }
 
             Divider()
+
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Folder instructions")
+                    Text(store.instructionsFileExists
+                         ? "instructions.md already exists in the active folder."
+                         : "Create instructions.md in the active folder. This is ignored by the sheet parser.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Create Instructions") {
+                    do {
+                        try store.createInstructionsFile()
+                    } catch {
+                        instructionsError = error.localizedDescription
+                    }
+                }
+                .disabled(store.instructionsFileExists)
+            }
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
