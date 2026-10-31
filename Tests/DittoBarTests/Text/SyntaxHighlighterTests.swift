@@ -106,22 +106,4 @@ struct SyntaxHighlighterTests {
         let tokens = SyntaxHighlighter.tokens(in: "'🙂' if", language: "python")
         #expect(tokens.map(\.range) == [NSRange(location: 0, length: 4), NSRange(location: 5, length: 2)])
     }
-
-    @Test func payloadKeepsVariableTintOverSyntaxColors() {
-        let segments = [
-            TextVariables.Segment(text: "SELECT * FROM ", variableName: nil),
-            TextVariables.Segment(text: "select", variableName: "table")
-        ]
-        let payload = EntryTextStyle.payload(
-            segments,
-            language: "sql",
-            size: 12,
-            fonts: EntryFonts(textFamily: "", codeFamily: "")
-        )
-
-        let keywordColor = payload.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
-        let variableColor = payload.attribute(.foregroundColor, at: 14, effectiveRange: nil) as? NSColor
-        #expect(keywordColor == .systemPink)
-        #expect(variableColor == .controlAccentColor)
-    }
 }

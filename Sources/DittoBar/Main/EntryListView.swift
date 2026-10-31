@@ -273,5 +273,4 @@ struct EntryListView: View {
             }
         }
     }
-
 }

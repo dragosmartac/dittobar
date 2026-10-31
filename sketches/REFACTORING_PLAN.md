@@ -4,7 +4,7 @@
 
 Give the source tree clear homes for related code and split files where they contain distinct responsibilities. Preserve behavior, keyboard shortcuts, rendering, saved preferences, and sheet formats. Use `MainView` for the main interface and “panel” for its hosting window and user-facing terminology.
 
-This document proposes commits; it does not create them. The naming changes in commit 1 are already in the working tree. The remaining refactoring is planned work.
+Implementation status: all 11 steps are implemented. Automated verification and release packaging pass; the manual UI checks listed below are only partially verified. The original sequence below records the intended scope and validation for each step.
 
 ## Proposed structure
 
@@ -202,3 +202,37 @@ Validation: run the complete test suite and `scripts/build-app.sh`. Smoke-test t
 - Preserve behavior during extraction. Record unrelated bugs or feature ideas separately.
 - Do not target a fixed line limit or create a separate file for every tiny helper. Stop splitting when a file has one clear responsibility.
 - Use meaningful existing tests for mechanical moves; reserve new tests for behavioral boundaries and uncovered edge cases. Rendering, focus, scrolling, and menu behavior also need manual verification.
+
+
+## Implementation record
+
+| Step | Commit | Result |
+| --- | --- | --- |
+| 1 | `7d8603f` | MainView rename, panel terminology, and this plan. |
+| 2 | `7b2241d` | Existing sources moved into feature directories. |
+| 3 | `a5a608a` | Main-interface components extracted. |
+| 4 | `d6b8a2a` | Entry list and scrolling extracted. |
+| 5 | `164e936` | Text rendering separated from AppKit controls. |
+| 6 | `e50c9f2` | Settings split into tabs with a shared SettingsPane. |
+| 7 | `ec93c16` | SheetFiles and EditorLauncher extracted; file-operation tests added. |
+| 8 | `62c21b2` | SectionMarkdownExporter extracted; format and fence tests added. |
+| 9 | `2bceb55` | EntryActionExecutor and VariableFormState extracted; outcome tests added. |
+| 10 | `2d51dcd` | Panel and copy-options menu extracted. |
+| 11 | Final documentation/test commit | Tests grouped by responsibility and codebase guide refreshed. |
+
+### Validation notes
+
+- Steps 2–10 compiled and ran the full suite after each extraction. The only remaining failure at each commit was the pre-existing variable-tint assertion, which expected the system accent instead of the app's orange accent.
+- Step 11 moves that rendering assertion to EntryTextStyleTests and corrects its expectation to the existing app accent. No runtime color behavior changes.
+- File-operation tests cover name normalization, refusing overwrites, invalid names, filtering/sorting, and starter-content preservation.
+- Export tests cover variable resolution, notes, commands, URLs, files, empty sections, and embedded backticks. A direct model fixture tests fence escaping independently of the parser's supported input syntax.
+- Executor tests use injected opening/reveal closures and a private pasteboard; they cover invalid URLs, launch failures, missing files/directories, successful open/reveal, and copied text/path output.
+- Larger files that remain have a single owner: CheatSheetStore coordinates application state; EntryTextStyle builds and caches attributed strings. They were not divided into extensions requiring broader access to private state.
+
+### Final verification
+
+- `swift test`: **89 tests passed in 14 suites**.
+- `scripts/build-app.sh`: release build and ad-hoc signing succeeded.
+- `git diff --check`: passed.
+- Release app launch returned a populated main interface with sheet tabs, search, rendered entries, section headings, and footer controls.
+- Interactive smoke testing could not be completed: computer-use reported that the app changed during the search action, then refreshing the accessibility state failed with `timeoutReached`. Search interaction, Settings/reset/pickers, scrolling, variable forms, menus, focus restoration, and fullscreen behavior still need manual verification. No claim of those checks passing is made.

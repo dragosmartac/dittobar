@@ -102,5 +102,4 @@ final class CopyOptionsMenuController: NSObject {
             copyOptionsMenu.addItem(menuItem)
         }
     }
-
 }

@@ -36,7 +36,6 @@ struct ShortcutsSettingsView: View {
             }
         }
     }
-
 }
 
 private struct Shortcut: Identifiable {

@@ -76,5 +76,4 @@ struct EntryActionExecutor {
         let separator = trimmed.contains { $0.contains("\n") } ? "\n\n" : "\n"
         return trimmed.joined(separator: separator)
     }
-
 }
