@@ -10,7 +10,7 @@ struct SettingsView: View {
             Divider()
             detail
         }
-        .frame(width: 680, height: 410)
+        .frame(width: 680, height: selectedTab == .sheets ? 470 : 410)
     }
 
     private var sidebar: some View {

@@ -39,8 +39,10 @@ final class CheatSheetStore: ObservableObject {
     @Published private var pinnedItemID: String?
 
     @Published private(set) var folderURL: URL
+    @Published private(set) var savedFolderURLs: [URL] = []
     let defaultFolderURL: URL
     static let sheetsDirectoryPathKey = "sheetsDirectoryPath"
+    static let savedSheetsDirectoryPathsKey = "savedSheetsDirectoryPaths"
     private let defaults: UserDefaults
     var onRequestClose: (() -> Void)?
     weak var selectedRowAnchorView: NSView?
@@ -80,6 +82,18 @@ final class CheatSheetStore: ObservableObject {
             folderURL = defaultFolderURL
             SheetFiles.createInitialFilesIfNeeded(in: folderURL, fileManager: fileManager)
         }
+        if let paths = defaults.stringArray(forKey: Self.savedSheetsDirectoryPathsKey) {
+            for path in paths where !path.isEmpty {
+                let url = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+                if !savedFolderURLs.contains(url) {
+                    savedFolderURLs.append(url)
+                }
+            }
+        } else {
+            // Seed existing installations once; explicitly removed folders stay removed.
+            savedFolderURLs = [folderURL.standardizedFileURL]
+            persistSavedFolders()
+        }
         reload(fileManager: fileManager)
         selectFirstEntry()
 
@@ -91,6 +105,10 @@ final class CheatSheetStore: ObservableObject {
         let url = url.standardizedFileURL
         // Validate before changing either the active folder or the saved preference.
         _ = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+        if !savedFolderURLs.contains(url) {
+            savedFolderURLs.append(url)
+            persistSavedFolders()
+        }
         watcher = nil
         folderURL = url
         if url == defaultFolderURL.standardizedFileURL {
@@ -111,6 +129,16 @@ final class CheatSheetStore: ObservableObject {
     func resetSheetsDirectory() throws {
         try FileManager.default.createDirectory(at: defaultFolderURL, withIntermediateDirectories: true)
         try setSheetsDirectory(defaultFolderURL)
+    }
+
+    /// Removes only the shortcut, leaving the active folder and its files untouched.
+    func removeSavedFolder(_ url: URL) {
+        savedFolderURLs.removeAll { $0 == url.standardizedFileURL }
+        persistSavedFolders()
+    }
+
+    private func persistSavedFolders() {
+        defaults.set(savedFolderURLs.map(\.path), forKey: Self.savedSheetsDirectoryPathsKey)
     }
 
     private func watchFolder() {

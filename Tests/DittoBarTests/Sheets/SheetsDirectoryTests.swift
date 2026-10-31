@@ -49,12 +49,66 @@ struct SheetsDirectoryTests {
     @Test func invalidFolderDoesNotChangeActiveFolderOrPreference() throws {
         try withStore { store, defaults, root in
             let original = store.folderURL
+            let saved = store.savedFolderURLs
             #expect(throws: (any Error).self) {
                 try store.setSheetsDirectory(root.appendingPathComponent("Missing"))
             }
             #expect(store.folderURL == original)
+            #expect(store.savedFolderURLs == saved)
             #expect(defaults.object(forKey: CheatSheetStore.sheetsDirectoryPathKey) == nil)
             #expect(!store.sheets.isEmpty)
+        }
+    }
+
+    @Test func savedFoldersPersistWithoutDuplicatesAndSurviveReset() throws {
+        try withStore { store, defaults, root in
+            let original = store.folderURL.standardizedFileURL
+            #expect(store.savedFolderURLs == [original])
+            let custom = root.appendingPathComponent("Custom", isDirectory: true)
+            try FileManager.default.createDirectory(at: custom, withIntermediateDirectories: true)
+            try store.setSheetsDirectory(custom)
+            try store.setSheetsDirectory(custom.appendingPathComponent(".", isDirectory: true))
+            #expect(store.savedFolderURLs == [original, custom.standardizedFileURL])
+
+            let reopened = CheatSheetStore(defaults: defaults)
+            #expect(reopened.savedFolderURLs == store.savedFolderURLs)
+            try store.resetSheetsDirectory()
+            #expect(store.savedFolderURLs == [original, custom.standardizedFileURL])
+        }
+    }
+
+    @Test func removingActiveSavedFolderPreservesFilesAndStaysRemovedAfterRelaunch() throws {
+        try withStore { store, defaults, root in
+            let custom = root.appendingPathComponent("Custom", isDirectory: true)
+            try FileManager.default.createDirectory(at: custom, withIntermediateDirectories: true)
+            let file = custom.appendingPathComponent("example.md")
+            try "# Example".write(to: file, atomically: true, encoding: .utf8)
+            try store.setSheetsDirectory(custom)
+            for url in store.savedFolderURLs {
+                store.removeSavedFolder(url)
+            }
+            #expect(store.savedFolderURLs.isEmpty)
+            #expect(store.folderURL == custom.standardizedFileURL)
+            #expect(try String(contentsOf: file, encoding: .utf8) == "# Example")
+
+            let reopened = CheatSheetStore(defaults: defaults)
+            #expect(reopened.savedFolderURLs.isEmpty)
+            #expect(reopened.folderURL == custom.standardizedFileURL)
+            try reopened.setSheetsDirectory(custom)
+            #expect(reopened.savedFolderURLs == [custom.standardizedFileURL])
+        }
+    }
+
+    @Test func existingActiveFolderSeedsSavedFolders() throws {
+        try withStore { _, defaults, root in
+            let custom = root.appendingPathComponent("Existing", isDirectory: true)
+            try FileManager.default.createDirectory(at: custom, withIntermediateDirectories: true)
+            defaults.set(custom.path, forKey: CheatSheetStore.sheetsDirectoryPathKey)
+            defaults.removeObject(forKey: CheatSheetStore.savedSheetsDirectoryPathsKey)
+
+            let reopened = CheatSheetStore(defaults: defaults)
+            #expect(reopened.savedFolderURLs == [custom.standardizedFileURL])
+            #expect(defaults.stringArray(forKey: CheatSheetStore.savedSheetsDirectoryPathsKey) == [custom.path])
         }
     }
 
