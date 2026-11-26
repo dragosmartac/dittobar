@@ -108,7 +108,7 @@ struct CheatSheetStoreNewEntryTests {
             let form = try #require(store.newEntryForm)
             let view = NewEntryFormView(store: store, form: form)
             let host = NSHostingView(rootView: view)
-            host.frame = NSRect(x: 0, y: 0, width: 520, height: 520)
+            host.setFrameSize(host.fittingSize)
             let content = view.$form.draft.rawContent
             let note = "This is a test **bold**\n\n[test link](www.google.com)"
             form.draft.title = "Test Note 1"

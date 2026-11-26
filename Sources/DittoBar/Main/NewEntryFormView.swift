@@ -46,7 +46,7 @@ struct NewEntryFormView: View {
             }
         }
         .padding(20)
-        .frame(width: 520, height: 520)
+        .frame(width: 600, height: 580)
         .defaultFocus($titleFocused, true)
         .onAppear { titleFocused = true }
     }
@@ -104,7 +104,7 @@ struct NewEntryFormView: View {
             TextEditor(text: text)
                 .font(monospaced ? .system(.body, design: .monospaced) : .body)
                 .accessibilityLabel(label)
-                .frame(height: 74)
+                .frame(height: 150)
                 .overlay {
                     RoundedRectangle(cornerRadius: 4)
                         .strokeBorder(.quaternary)
