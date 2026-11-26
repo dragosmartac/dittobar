@@ -5,13 +5,18 @@ struct NewEntryFormView: View {
     @ObservedObject var form: NewEntryFormState
     @FocusState private var titleFocused: Bool
 
+    private enum Spacing {
+        static let section: CGFloat = 16
+        static let compact: CGFloat = 8
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Spacing.section) {
             Text("Add Entry")
                 .font(.title2.bold())
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: Spacing.section) {
                     destinations
                     if form.section == .newSection {
                         TextField("New section name", text: $form.newSectionName)
@@ -37,7 +42,7 @@ struct NewEntryFormView: View {
                 Text(error).foregroundStyle(.red)
             }
             Divider()
-            HStack {
+            HStack(spacing: Spacing.compact) {
                 Spacer()
                 Button("Cancel", role: .cancel) { store.cancelNewEntry() }
                     .keyboardShortcut(.cancelAction)
@@ -54,7 +59,7 @@ struct NewEntryFormView: View {
     private var destinations: some View {
         let destination = store.sheets.first { $0.sourceURL == form.sheetURL }
         let sections = destination?.items.compactMap(\.section) ?? []
-        return HStack(spacing: 16) {
+        return HStack(spacing: Spacing.section) {
             Picker("Sheet", selection: $form.sheetURL) {
                 if destination == nil {
                     Text("Unavailable sheet").tag(form.sheetURL)
@@ -97,7 +102,7 @@ struct NewEntryFormView: View {
     }
 
     private func editor(_ label: String, text: Binding<String>, monospaced: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Spacing.compact) {
             Text(label)
             TextEditor(text: text)
                 .font(monospaced ? .system(.body, design: .monospaced) : .body)
@@ -114,30 +119,30 @@ struct NewEntryFormView: View {
     @ViewBuilder
     private func variablesSummary(_ variables: [EntryVariable]) -> some View {
         if !variables.isEmpty {
-            GroupBox {
-                Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 24, verticalSpacing: 6) {
-                    GridRow {
-                        Text("Name")
-                        Text("Default value")
-                    }
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    Divider().gridCellUnsizedAxes(.horizontal)
-                    ForEach(variables) { variable in
-                        GridRow {
-                            Text(verbatim: variable.name)
-                                .monospaced()
-                            Text(verbatim: variable.defaultValue.isEmpty ? "—" : variable.defaultValue)
-                                .foregroundStyle(variable.defaultValue.isEmpty ? .secondary : .primary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                }
-                .padding(4)
-                .padding(.top, 8)
-            } label: {
+            VStack(alignment: .leading, spacing: Spacing.section) {
                 Label("Variables", systemImage: "curlybraces")
                     .font(.headline)
+                GroupBox {
+                    Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 24, verticalSpacing: Spacing.compact) {
+                        GridRow {
+                            Text("Name")
+                            Text("Default value")
+                        }
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        Divider().gridCellUnsizedAxes(.horizontal)
+                        ForEach(variables) { variable in
+                            GridRow {
+                                Text(verbatim: variable.name)
+                                    .monospaced()
+                                Text(verbatim: variable.defaultValue.isEmpty ? "—" : variable.defaultValue)
+                                    .foregroundStyle(variable.defaultValue.isEmpty ? .secondary : .primary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                    .padding(4)
+                }
             }
         }
     }
