@@ -54,7 +54,7 @@ struct NewEntryFormView: View {
             }
         }
         .padding(20)
-        .frame(width: 600, height: 580)
+        .frame(width: 640, height: 620)
         .defaultFocus($titleFocused, true)
         .onAppear { titleFocused = true }
     }

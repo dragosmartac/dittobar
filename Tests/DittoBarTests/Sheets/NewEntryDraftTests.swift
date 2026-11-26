@@ -43,7 +43,7 @@ struct NewEntryDraftTests {
         let draft = NewEntryDraft(
             kind: .command, title: "Diff",
             rawContent: "git fetch\r\n# Compare branches\r\ngit diff {{branch=main}}",
-            rawDescription: "Compare against **{{branch=main}}**.", language: "sh"
+            rawDescription: "Compare against **{{branch=main}}**."
         )
         guard case .command(let command) = try parse(draft) else {
             Issue.record("Expected a command")
@@ -56,7 +56,7 @@ struct NewEntryDraftTests {
     }
 
     @Test func unlabeledFenceIsACommand() throws {
-        let draft = NewEntryDraft(kind: .command, title: "Status", rawContent: "git status")
+        let draft = NewEntryDraft(kind: .command, title: "Status", rawContent: "git status", language: "")
         guard case .command(let command) = try parse(draft) else {
             Issue.record("Expected a command")
             return

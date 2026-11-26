@@ -10,7 +10,7 @@ struct NewEntryDraft {
     /// Note body, command, URL, or path, according to the selected kind.
     var rawContent: String
     var rawDescription = ""
-    var language = ""
+    var language = "sh"
 
     var variables: [EntryVariable] {
         let raw = kind == .note ? rawContent : rawDescription + "\n" + rawContent
