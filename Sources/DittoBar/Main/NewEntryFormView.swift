@@ -87,11 +87,9 @@ struct NewEntryFormView: View {
             TextField("Language (optional)", text: draft.language)
                 .textFieldStyle(.roundedBorder)
         case .url:
-            TextField("URL", text: draft.rawContent)
-                .textFieldStyle(.roundedBorder)
+            editor("URL", text: draft.rawContent)
         case .file:
-            TextField("File path", text: draft.rawContent)
-                .textFieldStyle(.roundedBorder)
+            editor("File path", text: draft.rawContent)
         }
         if draft.wrappedValue.kind != .note {
             editor("Description (optional)", text: draft.rawDescription)
