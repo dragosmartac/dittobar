@@ -121,9 +121,6 @@ struct MainView: View {
             TextField("Search entries", text: $store.query)
                 .textFieldStyle(.plain)
                 .focused($searchIsFocused)
-                .onChange(of: store.query) {
-                    store.selectFirstEntry()
-                }
                 .onReceive(NotificationCenter.default.publisher(for: .focusCheatSheetSearch)) { _ in
                     searchIsFocused = true
                 }

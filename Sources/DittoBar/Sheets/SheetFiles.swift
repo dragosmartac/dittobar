@@ -56,28 +56,28 @@ enum SheetFiles {
         }
     }
 
-    static func insert(_ draft: NewEntryDraft, into url: URL, section: CheatSheetSection?) throws {
+    /// Returns the new item's position in the saved sheet, including section headings.
+    @discardableResult
+    static func insert(_ draft: NewEntryDraft, into url: URL, section: CheatSheetSection?) throws -> Int {
         guard isSheetFile(url) else { throw InsertionError.invalidSheet }
         let markdown = try draft.markdown()
 
         // Keep cooperating writers out between reading the latest file and replacing it.
         var coordinationError: NSError?
-        var writeError: Error?
+        var insertion: Result<Int, Error>?
         // Replace the target of a symlink while retaining the sheet name used for section IDs.
         let target = url.resolvingSymlinksInPath()
         NSFileCoordinator().coordinate(writingItemAt: target, options: .forMerging, error: &coordinationError) { file in
-            do {
-                try insertMarkdown(markdown, into: file, sheetURL: url, section: section)
-            } catch {
-                writeError = error
-            }
+            insertion = Result { try insertMarkdown(markdown, into: file, sheetURL: url, section: section) }
         }
-        if let error = coordinationError ?? writeError { throw error }
+        if let coordinationError { throw coordinationError }
+        guard let insertion else { throw CocoaError(.fileWriteUnknown) }
+        return try insertion.get()
     }
 
     private static func insertMarkdown(
         _ markdown: String, into file: URL, sheetURL: URL, section: CheatSheetSection?
-    ) throws {
+    ) throws -> Int {
         var bytes = try Data(contentsOf: file)
         // Keep the original UTF-8 bytes, including a byte order mark when present.
         let bomSize = bytes.starts(with: [0xEF, 0xBB, 0xBF]) ? 3 : 0
@@ -86,20 +86,20 @@ enum SheetFiles {
         }
         let document = CheatSheetParser.parseDocument(source, fileURL: sheetURL)
         let headings = document.sectionHeadings
-        let nextHeading: String.Index?
+        let nextHeading: (section: CheatSheetSection, start: String.Index)?
         if let section {
             guard let index = headings.firstIndex(where: { $0.section == section }) else {
                 throw InsertionError.missingSection
             }
-            nextHeading = headings.dropFirst(index + 1).first?.start
+            nextHeading = headings.dropFirst(index + 1).first
         } else {
-            nextHeading = headings.first?.start
+            nextHeading = headings.first
         }
         guard nextHeading != nil || !document.endsInsideBlock else {
             throw InsertionError.unclosedBlock
         }
 
-        let position = nextHeading ?? source.endIndex
+        let position = nextHeading?.start ?? source.endIndex
         let preceding = source[..<position]
         let newline = source.first(where: \.isNewline).map(String.init) ?? "\n"
         var insertion = ""
@@ -118,6 +118,8 @@ enum SheetFiles {
         }
         bytes.insert(contentsOf: insertion.utf8, at: bomSize + preceding.utf8.count)
         try bytes.write(to: file, options: .atomic)
+        return nextHeading.flatMap { document.sheet.items.firstIndex(of: .section($0.section)) }
+            ?? document.sheet.items.endIndex
     }
 
     /// Exclusive creation also protects a file added after the settings view checks for it.

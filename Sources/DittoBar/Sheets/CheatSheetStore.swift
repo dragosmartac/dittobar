@@ -16,6 +16,7 @@ final class CheatSheetStore: ObservableObject {
         didSet {
             searchCollapsedSectionKeys = []
             updateVisibleItems()
+            if oldValue != query { selectFirstEntry() }
         }
     }
     /// The selected sheet's items that match `query`. Stored rather than
@@ -34,6 +35,7 @@ final class CheatSheetStore: ObservableObject {
     @Published var editorErrorMessage: String?
     @Published var isNewSheetPromptPresented = false
     @Published var newSheetName = ""
+    @Published var newEntryForm: NewEntryFormState?
     @Published var variableForm: VariableFormState?
     @Published var isSettingsPresented = false
     @Published private var pinnedItemID: String?
@@ -117,6 +119,7 @@ final class CheatSheetStore: ObservableObject {
         } else {
             defaults.set(url.path, forKey: Self.sheetsDirectoryPathKey)
         }
+        newEntryForm = nil
         variableForm = nil
         pinnedItemID = nil
         copiedEntryIDs = []
@@ -298,6 +301,49 @@ final class CheatSheetStore: ObservableObject {
             (selectedItemIndex + offset + count) % count,
             source: isRepeat ? .keyboardRepeat : .keyboard
         )
+    }
+
+    // MARK: - Add entry
+
+    func beginNewEntry() {
+        guard newEntryForm == nil, let sheet = selectedSheet else { return }
+        let index = selectedItem.flatMap { sheet.items.firstIndex(of: $0) }
+        let section = index.flatMap { sheet.items[...$0].last(where: { $0.section != nil })?.section }
+        newEntryForm = NewEntryFormState(sheetURL: sheet.sourceURL, section: section)
+    }
+
+    func cancelNewEntry() {
+        newEntryForm = nil
+    }
+
+    func saveNewEntry() {
+        guard let form = newEntryForm else { return }
+        let itemIndex: Int
+        do {
+            itemIndex = try SheetFiles.insert(form.draft, into: form.sheetURL, section: form.section)
+        } catch {
+            newEntryForm?.errorMessage = error.localizedDescription
+            return
+        }
+
+        // The write succeeded. Even if the file disappears during reload, retrying
+        // the same draft would duplicate an entry that was already saved.
+        newEntryForm = nil
+        pinnedItemID = nil
+        reload()
+        guard let sheetIndex = sheets.firstIndex(where: { $0.sourceURL == form.sheetURL }) else { return }
+        selectSheet(at: sheetIndex)
+        let items = sheets[sheetIndex].items
+        guard items.indices.contains(itemIndex), let entry = items[itemIndex].entry,
+              entry.title == form.draft.title.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+        let item = CheatSheetItem.entry(entry)
+        if !matchingItems.contains(item) { query = "" }
+        if let section = form.section, isCollapsed(section) {
+            toggleSection(section)
+        }
+        if let index = selectableItems.firstIndex(of: item) {
+            setSelectedItemIndex(index, source: .other)
+        }
     }
 
     // MARK: - Variables

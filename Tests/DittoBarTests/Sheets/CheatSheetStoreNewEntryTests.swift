@@ -1,0 +1,127 @@
+import Foundation
+import Testing
+@testable import DittoBar
+
+@MainActor
+struct CheatSheetStoreNewEntryTests {
+    @Test func cancelKeepsTheFileAndPanelSelection() throws {
+        try withStore { store in
+            let original = try #require(store.selectedSheet)
+            let initialSelection = store.selectedItem
+            store.beginNewEntry()
+            #expect(store.newEntryForm?.sheetURL == original.sourceURL)
+            #expect(store.newEntryForm?.section == nil)
+            store.newEntryForm?.draft.title = "Unsaved"
+            store.beginNewEntry()
+            #expect(store.newEntryForm?.draft.title == "Unsaved")
+            store.cancelNewEntry()
+            #expect(store.newEntryForm == nil)
+            #expect(store.selectedItem == initialSelection)
+            #expect(try String(contentsOf: original.sourceURL, encoding: .utf8) == Self.source)
+        }
+    }
+
+    @Test func changingDestinationResetsSectionAndSelectsNewUnsectionedEntry() throws {
+        try withStore { store in
+            store.query = "Existing"
+            let previous = try #require(store.selectedSheet)
+            let section = try #require(previous.items.compactMap(\.section).first)
+            store.beginNewEntry()
+            #expect(store.newEntryForm?.section == section)
+            let destination = store.sheets[1]
+            store.newEntryForm?.sheetURL = destination.sourceURL
+            #expect(store.newEntryForm?.section == nil)
+            #expect(store.selectedSheet == previous)
+            store.newEntryForm?.draft = .init(kind: .note, title: "Same", rawContent: "Inserted")
+            store.saveNewEntry()
+
+            #expect(store.selectedSheet?.sourceURL == destination.sourceURL)
+            #expect(store.query.isEmpty)
+            #expect(store.selectedItem == store.selectedSheet?.items[1])
+            guard case .note(let note) = store.selectedEntry else {
+                Issue.record("Expected the newly added note")
+                return
+            }
+            #expect(note.rawContent == "Inserted")
+            #expect(store.newEntryForm == nil)
+        }
+    }
+
+    @Test(arguments: ["", "Existing", "missing"])
+    func saveRevealsInsertedDuplicateInCollapsedSection(query: String) throws {
+        try withStore { store in
+            let sheet = try #require(store.selectedSheet)
+            let section = try #require(sheet.items.compactMap(\.section).first)
+            store.toggleSection(section)
+            store.beginNewEntry()
+            #expect(store.newEntryForm?.section == section)
+            store.query = query
+            if query == "Existing" { store.toggleSection(section) }
+            store.newEntryForm?.draft = .init(kind: .note, title: "Existing", rawContent: "New body")
+            store.saveNewEntry()
+            #expect(store.newEntryForm == nil)
+            #expect(store.query == (query == "missing" ? "" : query))
+            #expect(!store.isCollapsed(section))
+            #expect(store.selectedItem == store.selectedSheet?.items[3])
+            guard case .note(let note) = store.selectedEntry else {
+                Issue.record("Expected the newly added duplicate")
+                return
+            }
+            #expect(note.rawContent == "New body")
+            // A filesystem notification can cause a second reload after saving.
+            store.reload()
+            #expect(store.selectedEntry == .note(note))
+        }
+    }
+
+    @Test func failedSaveKeepsDraftForRetry() throws {
+        try withStore { store in
+            store.query = "Existing"
+            store.beginNewEntry()
+            let url = try #require(store.newEntryForm?.sheetURL)
+            try "# Replaced".write(to: url, atomically: true, encoding: .utf8)
+            store.newEntryForm?.draft = .init(kind: .note, title: "Retry", rawContent: "My text")
+            store.saveNewEntry()
+            #expect(store.newEntryForm?.errorMessage == SheetFiles.InsertionError.missingSection.localizedDescription)
+            #expect(store.newEntryForm?.draft.rawContent == "My text")
+            #expect(store.query == "Existing")
+            #expect(try String(contentsOf: url, encoding: .utf8) == "# Replaced")
+
+            store.newEntryForm?.section = nil
+            store.saveNewEntry()
+            store.saveNewEntry()
+            #expect(store.newEntryForm == nil)
+            #expect(store.selectedEntry?.title == "Retry")
+            #expect(store.selectedSheet?.items.count == 1)
+        }
+    }
+
+    private static let source = """
+    # Work
+    ### First
+    Outside any section.
+    ## Tools
+    ### Existing
+    Original body.
+    ## Later
+    ### Existing
+    Later body.
+    """
+
+    private func withStore(_ body: (CheatSheetStore) throws -> Void) throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let suite = "CheatSheetStoreNewEntryTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: folder)
+        }
+        defaults.set(folder.path, forKey: CheatSheetStore.sheetsDirectoryPathKey)
+        try Self.source.write(to: folder.appendingPathComponent("a.md"), atomically: true, encoding: .utf8)
+        try "### Same\nBefore.\n## Other\n### Same\nAfter.".write(
+            to: folder.appendingPathComponent("b.md"), atomically: true, encoding: .utf8
+        )
+        try body(CheatSheetStore(defaults: defaults))
+    }
+}

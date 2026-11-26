@@ -24,8 +24,14 @@ struct EntryListView: View {
         EntryFonts(textFamily: textFontFamily, codeFamily: codeFontFamily)
     }
 
+    private struct RowSelection: Equatable {
+        let id: String?
+        let index: Int
+    }
+
     var body: some View {
         let selectedItemID = store.selectedItemID
+        let selection = RowSelection(id: selectedItemID, index: store.selectedItemIndex)
 
         return ScrollViewReader { proxy in
             List(store.visibleItems) { item in
@@ -121,12 +127,12 @@ struct EntryListView: View {
                     ContentUnavailableView.search(text: store.query)
                 }
             }
-            .onChange(of: store.selectedItemIndex) { oldIndex, newIndex in
+            .onChange(of: selection) { previous, current in
                 let source = store.consumeEntrySelectionSource()
                 // A clicked row is already under the pointer; scrolling would
                 // slide it away.
                 guard source != .pointer, let itemID = store.selectedItem?.id else { return }
-                let duration = scrollDuration(for: source, rowDistance: abs(newIndex - oldIndex))
+                let duration = scrollDuration(for: source, rowDistance: abs(current.index - previous.index))
                 let query = store.query
 
                 let scroll = {
