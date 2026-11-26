@@ -8,9 +8,20 @@ enum CheatSheetParser {
         let fenceLanguage: String?
     }
 
+    struct ParsedDocument {
+        let sheet: CheatSheet
+        let sectionHeadings: [(section: CheatSheetSection, start: String.Index)]
+        let endsInsideBlock: Bool
+    }
+
     static func parse(_ source: String, fileURL: URL) -> CheatSheet {
+        parseDocument(source, fileURL: fileURL).sheet
+    }
+
+    /// The same pass identifies real section headings and their positions in the original text.
+    static func parseDocument(_ source: String, fileURL: URL) -> ParsedDocument {
         let fileName = fileURL.lastPathComponent
-        let lines = source.components(separatedBy: .newlines)
+        let lines = source.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
         let fallbackTitle = Self.fallbackTitle(for: fileURL)
 
         var sheetTitle = fallbackTitle
@@ -19,7 +30,8 @@ enum CheatSheetParser {
         var descriptionLines: [String] = []
         var items: [CheatSheetItem] = []
         var entryCount = 0
-        var sectionCount = 0
+        var sectionHeadings: [(section: CheatSheetSection, start: String.Index)] = []
+        var unclosedFence = false
         var isInsideComment = false
         var index = 0
 
@@ -40,18 +52,6 @@ enum CheatSheetParser {
                 items.append(.entry(entry))
                 entryCount += 1
             }
-        }
-
-        func appendSection(title: String) {
-            items.append(
-                .section(
-                    CheatSheetSection(
-                        id: "\(fileName):section:\(sectionCount):\(title)",
-                        title: title
-                    )
-                )
-            )
-            sectionCount += 1
         }
 
         while index < lines.count {
@@ -88,7 +88,12 @@ enum CheatSheetParser {
             if line.hasPrefix("## ") {
                 appendEntry()
                 let title = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                appendSection(title: title)
+                let section = CheatSheetSection(
+                    id: "\(fileName):section:\(sectionHeadings.count):\(title)",
+                    title: title
+                )
+                items.append(.section(section))
+                sectionHeadings.append((section, line.startIndex))
                 descriptionLines = []
                 index += 1
                 continue
@@ -108,10 +113,11 @@ enum CheatSheetParser {
                 index += 1
 
                 while index < lines.count, !lines[index].hasPrefix("```") {
-                    contentLines.append(lines[index])
+                    contentLines.append(String(lines[index]))
                     index += 1
                 }
 
+                unclosedFence = index == lines.count
                 appendEntry(
                     rawFencedContent: contentLines.joined(separator: "\n"),
                     fenceLanguage: language
@@ -129,11 +135,16 @@ enum CheatSheetParser {
 
         appendEntry()
 
-        return CheatSheet(
+        let sheet = CheatSheet(
             id: fileName,
             title: sheetTitle,
             items: items,
             sourceURL: fileURL
+        )
+        return ParsedDocument(
+            sheet: sheet,
+            sectionHeadings: sectionHeadings,
+            endsInsideBlock: isInsideComment || unclosedFence
         )
     }
 

@@ -44,6 +44,82 @@ enum SheetFiles {
             && url.lastPathComponent.lowercased() != instructionsFileName
     }
 
+    enum InsertionError: LocalizedError {
+        case invalidSheet, missingSection, unclosedBlock
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidSheet: "Choose a cheat sheet Markdown file."
+            case .missingSection: "The selected section has changed. Choose a destination again."
+            case .unclosedBlock: "Close the unfinished code block or HTML comment at the end of the sheet before adding an entry."
+            }
+        }
+    }
+
+    static func insert(_ draft: NewEntryDraft, into url: URL, section: CheatSheetSection?) throws {
+        guard isSheetFile(url) else { throw InsertionError.invalidSheet }
+        let markdown = try draft.markdown()
+
+        // Keep cooperating writers out between reading the latest file and replacing it.
+        var coordinationError: NSError?
+        var writeError: Error?
+        // Replace the target of a symlink while retaining the sheet name used for section IDs.
+        let target = url.resolvingSymlinksInPath()
+        NSFileCoordinator().coordinate(writingItemAt: target, options: .forMerging, error: &coordinationError) { file in
+            do {
+                try insertMarkdown(markdown, into: file, sheetURL: url, section: section)
+            } catch {
+                writeError = error
+            }
+        }
+        if let error = coordinationError ?? writeError { throw error }
+    }
+
+    private static func insertMarkdown(
+        _ markdown: String, into file: URL, sheetURL: URL, section: CheatSheetSection?
+    ) throws {
+        var bytes = try Data(contentsOf: file)
+        // Keep the original UTF-8 bytes, including a byte order mark when present.
+        let bomSize = bytes.starts(with: [0xEF, 0xBB, 0xBF]) ? 3 : 0
+        guard let source = String(bytes: bytes.dropFirst(bomSize), encoding: .utf8) else {
+            throw CocoaError(.fileReadInapplicableStringEncoding)
+        }
+        let document = CheatSheetParser.parseDocument(source, fileURL: sheetURL)
+        let headings = document.sectionHeadings
+        let nextHeading: String.Index?
+        if let section {
+            guard let index = headings.firstIndex(where: { $0.section == section }) else {
+                throw InsertionError.missingSection
+            }
+            nextHeading = headings.dropFirst(index + 1).first?.start
+        } else {
+            nextHeading = headings.first?.start
+        }
+        guard nextHeading != nil || !document.endsInsideBlock else {
+            throw InsertionError.unclosedBlock
+        }
+
+        let position = nextHeading ?? source.endIndex
+        let preceding = source[..<position]
+        let newline = source.first(where: \.isNewline).map(String.init) ?? "\n"
+        var insertion = ""
+        if let last = preceding.last {
+            if !last.isNewline {
+                insertion = newline + newline
+            } else if preceding.dropLast().last?.isNewline == false {
+                insertion = newline
+            }
+        }
+        insertion += markdown.replacingOccurrences(of: "\n", with: newline)
+        if nextHeading != nil {
+            insertion += newline + newline
+        } else if source.isEmpty || source.last?.isNewline == true {
+            insertion += newline
+        }
+        bytes.insert(contentsOf: insertion.utf8, at: bomSize + preceding.utf8.count)
+        try bytes.write(to: file, options: .atomic)
+    }
+
     /// Exclusive creation also protects a file added after the settings view checks for it.
     @discardableResult
     static func createInstructionsIfNeeded(in folderURL: URL) throws -> URL {
