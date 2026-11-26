@@ -1,12 +1,19 @@
+import Combine
 import Foundation
 
-struct NewEntryFormState {
-    var sheetURL: URL {
+/// Each presented sheet retains its own fields while SwiftUI finishes dismissing it.
+final class NewEntryFormState: ObservableObject, Identifiable {
+    @Published var sheetURL: URL {
         didSet {
             if oldValue != sheetURL { section = nil }
         }
     }
-    var section: CheatSheetSection?
-    var draft = NewEntryDraft(kind: .note, title: "", rawContent: "")
-    var errorMessage: String?
+    @Published var section: CheatSheetSection?
+    @Published var draft = NewEntryDraft(kind: .note, title: "", rawContent: "")
+    @Published var errorMessage: String?
+
+    init(sheetURL: URL, section: CheatSheetSection?) {
+        self.sheetURL = sheetURL
+        self.section = section
+    }
 }

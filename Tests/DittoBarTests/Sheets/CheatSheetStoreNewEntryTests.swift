@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 @testable import DittoBar
 
@@ -27,6 +28,40 @@ struct CheatSheetStoreNewEntryTests {
             }
             #expect(entry.rawCommand == "git fetch\ngit diff {{branch=main}}")
             #expect(try String(contentsOf: destination, encoding: .utf8).contains(entry.rawCommand))
+        }
+    }
+
+    @Test(arguments: [true, false])
+    func presentedFormSurvivesSaveAndCancel(save: Bool) throws {
+        try withStore { store in
+            store.beginNewEntry()
+            let form = try #require(store.newEntryForm)
+            let view = NewEntryFormView(store: store, form: form)
+            let host = NSHostingView(rootView: view)
+            host.frame = NSRect(x: 0, y: 0, width: 520, height: 520)
+            let content = view.$form.draft.rawContent
+            let note = "This is a test **bold**\n\n[test link](www.google.com)"
+            form.draft.title = "Test Note 1"
+            content.wrappedValue = note
+            host.layoutSubtreeIfNeeded()
+
+            if save { store.saveNewEntry() } else { store.cancelNewEntry() }
+            #expect(store.newEntryForm == nil)
+            // The closing sheet can still lay out controls and read or write field bindings.
+            host.needsLayout = true
+            host.layoutSubtreeIfNeeded()
+            #expect(content.wrappedValue == note)
+            store.beginNewEntry()
+            content.wrappedValue = "Late edit from the closing sheet"
+            #expect(store.newEntryForm?.draft.rawContent == "")
+            if save {
+                let entry = try #require(store.selectedEntry)
+                guard case .note(let saved) = entry else {
+                    Issue.record("Expected the saved note")
+                    return
+                }
+                #expect(saved.rawContent == note)
+            }
         }
     }
 
