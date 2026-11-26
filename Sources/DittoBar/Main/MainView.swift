@@ -4,6 +4,7 @@ import SwiftUI
 struct MainView: View {
     @Environment(\.dittoAccent) private var accentColor
     @ObservedObject var store: CheatSheetStore
+    @ObservedObject var moreOptions: MoreOptionsMenu
     @FocusState private var searchIsFocused: Bool
     @AppStorage(DisplayPreferences.titleFontSizeKey)
     private var titleFontSize = DisplayPreferences.defaultTitleFontSize
@@ -29,6 +30,21 @@ struct MainView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { PanelBackground() }
+        .overlayPreferenceValue(MoreOptionsAnchor.self) { anchor in
+            if moreOptions.highlightedItem != nil, let anchor {
+                GeometryReader { geometry in
+                    let button = geometry[anchor]
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { moreOptions.dismiss() }
+                        .accessibilityHidden(true)
+                    MoreOptionsList(options: moreOptions)
+                        .padding(.trailing, geometry.size.width - button.maxX)
+                        .padding(.top, button.maxY + 4)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
+            }
+        }
         .overlay {
             // Built only while a form is up, so its @FocusState starts fresh
             // each time instead of carrying focus over from the last entry.
@@ -86,8 +102,15 @@ struct MainView: View {
             // says which app this is, and the list gets the space back.
             HStack(spacing: 10) {
                 searchField
-                MoreOptionsButton(store: store, symbolSize: chromeSize * 1.15)
-                    .frame(width: chromeSize * 1.5, height: chromeSize * 1.5)
+                Button(action: moreOptions.open) {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: chromeSize * 1.15))
+                        .frame(width: chromeSize * 1.5, height: chromeSize * 1.5)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("More actions")
+                .help("More actions (⌘⇧M)")
+                .anchorPreference(key: MoreOptionsAnchor.self, value: .bounds) { $0 }
             }
 
             ScrollView(.horizontal, showsIndicators: false) {

@@ -30,6 +30,11 @@ extension AppDelegate {
             return event
         }
 
+        if moreOptions.highlightedItem != nil, event.window === panel {
+            moreOptions.handleKeyEvent(event)
+            return nil
+        }
+
         if event.keyCode == 53 { // Escape
             closePanel(restoringFocus: true)
             return nil
@@ -63,9 +68,7 @@ extension AppDelegate {
 
         if modifiers.contains(.command), modifiers.contains(.shift),
            event.charactersIgnoringModifiers?.lowercased() == "m" {
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .openCheatSheetMoreOptions, object: nil)
-            }
+            moreOptions.open()
             return nil
         }
 

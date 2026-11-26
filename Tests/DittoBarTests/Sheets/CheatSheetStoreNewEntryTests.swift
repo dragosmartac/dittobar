@@ -5,11 +5,61 @@ import Testing
 
 @MainActor
 struct CheatSheetStoreNewEntryTests {
+    @Test func moreMenuKeyboardNavigationWrapsAndSkipsUnavailableItems() throws {
+        try withStore { store in
+            _ = NSApplication.shared
+            let delegate = AppDelegate(store: store)
+            delegate.configurePanel()
+            let panel = try #require(delegate.panel)
+            panel.alphaValue = 0
+            panel.orderBack(nil)
+            defer { panel.orderOut(nil) }
+
+            @MainActor func press(_ code: UInt16, _ flags: NSEvent.ModifierFlags = [], text: String = "") throws {
+                let event = try #require(NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0,
+                    windowNumber: panel.windowNumber, context: nil, characters: text,
+                    charactersIgnoringModifiers: text, isARepeat: false, keyCode: code
+                ))
+                #expect(delegate.handleKeyEvent(event) == nil)
+            }
+
+            let options = delegate.moreOptions
+            let entryIndex = store.selectedItemIndex
+            try press(46, [.command, .shift], text: "M")
+            #expect(options.highlightedItem?.title == "Add Sheet Entry")
+            try press(126) // Up from first
+            #expect(options.highlightedItem?.title == "Quit DittoBar")
+            try press(48) // Tab from last
+            #expect(options.highlightedItem?.title == "Add Sheet Entry")
+            try press(48) // Skip the separator
+            #expect(options.highlightedItem?.title == "New Cheat Sheet in Editor")
+            try press(48, .shift)
+            #expect(options.highlightedItem?.title == "Add Sheet Entry")
+            try press(48, .shift)
+            #expect(options.highlightedItem?.title == "Quit DittoBar")
+            try press(53)
+            #expect(options.highlightedItem == nil)
+            #expect(panel.isVisible)
+            #expect(store.selectedItemIndex == entryIndex)
+
+            store.selectedSheetIndex = store.sheets.count
+            options.open()
+            #expect(options.highlightedItem?.title == "New Cheat Sheet in Editor")
+            try press(48, .shift)
+            #expect(options.highlightedItem?.title == "Quit DittoBar")
+            try press(126)
+            try press(36)
+            #expect(options.highlightedItem == nil)
+            #expect(store.isSettingsPresented)
+        }
+    }
+
     @Test func markdownRulesMenuSectionPrecedesSettings() throws {
         try withStore { store in
             _ = NSApplication.shared
-            let coordinator = MoreOptionsButton.Coordinator(store: store)
-            let menu = coordinator.menu
+            let options = MoreOptionsMenu(store: store)
+            let menu = options.menu
             let rules = try #require(menu.item(withTitle: "Display Markdown Rules"))
             let index = menu.index(of: rules)
             #expect(menu.item(at: index - 1)?.isSeparatorItem == true)
@@ -24,12 +74,12 @@ struct CheatSheetStoreNewEntryTests {
     @Test func moreOptionsOpensDraftAndSavesMultilineCommand() throws {
         try withStore { store in
             let destination = try #require(store.selectedSheet?.sourceURL)
-            let coordinator = MoreOptionsButton.Coordinator(store: store)
-            let menu = coordinator.menu
+            let options = MoreOptionsMenu(store: store)
+            let menu = options.menu
             let action = try #require(menu.item(withTitle: "Add Sheet Entry"))
             #expect(action.keyEquivalent == "+")
             #expect(action.keyEquivalentModifierMask == .command)
-            #expect(coordinator.validateMenuItem(action))
+            #expect(options.validateMenuItem(action))
             #expect(menu.item(at: menu.index(of: action) + 1)?.isSeparatorItem == true)
             _ = NSApplication.shared
             menu.performActionForItem(at: menu.index(of: action))

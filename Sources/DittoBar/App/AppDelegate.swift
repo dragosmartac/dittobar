@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private(set) var panel: CheatSheetPanel!
+    let moreOptions: MoreOptionsMenu
     let store: CheatSheetStore
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
@@ -17,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     init(store: CheatSheetStore) {
         self.store = store
+        moreOptions = MoreOptionsMenu(store: store)
         super.init()
     }
 
@@ -84,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func configurePanel() {
-        panel = CheatSheetPanel(rootView: MainView(store: store).modifier(AccentTheme()))
+        panel = CheatSheetPanel(rootView: MainView(store: store, moreOptions: moreOptions).modifier(AccentTheme()))
         panel.delegate = self
         copyOptionsController = CopyOptionsMenuController(store: store, panel: panel)
         store.onRequestClose = { [weak self] in
@@ -232,6 +234,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func closePanel(restoringFocus: Bool) {
         guard panel.isVisible else { return }
         stopMonitoringOutsideClicks()
+        moreOptions.dismiss()
         panel.orderOut(nil)
 
         // Keep any in-progress variable form alive while the panel is hidden.
