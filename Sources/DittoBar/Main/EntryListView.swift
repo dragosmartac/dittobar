@@ -135,24 +135,14 @@ struct EntryListView: View {
                 let duration = scrollDuration(for: source, rowDistance: abs(current.index - previous.index))
                 let query = store.query
 
-                let scroll = {
+                // Even instant jumps can ask NSTableView to measure rows. Let the
+                // current list update finish before touching its layout or the proxy.
+                DispatchQueue.main.async {
                     // A newer key press or search can overtake this queued update.
                     guard store.selectedItemID == itemID, store.query == query else { return }
                     if !animateListScroll(toItemID: itemID, duration: duration) {
                         proxy.scrollTo(itemID)
                     }
-                }
-
-                if duration == 0 {
-                    // Jump in the same frame as the highlight moves. Deferred,
-                    // the highlight and the jump land in separate frames, and
-                    // a held key makes them flicker.
-                    scroll()
-                } else {
-                    // Start the slide once SwiftUI finishes this update.
-                    // Started from inside it, the slide loses its first
-                    // frames to the rest of the update.
-                    DispatchQueue.main.async(execute: scroll)
                 }
             }
             .onChange(of: store.query) {

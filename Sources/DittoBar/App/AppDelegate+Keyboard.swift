@@ -65,6 +65,12 @@ extension AppDelegate {
             return nil
         }
 
+        if modifiers.intersection([.command, .shift, .control, .option, .function]) == .command,
+           event.charactersIgnoringModifiers == "-", event.window === panel {
+            if !event.isARepeat { store.requestEntryRemoval() }
+            return nil
+        }
+
         if modifiers.contains(.command),
            let characters = event.charactersIgnoringModifiers,
            let number = Int(characters),

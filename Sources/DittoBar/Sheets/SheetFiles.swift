@@ -70,17 +70,52 @@ enum SheetFiles {
             markdown = "## \(name)\n\n" + markdown
         }
 
-        // Keep cooperating writers out between reading the latest file and replacing it.
+        return try updateFile(at: url) { file in
+            try insertMarkdown(markdown, into: file, sheetURL: url, section: section)
+        }
+    }
+
+    enum RemovalError: LocalizedError {
+        case sheetChanged
+
+        var errorDescription: String? {
+            "The sheet has changed. Select the entry again before removing it."
+        }
+    }
+
+    static func remove(_ entry: CheatSheetEntry, from sheet: CheatSheet) throws {
+        guard isSheetFile(sheet.sourceURL) else { throw RemovalError.sheetChanged }
+        try updateFile(at: sheet.sourceURL) { file in
+            var bytes = try Data(contentsOf: file)
+            let bomSize = bytes.starts(with: [0xEF, 0xBB, 0xBF]) ? 3 : 0
+            guard let source = String(bytes: bytes.dropFirst(bomSize), encoding: .utf8) else {
+                throw CocoaError(.fileReadInapplicableStringEncoding)
+            }
+            let document = CheatSheetParser.parseDocument(source, fileURL: sheet.sourceURL, locating: entry)
+            // Entry IDs include their position. An external edit could move an identically
+            // titled entry into that position while the confirmation is open.
+            guard document.sheet == sheet, !document.entrySourceRanges.isEmpty else { throw RemovalError.sheetChanged }
+            for range in document.entrySourceRanges.reversed() {
+                let start = source.utf8.distance(from: source.startIndex, to: range.lowerBound)
+                let end = source.utf8.distance(from: source.startIndex, to: range.upperBound)
+                bytes.removeSubrange((bomSize + start)..<(bomSize + end))
+            }
+            try bytes.write(to: file, options: .atomic)
+        }
+    }
+
+    // Keep cooperating writers out between reading the latest file and replacing it.
+    private static func updateFile<T>(at url: URL, _ update: (URL) throws -> T) throws -> T {
         var coordinationError: NSError?
-        var insertion: Result<Int, Error>?
+        var result: Result<T, Error>?
         // Replace the target of a symlink while retaining the sheet name used for section IDs.
         let target = url.resolvingSymlinksInPath()
         NSFileCoordinator().coordinate(writingItemAt: target, options: .forMerging, error: &coordinationError) { file in
-            insertion = Result { try insertMarkdown(markdown, into: file, sheetURL: url, section: section) }
+            result = Result { try update(file) }
         }
         if let coordinationError { throw coordinationError }
-        guard let insertion else { throw CocoaError(.fileWriteUnknown) }
-        return try insertion.get()
+        guard let result else { throw CocoaError(.fileWriteUnknown) }
+        return try result.get()
     }
 
     private static func insertMarkdown(

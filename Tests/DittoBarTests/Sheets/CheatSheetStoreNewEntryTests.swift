@@ -3,8 +3,54 @@ import SwiftUI
 import Testing
 @testable import DittoBar
 
+// The keyboard tests present real sheets, which share the application's key window.
+@Suite(.serialized)
 @MainActor
 struct CheatSheetStoreNewEntryTests {
+    @Test func listRevealsSelectionAfterAddingAndRemovingAnEntry() async throws {
+        let (store, cleanup) = try makeStore()
+        defer { cleanup() }
+        let url = try #require(store.selectedSheet?.sourceURL)
+        let notes = (1...40).map { "### Note \($0)\nBody \($0)" }.joined(separator: "\n\n")
+        try notes.write(to: url, atomically: true, encoding: .utf8)
+        store.reload()
+
+        _ = NSApplication.shared
+        let delegate = AppDelegate(store: store)
+        delegate.configurePanel()
+        let panel = try #require(delegate.panel)
+        panel.alphaValue = 0
+        panel.setContentSize(NSSize(width: 640, height: 350))
+        panel.orderBack(nil)
+        defer { panel.orderOut(nil) }
+
+        @MainActor func selectedRowIsVisible() async -> Bool {
+            let deadline = ContinuousClock.now + .seconds(2)
+            repeat {
+                if let scrollView = store.selectedRowAnchorView?.enclosingScrollView,
+                   let table = scrollView.documentView as? NSTableView,
+                   let index = store.visibleItems.firstIndex(where: { $0.id == store.selectedItemID }),
+                   table.numberOfRows == store.visibleItems.count,
+                   scrollView.documentVisibleRect.intersects(table.rect(ofRow: index)) {
+                    return true
+                }
+                try? await Task.sleep(for: .milliseconds(10))
+            } while ContinuousClock.now < deadline
+            return false
+        }
+        #expect(await selectedRowIsVisible())
+        store.beginNewEntry()
+        store.newEntryForm?.draft = .init(kind: .note, title: "Last", rawContent: "New note")
+        store.saveNewEntry()
+        #expect(store.selectedEntry?.title == "Last")
+        #expect(await selectedRowIsVisible())
+
+        store.requestEntryRemoval()
+        store.removeEntry(try #require(store.pendingEntryRemoval))
+        #expect(store.selectedEntry?.title == "Note 40")
+        #expect(await selectedRowIsVisible())
+    }
+
     @Test func addEntryShortcutsOpenHelpAndNavigateFields() async throws {
         let (store, cleanup) = try makeStore()
         defer { cleanup() }
@@ -117,7 +163,18 @@ struct CheatSheetStoreNewEntryTests {
         #expect(focusedText() == "Description")
         try press(126)
         #expect(focusedText() == "Language")
-        store.cancelNewEntry()
+        try press(126)
+        #expect(focusedText() == "Command")
+        let originalFile = try Data(contentsOf: form.sheetURL)
+        let escape = try #require(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: windowNumber, context: nil, characters: "\u{1B}", charactersIgnoringModifiers: "\u{1B}",
+            isARepeat: false, keyCode: 53
+        ))
+        if let event = delegate.handleKeyEvent(escape) { window.sendEvent(event) }
+        #expect(store.newEntryForm == nil)
+        #expect(panel.isVisible)
+        #expect(try Data(contentsOf: form.sheetURL) == originalFile)
     }
 
     @Test func moreMenuKeyboardNavigationWrapsAndSkipsUnavailableItems() throws {
@@ -147,8 +204,12 @@ struct CheatSheetStoreNewEntryTests {
             #expect(options.highlightedItem?.title == "Quit DittoBar")
             try press(48) // Tab from last
             #expect(options.highlightedItem?.title == "Add Sheet Entry")
+            try press(48)
+            #expect(options.highlightedItem?.title == "Remove Selected Entry")
             try press(48) // Skip the separator
             #expect(options.highlightedItem?.title == "New Cheat Sheet in Editor")
+            try press(48, .shift)
+            #expect(options.highlightedItem?.title == "Remove Selected Entry")
             try press(48, .shift)
             #expect(options.highlightedItem?.title == "Add Sheet Entry")
             try press(48, .shift)
@@ -186,6 +247,65 @@ struct CheatSheetStoreNewEntryTests {
         }
     }
 
+    @Test func keyboardAndMenuConfirmRemovalOfTheSelectedSearchResult() async throws {
+        let (store, cleanup) = try makeStore()
+        defer { cleanup() }
+        _ = NSApplication.shared
+        let delegate = AppDelegate(store: store)
+        delegate.configurePanel()
+        let panel = try #require(delegate.panel)
+        panel.alphaValue = 0
+        panel.makeKeyAndOrderFront(nil)
+        defer { panel.orderOut(nil) }
+        store.query = "Later body"
+        let sheet = try #require(store.selectedSheet)
+        let selected = try #require(store.selectedEntry)
+        let number = panel.windowNumber
+        let shortcut = try #require(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+            windowNumber: number, context: nil, characters: "-", charactersIgnoringModifiers: "-",
+            isARepeat: false, keyCode: 27
+        ))
+        #expect(delegate.handleKeyEvent(shortcut) == nil)
+        #expect(store.pendingEntryRemoval?.entry == selected)
+        #expect(try String(contentsOf: sheet.sourceURL, encoding: .utf8) == Self.source)
+
+        @MainActor func pressConfirmationKey(_ code: UInt16, character: String) async throws {
+            let deadline = ContinuousClock.now + .seconds(2)
+            while panel.attachedSheet == nil, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            let confirmation = try #require(panel.attachedSheet)
+            let confirmationNumber = confirmation.windowNumber
+            let key = try #require(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: confirmationNumber, context: nil, characters: character,
+                charactersIgnoringModifiers: character, isARepeat: false, keyCode: code
+            ))
+            #expect(delegate.handleKeyEvent(key) === key)
+            if !confirmation.performKeyEquivalent(with: key) { confirmation.sendEvent(key) }
+            while panel.attachedSheet != nil, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            #expect(panel.attachedSheet == nil)
+        }
+
+        try await pressConfirmationKey(53, character: "\u{1B}") // Escape
+        #expect(store.pendingEntryRemoval == nil)
+        #expect(try String(contentsOf: sheet.sourceURL, encoding: .utf8) == Self.source)
+        let options = delegate.moreOptions
+        let action = try #require(options.menu.item(withTitle: "Remove Selected Entry"))
+        #expect(action.keyEquivalent == "-")
+        options.choose(action)
+        try await pressConfirmationKey(36, character: "\r") // Return
+        #expect(try String(contentsOf: sheet.sourceURL, encoding: .utf8) == Self.source.replacingOccurrences(
+            of: "### Existing\nLater body.", with: ""
+        ))
+        #expect(store.query == "Later body")
+        #expect(store.selectedEntry == nil)
+        #expect(!options.validateMenuItem(action))
+    }
+
     @Test func moreOptionsOpensDraftAndSavesMultilineCommand() throws {
         try withStore { store in
             let destination = try #require(store.selectedSheet?.sourceURL)
@@ -195,7 +315,7 @@ struct CheatSheetStoreNewEntryTests {
             #expect(action.keyEquivalent == "+")
             #expect(action.keyEquivalentModifierMask == .command)
             #expect(options.validateMenuItem(action))
-            #expect(menu.item(at: menu.index(of: action) + 1)?.isSeparatorItem == true)
+            #expect(menu.item(at: menu.index(of: action) + 1)?.title == "Remove Selected Entry")
             _ = NSApplication.shared
             menu.performActionForItem(at: menu.index(of: action))
             let form = try #require(store.newEntryForm)

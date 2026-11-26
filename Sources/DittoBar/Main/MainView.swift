@@ -56,6 +56,14 @@ struct MainView: View {
             NewEntryFormView(store: store, form: form)
                 .modifier(AccentTheme())
         }
+        .sheet(item: $store.pendingEntryRemoval) { removal in
+            RemoveEntryConfirmationView(removal: removal) {
+                store.pendingEntryRemoval = nil
+            } onRemove: {
+                store.removeEntry(removal)
+            }
+            .modifier(AccentTheme())
+        }
         .sheet(isPresented: $store.isMarkdownRulesPresented) {
             MarkdownRulesView()
                 .modifier(AccentTheme())
@@ -201,6 +209,17 @@ struct MainView: View {
     }
 
     private var footer: some View {
+        ViewThatFits(in: .horizontal) {
+            footerHints
+            ScrollView(.horizontal) { footerHints }
+        }
+        .font(.system(size: chromeSize * 0.85))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 14)
+        .frame(height: max(38, chromeSize * 2.6))
+    }
+
+    private var footerHints: some View {
         HStack(spacing: 14) {
             switch store.selectedItem {
             case .entry(let entry):
@@ -220,14 +239,13 @@ struct MainView: View {
             if store.selectedSheet != nil {
                 Divider().frame(height: chromeSize * 1.4)
                 footerShortcut("⌘+", label: "Add entry")
+                if store.selectedEntry != nil {
+                    footerShortcut("⌘−", label: "Remove entry")
+                }
             }
             Spacer()
             footerShortcut("⌘⇧M", label: "more")
         }
-        .font(.system(size: chromeSize * 0.85))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 14)
-        .frame(height: max(38, chromeSize * 2.6))
     }
 
     private func footerShortcut(_ keys: String, label: String) -> some View {

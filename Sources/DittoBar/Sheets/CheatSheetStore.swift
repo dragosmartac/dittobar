@@ -36,12 +36,18 @@ final class CheatSheetStore: ObservableObject {
     @Published var isNewSheetPromptPresented = false
     @Published var newSheetName = ""
     @Published var newEntryForm: NewEntryFormState?
+    struct EntryRemoval: Identifiable {
+        let id = UUID()
+        let entry: CheatSheetEntry
+        let sheet: CheatSheet
+    }
+    @Published var pendingEntryRemoval: EntryRemoval?
     @Published var variableForm: VariableFormState?
     @Published var isSettingsPresented = false
     @Published var isMarkdownRulesPresented = false
 
     var isPanelSheetPresented: Bool {
-        isSettingsPresented || isMarkdownRulesPresented || newEntryForm != nil
+        isSettingsPresented || isMarkdownRulesPresented || newEntryForm != nil || pendingEntryRemoval != nil
     }
 
     @Published private var pinnedItemID: String?
@@ -126,6 +132,7 @@ final class CheatSheetStore: ObservableObject {
             defaults.set(url.path, forKey: Self.sheetsDirectoryPathKey)
         }
         newEntryForm = nil
+        pendingEntryRemoval = nil
         variableForm = nil
         pinnedItemID = nil
         copiedEntryIDs = []
@@ -310,6 +317,22 @@ final class CheatSheetStore: ObservableObject {
     }
 
     // MARK: - Add entry
+
+    func requestEntryRemoval() {
+        guard !isPanelSheetPresented, let sheet = selectedSheet, let entry = selectedEntry else { return }
+        pendingEntryRemoval = EntryRemoval(entry: entry, sheet: sheet)
+    }
+
+    func removeEntry(_ removal: EntryRemoval) {
+        guard pendingEntryRemoval?.id == removal.id else { return }
+        pendingEntryRemoval = nil
+        do {
+            try SheetFiles.remove(removal.entry, from: removal.sheet)
+        } catch {
+            editorErrorMessage = error.localizedDescription
+        }
+        reload()
+    }
 
     func beginNewEntry() {
         guard newEntryForm == nil, let sheet = selectedSheet else { return }

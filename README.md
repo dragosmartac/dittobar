@@ -33,6 +33,7 @@ In **Add Sheet Entry**, choose **Section → New section…** and enter a name t
 | `Option-Return` | Open the selected entry or section's action menu |
 | `Command-Return` | Perform the primary action without opening the variable form |
 | `⌘+` | Add a sheet entry, including while search has focus |
+| `⌘−` | Ask to remove the selected entry from its Markdown file |
 | `Command-C` | Copy text selected inside an entry |
 | `Command-E` | Open the current Markdown file in the configured editor |
 | `Command-F` | Focus search |

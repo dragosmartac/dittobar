@@ -44,7 +44,13 @@ struct NewEntryFormView: View {
         .padding(20)
         .frame(width: 640, height: 620)
         .defaultFocus($titleFocused, true)
-        .onExitCommand(perform: form.isMarkdownHelpPresented ? { form.isMarkdownHelpPresented = false } : nil)
+        .onExitCommand {
+            if form.isMarkdownHelpPresented {
+                form.isMarkdownHelpPresented = false
+            } else {
+                store.cancelNewEntry()
+            }
+        }
     }
 
     @ViewBuilder

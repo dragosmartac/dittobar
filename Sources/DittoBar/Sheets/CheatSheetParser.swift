@@ -11,6 +11,7 @@ enum CheatSheetParser {
     struct ParsedDocument {
         let sheet: CheatSheet
         let sectionHeadings: [(section: CheatSheetSection, start: String.Index)]
+        let entrySourceRanges: [Range<String.Index>]
         let endsInsideBlock: Bool
     }
 
@@ -18,10 +19,11 @@ enum CheatSheetParser {
         parseDocument(source, fileURL: fileURL).sheet
     }
 
-    /// The same pass identifies real section headings and their positions in the original text.
-    static func parseDocument(_ source: String, fileURL: URL) -> ParsedDocument {
+    /// File edits use the same heading, fence, and comment boundaries as the displayed sheet.
+    static func parseDocument(_ source: String, fileURL: URL, locating target: CheatSheetEntry? = nil) -> ParsedDocument {
         let fileName = fileURL.lastPathComponent
-        let lines = source.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+        let text = source.first == "\u{FEFF}" ? source.dropFirst() : source[...]
+        let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
         let fallbackTitle = Self.fallbackTitle(for: fileURL)
 
         var sheetTitle = fallbackTitle
@@ -30,15 +32,30 @@ enum CheatSheetParser {
         var descriptionLines: [String] = []
         var items: [CheatSheetItem] = []
         var entryCount = 0
+        var entrySourceRanges: [Range<String.Index>] = []
+        var currentRanges: [Range<String.Index>] = []
         var sectionHeadings: [(section: CheatSheetSection, start: String.Index)] = []
         var unclosedFence = false
         var isInsideComment = false
         var index = 0
 
+        // Keep ignored HTML comments in the file, including ones between lines of a note.
+        func recordLines(from first: Int, upTo next: Int) {
+            guard target != nil else { return }
+            let start = lines[first].startIndex
+            let end = next < lines.count ? lines[next].startIndex : source.endIndex
+            if let last = currentRanges.last, last.upperBound == start {
+                currentRanges[currentRanges.count - 1] = last.lowerBound..<end
+            } else {
+                currentRanges.append(start..<end)
+            }
+        }
+
         func appendEntry(rawFencedContent: String? = nil, fenceLanguage: String? = nil) {
             defer {
                 entryTitle = nil
                 descriptionLines = []
+                currentRanges = []
             }
 
             guard let title = entryTitle else { return }
@@ -50,6 +67,7 @@ enum CheatSheetParser {
             )
             if let entry = makeEntry(from: draft, fileName: fileName, entryIndex: entryCount) {
                 items.append(.entry(entry))
+                if entry == target { entrySourceRanges = currentRanges }
                 entryCount += 1
             }
         }
@@ -102,12 +120,14 @@ enum CheatSheetParser {
             if line.hasPrefix("### ") {
                 appendEntry()
                 entryTitle = String(line.dropFirst(4)).trimmingCharacters(in: .whitespaces)
+                recordLines(from: index, upTo: index + 1)
                 descriptionLines = []
                 index += 1
                 continue
             }
 
             if line.hasPrefix("```") {
+                let fenceStart = index
                 let language = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
                 var contentLines: [String] = []
                 index += 1
@@ -118,6 +138,7 @@ enum CheatSheetParser {
                 }
 
                 unclosedFence = index == lines.count
+                if entryTitle != nil { recordLines(from: fenceStart, upTo: index + 1) }
                 appendEntry(
                     rawFencedContent: contentLines.joined(separator: "\n"),
                     fenceLanguage: language
@@ -127,6 +148,7 @@ enum CheatSheetParser {
             }
 
             if entryTitle != nil {
+                recordLines(from: index, upTo: index + 1)
                 // Leading whitespace nests list items, so only trim the end.
                 descriptionLines.append(String(line.reversed().drop(while: { $0 == " " || $0 == "\t" }).reversed()))
             }
@@ -144,6 +166,7 @@ enum CheatSheetParser {
         return ParsedDocument(
             sheet: sheet,
             sectionHeadings: sectionHeadings,
+            entrySourceRanges: entrySourceRanges,
             endsInsideBlock: isInsideComment || unclosedFence
         )
     }

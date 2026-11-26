@@ -13,6 +13,7 @@ final class MoreOptionsMenu: NSObject, ObservableObject, NSMenuItemValidation {
         super.init()
 
         addItem("Add Sheet Entry", action: #selector(addEntry), key: "+")
+        addItem("Remove Selected Entry", action: #selector(removeSelectedEntry), key: "-")
         menu.addItem(.separator())
         addItem(
             "New Cheat Sheet in Editor",
@@ -102,7 +103,15 @@ final class MoreOptionsMenu: NSObject, ObservableObject, NSMenuItemValidation {
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        menuItem.action != #selector(addEntry) || store.selectedSheet != nil
+        switch menuItem.action {
+        case #selector(addEntry): store.selectedSheet != nil
+        case #selector(removeSelectedEntry): store.selectedEntry != nil
+        default: true
+        }
+    }
+
+    @objc private func removeSelectedEntry() {
+        store.requestEntryRemoval()
     }
 
     @objc private func addEntry() {

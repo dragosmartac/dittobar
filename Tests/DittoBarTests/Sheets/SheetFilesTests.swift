@@ -73,6 +73,36 @@ struct SheetFilesTests {
 
     private let draft = NewEntryDraft(kind: .note, title: "Reminder", rawContent: "Check {{branch=main}}.")
 
+    @Test func removalPreservesOtherEntriesCommentsAndOriginalBytes() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let prefix = "\u{FEFF}# Café\r\n### Duplicate\r\nKeep.  \r\n## Tools\r\n"
+            let comment = "<!-- instructions\r\n### Example heading\r\n-->\r\n"
+            let suffix = "\r\n## Following\r\n### Last\r\nKeep this too."
+            let source = prefix + "### Duplicate\r\n" + comment + "Description\r\n```sh\r\n### inside code\r\n```\r\n" + suffix
+            try Data(source.utf8).write(to: url)
+            let sheet = try #require(SheetFiles.load(from: folder).first)
+            let entry = try #require(sheet.items.compactMap(\.entry).dropFirst().first)
+            try SheetFiles.remove(entry, from: sheet)
+            #expect(try Data(contentsOf: url) == Data((prefix + comment + suffix).utf8))
+        }
+    }
+
+    @Test func removalRejectsAChangedSheetEvenWhenADuplicateHasTheSameID() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let duplicate = "### Same\nSame text.\n"
+            try (duplicate + duplicate).write(to: url, atomically: true, encoding: .utf8)
+            let sheet = try #require(SheetFiles.load(from: folder).first)
+            let entry = try #require(sheet.items.first?.entry)
+            try duplicate.write(to: url, atomically: true, encoding: .utf8)
+            #expect(throws: SheetFiles.RemovalError.sheetChanged) {
+                try SheetFiles.remove(entry, from: sheet)
+            }
+            #expect(try String(contentsOf: url, encoding: .utf8) == duplicate)
+        }
+    }
+
     @Test func insertsIntoSelectedOccurrenceAndPreservesExternalEdits() throws {
         try withFolder { folder in
             let url = folder.appendingPathComponent("work.md")
