@@ -24,11 +24,11 @@ struct NewEntryFormView: View {
                         Text("File").tag(NewEntryDraft.Kind.file)
                     }
                     .fixedSize()
+                    variablesSummary(form.draft.variables)
                     TextField("Title", text: $form.draft.title)
                         .textFieldStyle(.roundedBorder)
                         .focused($titleFocused)
                     entryFields($form.draft)
-                    variablesSummary(form.draft.variables)
                 }
                 .padding(2)
             }
@@ -114,21 +114,30 @@ struct NewEntryFormView: View {
     @ViewBuilder
     private func variablesSummary(_ variables: [EntryVariable]) -> some View {
         if !variables.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Variables").font(.headline)
-                Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 4) {
+            GroupBox {
+                Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 24, verticalSpacing: 6) {
                     GridRow {
                         Text("Name")
                         Text("Default value")
                     }
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
+                    Divider().gridCellUnsizedAxes(.horizontal)
                     ForEach(variables) { variable in
                         GridRow {
                             Text(verbatim: variable.name)
+                                .monospaced()
                             Text(verbatim: variable.defaultValue.isEmpty ? "—" : variable.defaultValue)
+                                .foregroundStyle(variable.defaultValue.isEmpty ? .secondary : .primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                 }
+                .padding(4)
+                .padding(.top, 8)
+            } label: {
+                Label("Variables", systemImage: "curlybraces")
+                    .font(.headline)
             }
         }
     }
