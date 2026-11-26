@@ -104,7 +104,7 @@ struct NewEntryFormView: View {
             TextEditor(text: text)
                 .font(monospaced ? .system(.body, design: .monospaced) : .body)
                 .accessibilityLabel(label)
-                .frame(height: 150)
+                .modifier(ResizableEditor())
                 .overlay {
                     RoundedRectangle(cornerRadius: 4)
                         .strokeBorder(.quaternary)
@@ -133,5 +133,34 @@ struct NewEntryFormView: View {
                 }
             }
         }
+    }
+}
+
+private struct ResizableEditor: ViewModifier {
+    @State private var height: CGFloat = 120
+    @GestureState private var dragOffset: CGFloat = 0
+    private let minimumHeight: CGFloat = 60
+
+    func body(content: Content) -> some View {
+        VStack(spacing: 0) {
+            content
+            Capsule()
+                .fill(.tertiary)
+                .frame(width: 24, height: 3)
+                .frame(maxWidth: .infinity)
+                .frame(height: 12)
+                .contentShape(Rectangle())
+                .help("Drag to resize")
+                .gesture(
+                    DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                        .updating($dragOffset) { drag, offset, _ in
+                            offset = drag.translation.height
+                        }
+                        .onEnded { drag in
+                            height = max(minimumHeight, height + drag.translation.height)
+                        }
+                )
+        }
+        .frame(height: max(minimumHeight, height + dragOffset))
     }
 }
