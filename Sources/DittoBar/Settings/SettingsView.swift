@@ -3,14 +3,18 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var store: CheatSheetStore
     @State private var selectedTab: SettingsTab? = .appearance
+    @FocusState private var sidebarIsFocused: Bool
 
     var body: some View {
         HStack(spacing: 0) {
             sidebar
+                .focusSection()
             Divider()
             detail
+                .focusSection()
         }
         .frame(width: 680, height: 550)
+        .defaultFocus($sidebarIsFocused, true)
     }
 
     private var sidebar: some View {
@@ -31,6 +35,7 @@ struct SettingsView: View {
                 .tag(tab)
             }
             .listStyle(.sidebar)
+            .focused($sidebarIsFocused)
         }
         .frame(width: 185)
         .background(Color(nsColor: .controlBackgroundColor))
