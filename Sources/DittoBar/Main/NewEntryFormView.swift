@@ -11,70 +11,89 @@ struct NewEntryFormView: View {
     }
 
     var body: some View {
-        Group {
-            if form.isMarkdownHelpPresented {
-                MarkdownRulesView(showsSheetStructure: false) { form.isMarkdownHelpPresented = false }
-            } else {
-                entryForm
-            }
-        }
-        .frame(width: 640, height: 620)
-    }
-
-    private var entryForm: some View {
         VStack(alignment: .leading, spacing: Spacing.section) {
-            Text("Add Entry")
-                .font(.title2.bold())
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.section) {
-                    destinations
-                    if form.section == .newSection {
-                        TextField("New section name", text: $form.newSectionName)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                    HStack {
-                        Text("Type")
-                        EntryFormPicker(label: "Type", selection: $form.draft.kind, items: [
-                            .option("Note", .note), .option("Command", .command),
-                            .option("URL", .url), .option("File", .file)
-                        ])
-                    }
-                    .fixedSize()
-                    variablesSummary(form.draft.variables)
-                    TextField("Title", text: $form.draft.title)
-                        .textFieldStyle(.roundedBorder)
-                        .focused($titleFocused)
-                    entryFields($form.draft)
-                }
-                .padding(2)
-            }
-
-            if let error = form.errorMessage {
-                Text(error).foregroundStyle(.red)
+            if form.isMarkdownHelpPresented {
+                MarkdownRulesContent(showsSheetStructure: false)
+            } else {
+                entryFieldsView
             }
             Divider()
-            HStack(spacing: Spacing.compact) {
-                FooterShortcutHint(keys: "⌘↑ / ⌘↓", label: "navigate fields", keySize: 11)
-                    .font(.caption)
-                Button {
-                    form.isMarkdownHelpPresented = true
-                } label: {
-                    FooterShortcutHint(keys: "⌘M", label: "Markdown help", keySize: 11)
-                        .font(.caption)
+            HStack(alignment: .bottom, spacing: Spacing.compact) {
+                if !form.isMarkdownHelpPresented {
+                    footerHints
                 }
-                .buttonStyle(.plain)
-                .keyboardShortcut("m", modifiers: .command)
                 Spacer()
-                Button("Cancel", role: .cancel) { store.cancelNewEntry() }
-                    .keyboardShortcut(.cancelAction)
-                Button("Add Entry") { store.saveNewEntry() }
-                    .buttonStyle(.borderedProminent)
+                if !form.isMarkdownHelpPresented {
+                    Button("Cancel", role: .cancel) { store.cancelNewEntry() }
+                        .keyboardShortcut(.cancelAction)
+                }
+                Button {
+                    if form.isMarkdownHelpPresented {
+                        form.isMarkdownHelpPresented = false
+                    } else {
+                        store.saveNewEntry()
+                    }
+                } label: {
+                    Text(form.isMarkdownHelpPresented ? "Done" : "Add Entry")
+                        .frame(minWidth: 60)
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(form.isMarkdownHelpPresented ? .defaultAction : nil)
             }
         }
         .padding(20)
+        .frame(width: 640, height: 620)
         .defaultFocus($titleFocused, true)
-        .onAppear { titleFocused = true }
+        .onExitCommand(perform: form.isMarkdownHelpPresented ? { form.isMarkdownHelpPresented = false } : nil)
+    }
+
+    @ViewBuilder
+    private var footerHints: some View {
+        FooterShortcutHint(keys: "⌘↑ / ⌘↓", label: "navigate fields", keySize: 11)
+            .font(.caption)
+        Button {
+            form.isMarkdownHelpPresented = true
+        } label: {
+            FooterShortcutHint(keys: "⌘M", label: "Markdown help", keySize: 11)
+                .font(.caption)
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut("m", modifiers: .command)
+    }
+
+    @ViewBuilder
+    private var entryFieldsView: some View {
+        Text("Add Entry")
+            .font(.title2.bold())
+
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.section) {
+                destinations
+                if form.section == .newSection {
+                    TextField("New section name", text: $form.newSectionName)
+                        .textFieldStyle(.roundedBorder)
+                }
+                HStack {
+                    Text("Type")
+                    EntryFormPicker(label: "Type", selection: $form.draft.kind, items: [
+                        .option("Note", .note), .option("Command", .command),
+                        .option("URL", .url), .option("File", .file)
+                    ])
+                }
+                .fixedSize()
+                variablesSummary(form.draft.variables)
+                TextField("Title", text: $form.draft.title)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($titleFocused)
+                    .onAppear { titleFocused = true }
+                entryFields($form.draft)
+            }
+            .padding(2)
+        }
+
+        if let error = form.errorMessage {
+            Text(error).foregroundStyle(.red)
+        }
     }
 
     private var destinations: some View {
