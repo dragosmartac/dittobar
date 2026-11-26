@@ -36,10 +36,9 @@ enum SheetFiles {
                 guard let source = try? String(contentsOf: url, encoding: .utf8) else { return nil }
                 return CheatSheetParser.parse(source, fileURL: url)
             }
-
     }
 
-    private static func isSheetFile(_ url: URL) -> Bool {
+    static func isSheetFile(_ url: URL) -> Bool {
         url.pathExtension.lowercased() == "md"
             && url.lastPathComponent.lowercased() != instructionsFileName
     }

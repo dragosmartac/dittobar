@@ -71,6 +71,220 @@ struct SheetFilesTests {
         }
     }
 
+    private let draft = EntryDraft(kind: .note, title: "Reminder", rawContent: "Check {{branch=main}}.")
+
+    @Test func removalPreservesOtherEntriesCommentsAndOriginalBytes() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let prefix = "\u{FEFF}# Café\r\n### Duplicate\r\nKeep.  \r\n## Tools\r\n"
+            let comment = "<!-- instructions\r\n### Example heading\r\n-->\r\n"
+            let suffix = "\r\n## Following\r\n### Last\r\nKeep this too."
+            let source = prefix + "### Duplicate\r\n" + comment + "Description\r\n```sh\r\n### inside code\r\n```\r\n" + suffix
+            try Data(source.utf8).write(to: url)
+            let sheet = try #require(SheetFiles.load(from: folder).first)
+            let entry = try #require(sheet.items.compactMap(\.entry).dropFirst().first)
+            try SheetFiles.remove(entry, from: sheet)
+            #expect(try Data(contentsOf: url) == Data((prefix + comment + suffix).utf8))
+        }
+    }
+
+    @Test func editingFencedEntriesPreservesRawFieldsAndSurroundingBytes() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let prefix = "\u{FEFF}# Café\r\n## Tools\r\n"
+            let comment = "<!-- example -->\r\n"
+            let suffix = "\r\n### Next\r\nOther note.  "
+            for (label, kind) in [("", EntryDraft.Kind.command), ("URL", .url), ("file", .file)] {
+                let source = prefix + "### Target\r\n" + comment
+                    + "**See** {{name}}.\r\n```" + label + "\r\n{{path}}\r\n```\r\n" + suffix
+                try Data(source.utf8).write(to: url)
+                let sheet = try #require(SheetFiles.load(from: folder).first)
+                let entry = try #require(sheet.items.compactMap(\.entry).first)
+                var draft = EntryDraft(entry: entry)
+                #expect(draft.kind == kind)
+                #expect(draft.rawDescription == "**See** {{name}}.")
+                #expect(draft.rawContent == "{{path}}")
+                if kind == .command { #expect(draft.language.isEmpty) }
+                _ = try SheetFiles.replace(entry, in: sheet, with: draft)
+                #expect(try Data(contentsOf: url) == Data(source.utf8))
+
+                draft.rawContent = "new {{path}}"
+                let index = try SheetFiles.replace(entry, in: sheet, with: draft)
+                let saved = try #require(SheetFiles.load(from: folder).first)
+                #expect(EntryDraft(entry: try #require(saved.items[index].entry)) == draft)
+                let bytes = try Data(contentsOf: url)
+                #expect(bytes.starts(with: Data(prefix.utf8)))
+                #expect(bytes.suffix(suffix.utf8.count) == Data(suffix.utf8))
+                #expect(bytes.range(of: Data(comment.utf8)) != nil)
+            }
+        }
+    }
+
+    @Test func renamingOnlyChangesTheSelectedHeading() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let source = "\u{FEFF}### Same\r\nFirst.\r\n### Same\r\n<!-- keep here -->\r\n"
+                + "See **details**.  \r\n\r\n```sh\r\n  echo hi  \r\n```\r\n"
+            try Data(source.utf8).write(to: url)
+            let sheet = try #require(SheetFiles.load(from: folder).first)
+            let entry = try #require(sheet.items.last?.entry)
+            var draft = EntryDraft(entry: entry)
+            draft.title = "Renamed"
+            _ = try SheetFiles.save(draft, into: sheet.sourceURL, section: .unsectioned,
+                                    editing: SheetEntrySelection(entry: entry, sheet: sheet))
+            let expected = source.replacingOccurrences(of: "First.\r\n### Same", with: "First.\r\n### Renamed")
+            #expect(try Data(contentsOf: url) == Data(expected.utf8))
+        }
+    }
+
+    @Test func editingOrRemovingAFencedEntryCannotAttachLooseMarkdownToANote() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let source = "### First\nKeep this note.\n### Run\n```sh\npwd\n```\n\nLoose text.\n```sh\ndate\n```\n"
+            try Data(source.utf8).write(to: url)
+            let sheet = try #require(SheetFiles.load(from: folder).first)
+            let entry = try #require(sheet.items.last?.entry)
+            for change in [draft, nil] {
+                #expect(throws: SheetFiles.EntryChangeError.looseMarkdown) {
+                    _ = try SheetFiles.replace(entry, in: sheet, with: change)
+                }
+                #expect(try Data(contentsOf: url) == Data(source.utf8))
+            }
+        }
+    }
+
+    @Test func removalRejectsAChangedSheetEvenWhenADuplicateHasTheSameID() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let duplicate = "### Same\nSame text.\n"
+            try (duplicate + duplicate).write(to: url, atomically: true, encoding: .utf8)
+            let sheet = try #require(SheetFiles.load(from: folder).first)
+            let entry = try #require(sheet.items.first?.entry)
+            try duplicate.write(to: url, atomically: true, encoding: .utf8)
+            #expect(throws: SheetFiles.EntryChangeError.sheetChanged) {
+                try SheetFiles.remove(entry, from: sheet)
+            }
+            #expect(try String(contentsOf: url, encoding: .utf8) == duplicate)
+        }
+    }
+
+    @Test func insertsIntoSelectedOccurrenceAndPreservesExternalEdits() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("work.md")
+            let prefix = "# Work\n## Git\n### One\nFirst note.\n## Git\n"
+            let suffix = "## Git\n### Last\nKeep trailing spaces.  "
+            try (prefix + suffix).write(to: url, atomically: true, encoding: .utf8)
+            let sheet = try #require(SheetFiles.load(from: folder).first)
+            let destination = try #require(sheet.items.compactMap(\.section).dropFirst().first)
+
+            // These edits happen after the destination picker was populated.
+            let externalEdit = "### Command\n```sh\n## Git\n```\n<!--\n## Git\n-->\n"
+            try (prefix + externalEdit + suffix).write(to: url, atomically: true, encoding: .utf8)
+            try SheetFiles.save(draft, into: url, section: .existing(destination))
+
+            let block = try draft.markdown()
+            #expect(try String(contentsOf: url, encoding: .utf8) == prefix + externalEdit + "\n" + block + "\n\n" + suffix)
+            let entries = try #require(SheetFiles.load(from: folder).first).items.compactMap(\.entry)
+            #expect(entries.map(\.title) == ["One", "Command", "Reminder", "Last"])
+        }
+    }
+
+    @Test func insertsUnsectionedBeforeFirstSectionPreservingBOMAndCRLF() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let prefix = "\u{FEFF}# Café\r\n### 👋\r\nFirst.\r\n\r\n"
+            let suffix = "## Other\r\n"
+            try Data((prefix + suffix).utf8).write(to: url)
+            try SheetFiles.save(draft, into: url, section: .unsectioned)
+            let block = try draft.markdown().replacingOccurrences(of: "\n", with: "\r\n")
+            #expect(try Data(contentsOf: url) == Data((prefix + block + "\r\n\r\n" + suffix).utf8))
+        }
+    }
+
+    @Test func appendsAtEndOfEmptyUnsectionedAndFinalSections() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let block = try draft.markdown()
+            for (source, expected) in [
+                ("", block + "\n"),
+                ("### Previous\nText", "### Previous\nText\n\n" + block),
+                ("## Last\n", "## Last\n\n" + block + "\n")
+            ] {
+                try source.write(to: url, atomically: true, encoding: .utf8)
+                let section = CheatSheetParser.parse(source, fileURL: url).items.compactMap(\.section).last
+                try SheetFiles.save(draft, into: url, section: EntrySectionChoice(section))
+                #expect(try String(contentsOf: url, encoding: .utf8) == expected)
+            }
+        }
+    }
+
+    @Test func insertsThroughASymlinkKeepingTheLinkAndSectionIdentity() throws {
+        try withFolder { folder in
+            let target = folder.appendingPathComponent("source.txt")
+            let link = folder.appendingPathComponent("notes.md")
+            try "## Notes".write(to: target, atomically: true, encoding: .utf8)
+            try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+            let sheet = try #require(SheetFiles.load(from: folder).first)
+            let section = try #require(sheet.items.first?.section)
+            try SheetFiles.save(draft, into: link, section: EntrySectionChoice(section))
+            #expect(try FileManager.default.destinationOfSymbolicLink(atPath: link.path) == target.path)
+            let expected = try "## Notes\n\n" + draft.markdown()
+            #expect(try String(contentsOf: target, encoding: .utf8) == expected)
+        }
+    }
+
+    @Test func movingBetweenSheetAliasesWritesOneCopyToTheSharedFile() throws {
+        try withFolder { folder in
+            let source = folder.appendingPathComponent("work.md")
+            let alias = folder.appendingPathComponent("alias.md")
+            try "## First\n### Reminder\nBody\n## Last\n".write(to: source, atomically: true, encoding: .utf8)
+            try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: source)
+            let sheets = SheetFiles.load(from: folder)
+            let original = try #require(sheets.first { $0.id == source.lastPathComponent })
+            let destination = try #require(sheets.first { $0.id == alias.lastPathComponent })
+            let entry = try #require(original.items.compactMap(\.entry).first)
+            let section = try #require(destination.items.compactMap(\.section).last)
+            let index = try SheetFiles.save(draft, into: destination.sourceURL, section: .existing(section),
+                                            editing: SheetEntrySelection(entry: entry, sheet: original))
+            let saved = try #require(SheetFiles.load(from: folder).first { $0.id == alias.lastPathComponent })
+            #expect(saved.items.compactMap(\.entry).count == 1)
+            #expect(index == 2)
+            #expect(EntryDraft(entry: try #require(saved.items[index].entry)) == draft)
+            #expect(try FileManager.default.destinationOfSymbolicLink(atPath: alias.path) == source.path)
+        }
+    }
+
+    @Test func unavailableDestinationsLeaveFilesIntact() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("work.md")
+            let old = CheatSheetParser.parse("## Git", fileURL: url)
+            let section = try #require(old.items.first?.section)
+            let current = "## SQL\n"
+            try current.write(to: url, atomically: true, encoding: .utf8)
+            #expect(throws: SheetFiles.InsertionError.missingSection) {
+                try SheetFiles.save(draft, into: url, section: EntrySectionChoice(section))
+            }
+            #expect(try String(contentsOf: url, encoding: .utf8) == current)
+
+            let missing = folder.appendingPathComponent("missing.md")
+            #expect(throws: (any Error).self) { try SheetFiles.save(draft, into: missing, section: .unsectioned) }
+            #expect(!FileManager.default.fileExists(atPath: missing.path))
+        }
+    }
+
+    @Test func refusesInsertionInsideUnclosedMarkdownBlocks() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("work.md")
+            for source in ["### Command\n```sh\npwd\n", "<!--\n## Ignored\n"] {
+                try source.write(to: url, atomically: true, encoding: .utf8)
+                #expect(throws: SheetFiles.InsertionError.unclosedBlock) {
+                    try SheetFiles.save(draft, into: url, section: .unsectioned)
+                }
+                #expect(try String(contentsOf: url, encoding: .utf8) == source)
+            }
+        }
+    }
+
     private func withFolder(_ body: (URL) throws -> Void) throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

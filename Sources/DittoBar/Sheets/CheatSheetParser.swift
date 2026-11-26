@@ -1,16 +1,33 @@
 import Foundation
 
 enum CheatSheetParser {
-    private struct EntryDraft {
+    private struct ParsedEntryFields {
         let title: String
         let rawDescription: String
         let rawFencedContent: String?
         let fenceLanguage: String?
     }
 
+    struct ParsedDocument {
+        let sheet: CheatSheet
+        let sectionHeadings: [(section: CheatSheetSection, start: String.Index)]
+        let entrySourceRanges: [Range<String.Index>]
+        let endsInsideBlock: Bool
+    }
+
     static func parse(_ source: String, fileURL: URL) -> CheatSheet {
+        parseDocument(source, fileURL: fileURL).sheet
+    }
+
+    static func startsHeading(_ line: Substring) -> Bool {
+        line.hasPrefix("# ") || line.hasPrefix("## ") || line.hasPrefix("### ")
+    }
+
+    /// File edits use the same heading, fence, and comment boundaries as the displayed sheet.
+    static func parseDocument(_ source: String, fileURL: URL, locating target: CheatSheetEntry? = nil) -> ParsedDocument {
         let fileName = fileURL.lastPathComponent
-        let lines = source.components(separatedBy: .newlines)
+        let text = source.first == "\u{FEFF}" ? source.dropFirst() : source[...]
+        let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
         let fallbackTitle = Self.fallbackTitle(for: fileURL)
 
         var sheetTitle = fallbackTitle
@@ -18,40 +35,48 @@ enum CheatSheetParser {
         var entryTitle: String?
         var descriptionLines: [String] = []
         var items: [CheatSheetItem] = []
-        var entryCount = 0
-        var sectionCount = 0
+        // List rows need stable IDs when another entry is inserted or removed.
+        // Count only entries with the same title to distinguish duplicates.
+        var titleCounts: [String: Int] = [:]
+        var entrySourceRanges: [Range<String.Index>] = []
+        var currentRanges: [Range<String.Index>] = []
+        var sectionHeadings: [(section: CheatSheetSection, start: String.Index)] = []
+        var unclosedFence = false
         var isInsideComment = false
         var index = 0
+
+        // Keep ignored HTML comments in the file, including ones between lines of a note.
+        func recordLines(from first: Int, upTo next: Int) {
+            guard target != nil else { return }
+            let start = lines[first].startIndex
+            let end = next < lines.count ? lines[next].startIndex : source.endIndex
+            if let last = currentRanges.last, last.upperBound == start {
+                currentRanges[currentRanges.count - 1] = last.lowerBound..<end
+            } else {
+                currentRanges.append(start..<end)
+            }
+        }
 
         func appendEntry(rawFencedContent: String? = nil, fenceLanguage: String? = nil) {
             defer {
                 entryTitle = nil
                 descriptionLines = []
+                currentRanges = []
             }
 
             guard let title = entryTitle else { return }
-            let draft = EntryDraft(
+            let draft = ParsedEntryFields(
                 title: title,
                 rawDescription: descriptionLines.joined(separator: "\n"),
                 rawFencedContent: rawFencedContent,
                 fenceLanguage: fenceLanguage
             )
-            if let entry = makeEntry(from: draft, fileName: fileName, entryIndex: entryCount) {
+            let occurrence = titleCounts[title, default: 0]
+            if let entry = makeEntry(from: draft, fileName: fileName, titleOccurrence: occurrence) {
                 items.append(.entry(entry))
-                entryCount += 1
+                if entry == target { entrySourceRanges = currentRanges }
+                titleCounts[title, default: 0] += 1
             }
-        }
-
-        func appendSection(title: String) {
-            items.append(
-                .section(
-                    CheatSheetSection(
-                        id: "\(fileName):section:\(sectionCount):\(title)",
-                        title: title
-                    )
-                )
-            )
-            sectionCount += 1
         }
 
         while index < lines.count {
@@ -88,7 +113,12 @@ enum CheatSheetParser {
             if line.hasPrefix("## ") {
                 appendEntry()
                 let title = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                appendSection(title: title)
+                let section = CheatSheetSection(
+                    id: "\(fileName):section:\(sectionHeadings.count):\(title)",
+                    title: title
+                )
+                items.append(.section(section))
+                sectionHeadings.append((section, line.startIndex))
                 descriptionLines = []
                 index += 1
                 continue
@@ -97,21 +127,25 @@ enum CheatSheetParser {
             if line.hasPrefix("### ") {
                 appendEntry()
                 entryTitle = String(line.dropFirst(4)).trimmingCharacters(in: .whitespaces)
+                recordLines(from: index, upTo: index + 1)
                 descriptionLines = []
                 index += 1
                 continue
             }
 
             if line.hasPrefix("```") {
+                let fenceStart = index
                 let language = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
                 var contentLines: [String] = []
                 index += 1
 
                 while index < lines.count, !lines[index].hasPrefix("```") {
-                    contentLines.append(lines[index])
+                    contentLines.append(String(lines[index]))
                     index += 1
                 }
 
+                unclosedFence = index == lines.count
+                if entryTitle != nil { recordLines(from: fenceStart, upTo: index + 1) }
                 appendEntry(
                     rawFencedContent: contentLines.joined(separator: "\n"),
                     fenceLanguage: language
@@ -121,6 +155,7 @@ enum CheatSheetParser {
             }
 
             if entryTitle != nil {
+                recordLines(from: index, upTo: index + 1)
                 // Leading whitespace nests list items, so only trim the end.
                 descriptionLines.append(String(line.reversed().drop(while: { $0 == " " || $0 == "\t" }).reversed()))
             }
@@ -129,32 +164,38 @@ enum CheatSheetParser {
 
         appendEntry()
 
-        return CheatSheet(
+        let sheet = CheatSheet(
             id: fileName,
             title: sheetTitle,
             items: items,
             sourceURL: fileURL
         )
+        return ParsedDocument(
+            sheet: sheet,
+            sectionHeadings: sectionHeadings,
+            entrySourceRanges: entrySourceRanges,
+            endsInsideBlock: isInsideComment || unclosedFence
+        )
     }
 
     private static func makeEntry(
-        from draft: EntryDraft,
+        from draft: ParsedEntryFields,
         fileName: String,
-        entryIndex: Int
+        titleOccurrence: Int
     ) -> CheatSheetEntry? {
         let rawDescription = draft.rawDescription
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let rawFencedContent = draft.rawFencedContent?
+        let trimmedContent = draft.rawFencedContent?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let metadata = EntryMetadata(
-            id: "\(fileName):\(entryIndex):\(draft.title)",
+            id: "\(fileName):\(titleOccurrence):\(draft.title)",
             storageKey: "\(fileName)#\(draft.title)",
             title: draft.title
         )
 
-        if let rawFencedContent, !rawFencedContent.isEmpty {
+        if let content = draft.rawFencedContent, let trimmedContent, !trimmedContent.isEmpty {
             let description = rawDescription.isEmpty ? nil : rawDescription
-            let variableSource = [description, rawFencedContent]
+            let variableSource = [description, content]
                 .compactMap { $0 }
                 .joined(separator: "\n")
             let variables = TextVariables.variables(in: variableSource)
@@ -164,7 +205,7 @@ enum CheatSheetParser {
                     URLEntry(
                         metadata: metadata,
                         rawDescription: description,
-                        rawURL: rawFencedContent,
+                        rawURL: trimmedContent,
                         variables: variables
                     )
                 )
@@ -175,7 +216,7 @@ enum CheatSheetParser {
                     FileEntry(
                         metadata: metadata,
                         rawDescription: description,
-                        rawPath: rawFencedContent,
+                        rawPath: trimmedContent,
                         variables: variables
                     )
                 )
@@ -187,7 +228,7 @@ enum CheatSheetParser {
                 CommandEntry(
                     metadata: metadata,
                     rawDescription: description,
-                    rawCommand: rawFencedContent,
+                    rawCommand: content,
                     language: language?.isEmpty == true ? nil : language,
                     variables: variables
                 )

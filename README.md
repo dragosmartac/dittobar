@@ -18,6 +18,8 @@ To build a standalone application:
 open "dist/DittoBar.app"
 ```
 
+In **Add Sheet Entry** and **Edit Selected Entry**, choose a sheet and a section. Choose **New section…** to create a section when you save. Editing keeps the entry in its current position unless you choose a different destination, in which case Save moves it to the end of the chosen section.
+
 ## Keyboard controls
 
 | Key | Action |
@@ -29,7 +31,10 @@ open "dist/DittoBar.app"
 | `Up` / `Down` | Select the previous or next entry or section |
 | `Return` | Perform the selected entry's primary action, or open its variable form. URLs and files open; other entries copy. On a section, collapse or expand it |
 | `Option-Return` | Open the selected entry or section's action menu |
-| `Command-Return` | Perform the primary action without opening the variable form |
+| `Command-Return` | In the list, perform the primary action without opening the variable form. In Add Entry or Edit Entry, save the entry |
+| `⌘+` | Add a sheet entry, including while search has focus |
+| `⌘=` | Edit the selected entry in place, also available under **More Options → Edit Selected Entry** |
+| `⌘−` | Ask to remove the selected entry from its Markdown file |
 | `Command-C` | Copy text selected inside an entry |
 | `Command-E` | Open the current Markdown file in the configured editor |
 | `Command-F` | Focus search |

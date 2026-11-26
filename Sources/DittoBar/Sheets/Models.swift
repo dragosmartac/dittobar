@@ -180,7 +180,7 @@ enum CheatSheetEntry: Identifiable, Equatable {
     }
 }
 
-struct CheatSheetSection: Identifiable, Equatable {
+struct CheatSheetSection: Identifiable, Hashable {
     let id: String
     let title: String
 }

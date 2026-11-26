@@ -24,8 +24,14 @@ struct EntryListView: View {
         EntryFonts(textFamily: textFontFamily, codeFamily: codeFontFamily)
     }
 
+    private struct RowSelection: Equatable {
+        let id: String?
+        let index: Int
+    }
+
     var body: some View {
         let selectedItemID = store.selectedItemID
+        let selection = RowSelection(id: selectedItemID, index: store.selectedItemIndex)
 
         return ScrollViewReader { proxy in
             List(store.visibleItems) { item in
@@ -116,37 +122,30 @@ struct EntryListView: View {
                 }
             }
             .listStyle(.inset)
+            // Switching between search results and the whole sheet replaces the data set.
+            // Give each its own backing table when a save clears the search during dismissal.
+            .id(store.query.isEmpty)
             .overlay {
                 if store.visibleItems.isEmpty {
                     ContentUnavailableView.search(text: store.query)
                 }
             }
-            .onChange(of: store.selectedItemIndex) { oldIndex, newIndex in
+            .onChange(of: selection) { previous, current in
                 let source = store.consumeEntrySelectionSource()
                 // A clicked row is already under the pointer; scrolling would
                 // slide it away.
                 guard source != .pointer, let itemID = store.selectedItem?.id else { return }
-                let duration = scrollDuration(for: source, rowDistance: abs(newIndex - oldIndex))
+                let duration = scrollDuration(for: source, rowDistance: abs(current.index - previous.index))
                 let query = store.query
 
-                let scroll = {
+                // Even instant jumps can ask NSTableView to measure rows. Let the
+                // current list update finish before touching its layout or the proxy.
+                DispatchQueue.main.async {
                     // A newer key press or search can overtake this queued update.
                     guard store.selectedItemID == itemID, store.query == query else { return }
                     if !animateListScroll(toItemID: itemID, duration: duration) {
                         proxy.scrollTo(itemID)
                     }
-                }
-
-                if duration == 0 {
-                    // Jump in the same frame as the highlight moves. Deferred,
-                    // the highlight and the jump land in separate frames, and
-                    // a held key makes them flicker.
-                    scroll()
-                } else {
-                    // Start the slide once SwiftUI finishes this update.
-                    // Started from inside it, the slide loses its first
-                    // frames to the rest of the update.
-                    DispatchQueue.main.async(execute: scroll)
                 }
             }
             .onChange(of: store.query) {

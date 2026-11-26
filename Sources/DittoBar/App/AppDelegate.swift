@@ -4,7 +4,8 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private(set) var panel: CheatSheetPanel!
-    let store = CheatSheetStore()
+    let moreOptions: MoreOptionsMenu
+    let store: CheatSheetStore
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
     private(set) var copyOptionsController: CopyOptionsMenuController!
@@ -14,6 +15,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var previouslyActiveApplication: NSRunningApplication?
 
     private static let panelScreenHeightFraction: CGFloat = 0.85
+
+    init(store: CheatSheetStore) {
+        self.store = store
+        moreOptions = MoreOptionsMenu(store: store)
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureMainMenu()
@@ -78,8 +85,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.mainMenu = mainMenu
     }
 
-    private func configurePanel() {
-        panel = CheatSheetPanel(rootView: MainView(store: store).modifier(AccentTheme()))
+    func configurePanel() {
+        panel = CheatSheetPanel(rootView: MainView(store: store, moreOptions: moreOptions).modifier(AccentTheme()))
         panel.delegate = self
         copyOptionsController = CopyOptionsMenuController(store: store, panel: panel)
         store.onRequestClose = { [weak self] in
@@ -195,7 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, !self.isMouseOverStatusItem,
-                      !self.store.isSettingsPresented,
+                      !self.store.isPanelSheetPresented,
                       self.panel.attachedSheet == nil else { return }
                 self.closePanel(restoringFocus: false)
             }
@@ -215,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // app after ⌘Tab.
         DispatchQueue.main.async { [weak self] in
             guard let self, self.panel.isVisible, !self.panel.isKeyWindow,
-                  self.panel.attachedSheet == nil, !self.store.isSettingsPresented,
+                  self.panel.attachedSheet == nil, !self.store.isPanelSheetPresented,
                   !self.copyOptionsController.isPresented else { return }
             // Clicking the status item can take key focus before its mouse-up
             // action. Leave the panel visible so that action toggles it closed.
@@ -227,6 +234,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func closePanel(restoringFocus: Bool) {
         guard panel.isVisible else { return }
         stopMonitoringOutsideClicks()
+        moreOptions.dismiss()
         panel.orderOut(nil)
 
         // Keep any in-progress variable form alive while the panel is hidden.

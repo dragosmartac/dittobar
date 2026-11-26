@@ -4,6 +4,7 @@ import SwiftUI
 struct MainView: View {
     @Environment(\.dittoAccent) private var accentColor
     @ObservedObject var store: CheatSheetStore
+    @ObservedObject var moreOptions: MoreOptionsMenu
     @FocusState private var searchIsFocused: Bool
     @AppStorage(DisplayPreferences.titleFontSizeKey)
     private var titleFontSize = DisplayPreferences.defaultTitleFontSize
@@ -25,16 +26,47 @@ struct MainView: View {
             }
 
             Divider()
-            footer
+            MainFooter(store: store, chromeSize: chromeSize)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { PanelBackground() }
+        .overlayPreferenceValue(MoreOptionsAnchor.self) { anchor in
+            if moreOptions.highlightedItem != nil, let anchor {
+                GeometryReader { geometry in
+                    let button = geometry[anchor]
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { moreOptions.dismiss() }
+                        .accessibilityHidden(true)
+                    MoreOptionsList(options: moreOptions)
+                        .padding(.trailing, geometry.size.width - button.maxX)
+                        .padding(.top, button.maxY + 4)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
+            }
+        }
         .overlay {
             // Built only while a form is up, so its @FocusState starts fresh
             // each time instead of carrying focus over from the last entry.
             if store.variableForm != nil {
                 VariableFormView(store: store)
             }
+        }
+        .sheet(item: $store.entryForm) { form in
+            EntryFormView(store: store, form: form)
+                .modifier(AccentTheme())
+        }
+        .sheet(item: $store.pendingEntryRemoval) { removal in
+            RemoveEntryConfirmationView(removal: removal) {
+                store.pendingEntryRemoval = nil
+            } onRemove: {
+                store.removeEntry(removal)
+            }
+            .modifier(AccentTheme())
+        }
+        .sheet(isPresented: $store.isMarkdownRulesPresented) {
+            MarkdownRulesView()
+                .modifier(AccentTheme())
         }
         .sheet(isPresented: $store.isSettingsPresented) {
             SettingsView(store: store)
@@ -78,8 +110,15 @@ struct MainView: View {
             // says which app this is, and the list gets the space back.
             HStack(spacing: 10) {
                 searchField
-                MoreOptionsButton(store: store, symbolSize: chromeSize * 1.15)
-                    .frame(width: chromeSize * 1.5, height: chromeSize * 1.5)
+                Button(action: moreOptions.open) {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: chromeSize * 1.15))
+                        .frame(width: chromeSize * 1.5, height: chromeSize * 1.5)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("More Options")
+                .help("More Options (⌘⇧M)")
+                .anchorPreference(key: MoreOptionsAnchor.self, value: .bounds) { $0 }
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -121,9 +160,6 @@ struct MainView: View {
             TextField("Search entries", text: $store.query)
                 .textFieldStyle(.plain)
                 .focused($searchIsFocused)
-                .onChange(of: store.query) {
-                    store.selectFirstEntry()
-                }
                 .onReceive(NotificationCenter.default.publisher(for: .focusCheatSheetSearch)) { _ in
                     searchIsFocused = true
                 }
@@ -170,59 +206,5 @@ struct MainView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var footer: some View {
-        HStack(spacing: 14) {
-            switch store.selectedItem {
-            case .entry(let entry):
-                footerShortcut("↩", label: returnVerb(for: entry))
-                footerShortcut("⌥↩", label: "options")
-                if entry.hasVariables {
-                    footerShortcut("⌘↩", label: "skip form")
-                }
-            case .section(let section):
-                footerShortcut("↩", label: store.isCollapsed(section) ? "expand" : "collapse")
-                footerShortcut("⌥↩", label: "options")
-            case nil:
-                EmptyView()
-            }
-            footerShortcut("⌘E", label: "edit")
-            footerShortcut("⌘⇧N", label: "new")
-            Spacer()
-            footerShortcut("⌘⇧M", label: "more")
-        }
-        .font(.system(size: chromeSize * 0.85))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 14)
-        .frame(height: max(38, chromeSize * 2.6))
-    }
-
-    private func footerShortcut(_ keys: String, label: String) -> some View {
-        HStack(spacing: 8) {
-            Text(keys)
-                .font(.system(size: chromeSize * 0.8, weight: .medium, design: .monospaced))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(PanelStyle.mutedFill, in: RoundedRectangle(cornerRadius: 4))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
-                }
-            Text(label)
-                .foregroundStyle(.secondary.opacity(0.85))
-        }
-        .fixedSize()
-        .accessibilityElement(children: .combine)
-    }
-
-    private func returnVerb(for entry: CheatSheetEntry) -> String {
-        switch entry.actions.primary {
-        case .openURL, .openFile, .revealInFinder:
-            return "open"
-        default:
-            return "copy"
-        }
     }
 }

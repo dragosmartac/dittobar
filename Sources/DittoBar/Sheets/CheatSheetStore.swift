@@ -16,6 +16,7 @@ final class CheatSheetStore: ObservableObject {
         didSet {
             searchCollapsedSectionKeys = []
             updateVisibleItems()
+            if oldValue != query { selectFirstEntry() }
         }
     }
     /// The selected sheet's items that match `query`. Stored rather than
@@ -34,8 +35,16 @@ final class CheatSheetStore: ObservableObject {
     @Published var editorErrorMessage: String?
     @Published var isNewSheetPromptPresented = false
     @Published var newSheetName = ""
+    @Published var entryForm: EntryFormState?
+    @Published var pendingEntryRemoval: SheetEntrySelection?
     @Published var variableForm: VariableFormState?
     @Published var isSettingsPresented = false
+    @Published var isMarkdownRulesPresented = false
+
+    var isPanelSheetPresented: Bool {
+        isSettingsPresented || isMarkdownRulesPresented || entryForm != nil || pendingEntryRemoval != nil
+    }
+
     @Published private var pinnedItemID: String?
 
     @Published private(set) var folderURL: URL
@@ -117,6 +126,8 @@ final class CheatSheetStore: ObservableObject {
         } else {
             defaults.set(url.path, forKey: Self.sheetsDirectoryPathKey)
         }
+        entryForm = nil
+        pendingEntryRemoval = nil
         variableForm = nil
         pinnedItemID = nil
         copiedEntryIDs = []
@@ -298,6 +309,77 @@ final class CheatSheetStore: ObservableObject {
             (selectedItemIndex + offset + count) % count,
             source: isRepeat ? .keyboardRepeat : .keyboard
         )
+    }
+
+    // MARK: - Entry editing
+
+    func requestEntryRemoval() {
+        guard !isPanelSheetPresented, let sheet = selectedSheet, let entry = selectedEntry else { return }
+        pendingEntryRemoval = SheetEntrySelection(entry: entry, sheet: sheet)
+    }
+
+    func removeEntry(_ removal: SheetEntrySelection) {
+        guard pendingEntryRemoval?.id == removal.id else { return }
+        pendingEntryRemoval = nil
+        do {
+            try SheetFiles.remove(removal.entry, from: removal.sheet)
+        } catch {
+            editorErrorMessage = error.localizedDescription
+        }
+        reload()
+    }
+
+    func beginNewEntry() {
+        presentEntryForm(editing: nil)
+    }
+
+    func editSelectedEntry() {
+        guard let entry = selectedEntry else { return }
+        presentEntryForm(editing: entry)
+    }
+
+    private func presentEntryForm(editing entry: CheatSheetEntry?) {
+        guard !isPanelSheetPresented, let sheet = selectedSheet else { return }
+        let index = selectedItem.flatMap { sheet.items.firstIndex(of: $0) }
+        let section = index.flatMap { sheet.items[...$0].last(where: { $0.section != nil })?.section }
+        entryForm = EntryFormState(sheet: sheet, section: section, editing: entry)
+    }
+
+    func cancelEntryForm() {
+        entryForm = nil
+    }
+
+    func saveEntryForm() {
+        guard let form = entryForm else { return }
+        let itemIndex: Int
+        do {
+            itemIndex = try SheetFiles.save(
+                form.draft, into: form.sheetURL, section: form.section,
+                newSectionName: form.newSectionName, editing: form.original
+            )
+        } catch {
+            entryForm?.errorMessage = error.localizedDescription
+            return
+        }
+
+        // The write succeeded. Even if the file disappears during reload, retrying
+        // the same draft would duplicate an entry that was already saved.
+        entryForm = nil
+        pinnedItemID = nil
+        reload()
+        guard let sheetIndex = sheets.firstIndex(where: { $0.sourceURL == form.sheetURL }) else { return }
+        selectSheet(at: sheetIndex)
+        let items = sheets[sheetIndex].items
+        guard items.indices.contains(itemIndex), let entry = items[itemIndex].entry,
+              entry.title == form.draft.title.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+        let item = CheatSheetItem.entry(entry)
+        if !matchingItems.contains(item) { query = "" }
+        if let section = items[..<itemIndex].last(where: { $0.section != nil })?.section, isCollapsed(section) {
+            toggleSection(section)
+        }
+        if let index = selectableItems.firstIndex(of: item) {
+            setSelectedItemIndex(index, source: .other)
+        }
     }
 
     // MARK: - Variables
