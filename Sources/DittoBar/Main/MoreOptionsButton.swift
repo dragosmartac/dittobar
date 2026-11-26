@@ -60,6 +60,8 @@ struct MoreOptionsButton: NSViewRepresentable {
                 modifiers: []
             )
             menu.addItem(.separator())
+            addItem("Display Markdown Rules", action: #selector(displayMarkdownRules))
+            menu.addItem(.separator())
             addItem("Settings…", action: #selector(openSettings), key: ",")
             menu.addItem(.separator())
             addItem("Quit DittoBar", action: #selector(quitApplication), key: "q")
@@ -131,6 +133,10 @@ struct MoreOptionsButton: NSViewRepresentable {
 
         @objc private func copyFolderPath() {
             store.copyFolderPath()
+        }
+
+        @objc private func displayMarkdownRules() {
+            store.isMarkdownRulesPresented = true
         }
 
         @objc private func openSettings() {

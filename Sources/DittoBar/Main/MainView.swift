@@ -40,6 +40,10 @@ struct MainView: View {
             NewEntryFormView(store: store, form: form)
                 .modifier(AccentTheme())
         }
+        .sheet(isPresented: $store.isMarkdownRulesPresented) {
+            MarkdownRulesView()
+                .modifier(AccentTheme())
+        }
         .sheet(isPresented: $store.isSettingsPresented) {
             SettingsView(store: store)
                 .modifier(AccentTheme())

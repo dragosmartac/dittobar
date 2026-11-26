@@ -16,7 +16,7 @@ extension AppDelegate {
         }
 
         // Sheets handle their own text editing, focus traversal, and key equivalents.
-        if store.isSettingsPresented || store.newEntryForm != nil {
+        if store.isPanelSheetPresented {
             return event
         }
 

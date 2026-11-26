@@ -38,6 +38,12 @@ final class CheatSheetStore: ObservableObject {
     @Published var newEntryForm: NewEntryFormState?
     @Published var variableForm: VariableFormState?
     @Published var isSettingsPresented = false
+    @Published var isMarkdownRulesPresented = false
+
+    var isPanelSheetPresented: Bool {
+        isSettingsPresented || isMarkdownRulesPresented || newEntryForm != nil
+    }
+
     @Published private var pinnedItemID: String?
 
     @Published private(set) var folderURL: URL

@@ -5,6 +5,22 @@ import Testing
 
 @MainActor
 struct CheatSheetStoreNewEntryTests {
+    @Test func markdownRulesMenuSectionPrecedesSettings() throws {
+        try withStore { store in
+            _ = NSApplication.shared
+            let coordinator = MoreOptionsButton.Coordinator(store: store)
+            let menu = coordinator.menu
+            let rules = try #require(menu.item(withTitle: "Display Markdown Rules"))
+            let index = menu.index(of: rules)
+            #expect(menu.item(at: index - 1)?.isSeparatorItem == true)
+            #expect(menu.item(at: index + 1)?.isSeparatorItem == true)
+            #expect(menu.item(at: index + 2)?.title == "Settings…")
+            menu.performActionForItem(at: index)
+            #expect(store.isMarkdownRulesPresented)
+            #expect(store.isPanelSheetPresented)
+        }
+    }
+
     @Test func moreOptionsOpensDraftAndSavesMultilineCommand() throws {
         try withStore { store in
             let destination = try #require(store.selectedSheet?.sourceURL)

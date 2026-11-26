@@ -200,7 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, !self.isMouseOverStatusItem,
-                      !self.store.isSettingsPresented, self.store.newEntryForm == nil,
+                      !self.store.isPanelSheetPresented,
                       self.panel.attachedSheet == nil else { return }
                 self.closePanel(restoringFocus: false)
             }
@@ -220,7 +220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // app after ⌘Tab.
         DispatchQueue.main.async { [weak self] in
             guard let self, self.panel.isVisible, !self.panel.isKeyWindow,
-                  self.panel.attachedSheet == nil, !self.store.isSettingsPresented, self.store.newEntryForm == nil,
+                  self.panel.attachedSheet == nil, !self.store.isPanelSheetPresented,
                   !self.copyOptionsController.isPresented else { return }
             // Clicking the status item can take key focus before its mouse-up
             // action. Leave the panel visible so that action toggles it closed.
