@@ -24,6 +24,7 @@ final class NewEntryFormState: ObservableObject, Identifiable {
     @Published var section: EntrySectionChoice
     @Published var newSectionName = ""
     @Published var draft = NewEntryDraft(kind: .note, title: "", rawContent: "")
+    @Published var isMarkdownHelpPresented = false
     @Published var errorMessage: String?
 
     init(sheetURL: URL, section: CheatSheetSection?) {

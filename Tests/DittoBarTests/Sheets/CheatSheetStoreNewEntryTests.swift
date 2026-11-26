@@ -5,7 +5,7 @@ import Testing
 
 @MainActor
 struct CheatSheetStoreNewEntryTests {
-    @Test func commandArrowsReachAddEntryPickersAndTextEditors() async throws {
+    @Test func addEntryShortcutsOpenHelpAndNavigateFields() async throws {
         let (store, cleanup) = try makeStore()
         defer { cleanup() }
         _ = NSApplication.shared
@@ -30,6 +30,33 @@ struct CheatSheetStoreNewEntryTests {
         }
         let window = panel.attachedSheet ?? panel
         let windowNumber = window.windowNumber
+
+        let helpShortcut = try #require(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+            windowNumber: windowNumber, context: nil, characters: "m", charactersIgnoringModifiers: "m",
+            isARepeat: false, keyCode: 46
+        ))
+        #expect(window.performKeyEquivalent(with: helpShortcut))
+        let presentationDeadline = ContinuousClock.now + .seconds(2)
+        while !form.isMarkdownHelpPresented, ContinuousClock.now < presentationDeadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(form.isMarkdownHelpPresented)
+        window.contentView?.layoutSubtreeIfNeeded()
+        let done = try #require(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+            isARepeat: false, keyCode: 36
+        ))
+        #expect(window.performKeyEquivalent(with: done))
+        let dismissalDeadline = ContinuousClock.now + .seconds(2)
+        while form.isMarkdownHelpPresented || (window.firstResponder as? NSTextView)?.string != "Title",
+              ContinuousClock.now < dismissalDeadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(!form.isMarkdownHelpPresented)
+        #expect(store.newEntryForm === form)
+        #expect(form.draft.rawContent == "Command")
 
         @MainActor func press(_ code: UInt16) throws {
             let character = code == 125 ? "\u{F701}" : "\u{F700}"

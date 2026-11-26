@@ -16,7 +16,7 @@ extension AppDelegate {
         }
 
         // SwiftUI can host Add Entry inside the panel or in an attached sheet.
-        if store.newEntryForm != nil, let window = event.window,
+        if let form = store.newEntryForm, !form.isMarkdownHelpPresented, let window = event.window,
            window === (panel.attachedSheet ?? panel),
            modifiers.intersection([.command, .option, .control, .shift]) == .command,
            let start = focusTraversalStart(in: window) {

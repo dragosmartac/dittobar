@@ -3,6 +3,13 @@ import SwiftUI
 struct MarkdownRulesView: View {
     @Environment(\.dismiss) private var dismiss
 
+    var showsSheetStructure = true
+    var onDone: (() -> Void)?
+
+    private func close() {
+        if let onDone { onDone() } else { dismiss() }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Markdown Rules")
@@ -10,13 +17,15 @@ struct MarkdownRulesView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Sheet structure").font(.headline)
-                        example("# Sheet title\n## Section\n### Entry title")
-                        Text("There are multiple types of entries. Usually you can start typing immediately after the entrie's title. For a command, URL, or file entry add a fenced block like this:")
-                        example("```sh\ngit switch {{branch=main}}\n```")
+                    if showsSheetStructure {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Sheet structure").font(.headline)
+                            example("# Sheet title\n## Section\n### Entry title")
+                            Text("There are multiple types of entries. Usually you can start typing immediately after the entrie's title. For a command, URL, or file entry add a fenced block like this:")
+                            example("```sh\ngit switch {{branch=main}}\n```")
+                        }
+                        Divider()
                     }
-                    Divider()
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Notes and descriptions").font(.headline)
                         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 18, verticalSpacing: 10) {
@@ -41,13 +50,13 @@ struct MarkdownRulesView: View {
 
             HStack {
                 Spacer()
-                Button("Done") { dismiss() }
+                Button("Done", action: close)
                     .keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
         .frame(width: 530, height: 550)
-        .onExitCommand { dismiss() }
+        .onExitCommand(perform: close)
     }
 
     private func rule(_ label: String, _ syntax: String) -> some View {

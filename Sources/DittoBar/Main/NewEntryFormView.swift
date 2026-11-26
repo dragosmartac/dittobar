@@ -11,6 +11,17 @@ struct NewEntryFormView: View {
     }
 
     var body: some View {
+        Group {
+            if form.isMarkdownHelpPresented {
+                MarkdownRulesView(showsSheetStructure: false) { form.isMarkdownHelpPresented = false }
+            } else {
+                entryForm
+            }
+        }
+        .frame(width: 640, height: 620)
+    }
+
+    private var entryForm: some View {
         VStack(alignment: .leading, spacing: Spacing.section) {
             Text("Add Entry")
                 .font(.title2.bold())
@@ -46,6 +57,14 @@ struct NewEntryFormView: View {
             HStack(spacing: Spacing.compact) {
                 FooterShortcutHint(keys: "⌘↑ / ⌘↓", label: "navigate fields", keySize: 11)
                     .font(.caption)
+                Button {
+                    form.isMarkdownHelpPresented = true
+                } label: {
+                    FooterShortcutHint(keys: "⌘M", label: "Markdown help", keySize: 11)
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("m", modifiers: .command)
                 Spacer()
                 Button("Cancel", role: .cancel) { store.cancelNewEntry() }
                     .keyboardShortcut(.cancelAction)
@@ -54,7 +73,6 @@ struct NewEntryFormView: View {
             }
         }
         .padding(20)
-        .frame(width: 640, height: 620)
         .defaultFocus($titleFocused, true)
         .onAppear { titleFocused = true }
     }
