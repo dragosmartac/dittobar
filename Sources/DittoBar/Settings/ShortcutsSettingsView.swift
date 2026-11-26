@@ -65,6 +65,7 @@ private struct ShortcutGroup: Identifiable {
             Shortcut(title: "Close", keys: [["Esc"]])
         ]),
         ShortcutGroup(title: "Entries", shortcuts: [
+            Shortcut(title: "Add entry from the list", keys: [["+"]]),
             Shortcut(title: "Copy or open, or fill in variables first", keys: [["↩"]]),
             Shortcut(title: "Copy or open with the current variable values", keys: [["⌘", "↩"]]),
             Shortcut(title: "Show all actions", keys: [["⌥", "↩"]])

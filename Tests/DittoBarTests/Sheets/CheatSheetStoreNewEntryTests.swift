@@ -31,6 +31,71 @@ struct CheatSheetStoreNewEntryTests {
         }
     }
 
+    @Test func panelPlusOpensOneDraftAndPreservesTextInput() throws {
+        try withStore { store in
+            _ = NSApplication.shared
+            let delegate = AppDelegate(store: store)
+            delegate.configurePanel()
+            let panel = try #require(delegate.panel)
+            panel.alphaValue = 0
+            panel.orderBack(nil)
+            defer { panel.orderOut(nil) }
+
+            let windowNumber = panel.windowNumber
+            func plus(_ flags: NSEvent.ModifierFlags, repeat isRepeat: Bool = false) throws -> NSEvent {
+                try #require(NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0,
+                    windowNumber: windowNumber, context: nil,
+                    characters: "+", charactersIgnoringModifiers: "+", isARepeat: isRepeat,
+                    keyCode: flags.contains(.numericPad) ? 69 : 24
+                ))
+            }
+
+            let key = try plus(.shift)
+            let search = NSSearchField(string: "C")
+            panel.contentView?.addSubview(search)
+            #expect(panel.makeFirstResponder(search))
+            let editor = try #require(search.currentEditor() as? NSTextView)
+            editor.setSelectedRange(NSRange(location: 1, length: 0))
+            for _ in 0..<2 {
+                let passed = try #require(delegate.handleKeyEvent(key))
+                editor.insertText(passed.characters ?? "", replacementRange: editor.selectedRange())
+            }
+            #expect(search.stringValue == "C++")
+            #expect(store.newEntryForm == nil)
+
+            panel.makeFirstResponder(nil)
+            let modified = try plus([.command, .shift])
+            #expect(delegate.handleKeyEvent(modified) === modified)
+            #expect(delegate.handleKeyEvent(try plus(.shift, repeat: true)) == nil)
+            #expect(store.newEntryForm == nil)
+            #expect(delegate.handleKeyEvent(key) == nil)
+            let form = try #require(store.newEntryForm)
+            form.draft.title = "Language"
+            form.draft.rawContent = "C"
+            for _ in 0..<2 {
+                let passed = try #require(delegate.handleKeyEvent(key))
+                form.draft.rawContent += passed.characters ?? ""
+            }
+            #expect(store.newEntryForm === form)
+            store.saveNewEntry()
+
+            delegate.closePanel(restoringFocus: false)
+            #expect(delegate.handleKeyEvent(key) === key)
+            store.reload()
+            panel.orderBack(nil)
+            guard case .note(let saved) = store.selectedEntry else {
+                Issue.record("Expected the saved note after reopening")
+                return
+            }
+            #expect(saved.metadata.title == "Language")
+            #expect(saved.rawContent == "C++")
+            #expect(delegate.handleKeyEvent(try plus(.numericPad)) == nil)
+            #expect(store.newEntryForm != nil)
+            store.cancelNewEntry()
+        }
+    }
+
     @Test(arguments: [true, false])
     func presentedFormSurvivesSaveAndCancel(save: Bool) throws {
         try withStore { store in

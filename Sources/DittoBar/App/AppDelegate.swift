@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private(set) var panel: CheatSheetPanel!
-    let store = CheatSheetStore()
+    let store: CheatSheetStore
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
     private(set) var copyOptionsController: CopyOptionsMenuController!
@@ -14,6 +14,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var previouslyActiveApplication: NSRunningApplication?
 
     private static let panelScreenHeightFraction: CGFloat = 0.85
+
+    init(store: CheatSheetStore) {
+        self.store = store
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureMainMenu()
@@ -78,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.mainMenu = mainMenu
     }
 
-    private func configurePanel() {
+    func configurePanel() {
         panel = CheatSheetPanel(rootView: MainView(store: store).modifier(AccentTheme()))
         panel.delegate = self
         copyOptionsController = CopyOptionsMenuController(store: store, panel: panel)

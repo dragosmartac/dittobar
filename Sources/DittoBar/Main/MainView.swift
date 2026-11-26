@@ -190,6 +190,10 @@ struct MainView: View {
             }
             footerShortcut("⌘E", label: "edit")
             footerShortcut("⌘⇧N", label: "new")
+            if store.selectedSheet != nil {
+                Divider().frame(height: chromeSize * 1.4)
+                footerShortcut("+", label: "Add entry")
+            }
             Spacer()
             footerShortcut("⌘⇧M", label: "more")
         }

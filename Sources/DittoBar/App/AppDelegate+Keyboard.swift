@@ -35,6 +35,15 @@ extension AppDelegate {
             return nil
         }
 
+        // Match the typed symbol so Shift-= and keypad + work across layouts.
+        // The field editor receives printable keys while the user is typing in search.
+        if event.characters == "+", modifiers.isDisjoint(with: [.command, .control, .option, .function]),
+           event.window === panel, (panel.firstResponder as? NSText)?.isEditable != true,
+           store.selectedSheet != nil {
+            if !event.isARepeat { store.beginNewEntry() }
+            return nil
+        }
+
         if modifiers.contains(.command),
            let characters = event.charactersIgnoringModifiers,
            let number = Int(characters),

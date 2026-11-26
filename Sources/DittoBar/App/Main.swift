@@ -4,7 +4,7 @@ import AppKit
 enum DittoBarApp {
     static func main() {
         let application = NSApplication.shared
-        let delegate = AppDelegate()
+        let delegate = AppDelegate(store: CheatSheetStore())
 
         application.setActivationPolicy(.accessory)
         application.delegate = delegate
