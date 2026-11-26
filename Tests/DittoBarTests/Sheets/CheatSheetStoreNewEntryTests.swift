@@ -10,7 +10,9 @@ struct CheatSheetStoreNewEntryTests {
             let destination = try #require(store.selectedSheet?.sourceURL)
             let coordinator = MoreOptionsButton.Coordinator(store: store)
             let menu = coordinator.menu
-            let action = try #require(menu.item(withTitle: "Add Entry…"))
+            let action = try #require(menu.item(withTitle: "Add Sheet Entry"))
+            #expect(action.keyEquivalent == "+")
+            #expect(action.keyEquivalentModifierMask == .command)
             #expect(coordinator.validateMenuItem(action))
             #expect(menu.item(at: menu.index(of: action) + 1)?.isSeparatorItem == true)
             _ = NSApplication.shared
@@ -31,7 +33,7 @@ struct CheatSheetStoreNewEntryTests {
         }
     }
 
-    @Test func panelPlusOpensOneDraftAndPreservesTextInput() throws {
+    @Test func commandPlusOpensOneDraftFromSearchAndPreservesTextInput() throws {
         try withStore { store in
             _ = NSApplication.shared
             let delegate = AppDelegate(store: store)
@@ -64,12 +66,13 @@ struct CheatSheetStoreNewEntryTests {
             #expect(search.stringValue == "C++")
             #expect(store.newEntryForm == nil)
 
-            panel.makeFirstResponder(nil)
-            let modified = try plus([.command, .shift])
+            let shortcut = try plus([.command, .shift])
+            let modified = try plus([.command, .control])
             #expect(delegate.handleKeyEvent(modified) === modified)
-            #expect(delegate.handleKeyEvent(try plus(.shift, repeat: true)) == nil)
+            #expect(delegate.handleKeyEvent(try plus([.command, .shift], repeat: true)) == nil)
             #expect(store.newEntryForm == nil)
-            #expect(delegate.handleKeyEvent(key) == nil)
+            #expect(delegate.handleKeyEvent(shortcut) == nil)
+            #expect(search.stringValue == "C++")
             let form = try #require(store.newEntryForm)
             form.draft.title = "Language"
             form.draft.rawContent = "C"
@@ -81,7 +84,7 @@ struct CheatSheetStoreNewEntryTests {
             store.saveNewEntry()
 
             delegate.closePanel(restoringFocus: false)
-            #expect(delegate.handleKeyEvent(key) === key)
+            #expect(delegate.handleKeyEvent(shortcut) === shortcut)
             store.reload()
             panel.orderBack(nil)
             guard case .note(let saved) = store.selectedEntry else {
@@ -90,7 +93,9 @@ struct CheatSheetStoreNewEntryTests {
             }
             #expect(saved.metadata.title == "Language")
             #expect(saved.rawContent == "C++")
-            #expect(delegate.handleKeyEvent(try plus(.numericPad)) == nil)
+            panel.makeFirstResponder(nil)
+            #expect(delegate.handleKeyEvent(key) === key)
+            #expect(delegate.handleKeyEvent(try plus([.command, .numericPad])) == nil)
             #expect(store.newEntryForm != nil)
             store.cancelNewEntry()
         }

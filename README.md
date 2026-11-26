@@ -30,7 +30,7 @@ open "dist/DittoBar.app"
 | `Return` | Perform the selected entry's primary action, or open its variable form. URLs and files open; other entries copy. On a section, collapse or expand it |
 | `Option-Return` | Open the selected entry or section's action menu |
 | `Command-Return` | Perform the primary action without opening the variable form |
-| `+` | Add an entry from the list. In a text field, type a plus sign |
+| `⌘+` | Add a sheet entry, including while search has focus |
 | `Command-C` | Copy text selected inside an entry |
 | `Command-E` | Open the current Markdown file in the configured editor |
 | `Command-F` | Focus search |

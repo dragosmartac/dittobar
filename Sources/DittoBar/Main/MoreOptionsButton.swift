@@ -42,7 +42,7 @@ struct MoreOptionsButton: NSViewRepresentable {
             self.store = store
             super.init()
 
-            addItem("Add Entry…", action: #selector(addEntry))
+            addItem("Add Sheet Entry", action: #selector(addEntry), key: "+")
             menu.addItem(.separator())
             addItem(
                 "New Cheat Sheet in Editor",
