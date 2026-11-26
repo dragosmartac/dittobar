@@ -12,6 +12,11 @@ struct NewEntryDraft {
     var rawDescription = ""
     var language = ""
 
+    var variables: [EntryVariable] {
+        let raw = kind == .note ? rawContent : rawDescription + "\n" + rawContent
+        return TextVariables.variables(in: raw)
+    }
+
     enum ValidationError: LocalizedError {
         case missingTitle, missingContent, multilineTitle, invalidLanguage
         case structuralLineInProse, fenceInContent

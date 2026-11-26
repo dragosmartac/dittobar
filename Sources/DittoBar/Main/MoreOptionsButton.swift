@@ -32,16 +32,18 @@ struct MoreOptionsButton: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, NSMenuItemValidation {
         weak var button: NSButton?
 
         private let store: CheatSheetStore
-        private let menu = NSMenu()
+        let menu = NSMenu()
 
         init(store: CheatSheetStore) {
             self.store = store
             super.init()
 
+            addItem("Add Entry…", action: #selector(addEntry))
+            menu.addItem(.separator())
             addItem(
                 "New Cheat Sheet in Editor",
                 action: #selector(createNewSheet),
@@ -101,6 +103,14 @@ struct MoreOptionsButton: NSViewRepresentable {
                 at: NSPoint(x: button.bounds.minX, y: button.bounds.minY),
                 in: button
             )
+        }
+
+        func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+            menuItem.action != #selector(addEntry) || store.selectedSheet != nil
+        }
+
+        @objc private func addEntry() {
+            store.beginNewEntry()
         }
 
         @objc private func editCurrentSheet() {

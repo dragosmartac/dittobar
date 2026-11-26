@@ -14,6 +14,22 @@ struct NewEntryDraftTests {
         return entry
     }
 
+    @Test func variablesFollowTheFieldsShownForTheCurrentType() {
+        var draft = NewEntryDraft(kind: .command, title: "Example", rawContent: "{{branch")
+        #expect(draft.variables.isEmpty)
+        draft.rawContent = "{{branch=main}} {{path}}"
+        draft.rawDescription = "Check {{branch}} on {{host=local}}."
+        #expect(draft.variables == [
+            EntryVariable(name: "branch", defaultValue: "main"),
+            EntryVariable(name: "host", defaultValue: "local"),
+            EntryVariable(name: "path", defaultValue: "")
+        ])
+        draft.kind = .note
+        #expect(draft.variables.map(\.name) == ["branch", "path"])
+        draft.rawContent = "Plain text"
+        #expect(draft.variables.isEmpty)
+    }
+
     @Test func noteKeepsRawMarkdown() throws {
         let draft = NewEntryDraft(kind: .note, title: "Review", rawContent: "Review **changes**.\n\n- Check tests")
         guard case .note(let note) = try parse(draft) else {

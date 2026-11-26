@@ -15,8 +15,8 @@ extension AppDelegate {
             return event
         }
 
-        // Let the settings sheet handle its own fields and key equivalents.
-        if store.isSettingsPresented {
+        // Sheets handle their own text editing, focus traversal, and key equivalents.
+        if store.isSettingsPresented || store.newEntryForm != nil {
             return event
         }
 

@@ -1,9 +1,35 @@
-import Foundation
+import AppKit
 import Testing
 @testable import DittoBar
 
 @MainActor
 struct CheatSheetStoreNewEntryTests {
+    @Test func moreOptionsOpensDraftAndSavesMultilineCommand() throws {
+        try withStore { store in
+            let destination = try #require(store.selectedSheet?.sourceURL)
+            let coordinator = MoreOptionsButton.Coordinator(store: store)
+            let menu = coordinator.menu
+            let action = try #require(menu.item(withTitle: "Add Entry…"))
+            #expect(coordinator.validateMenuItem(action))
+            #expect(menu.item(at: menu.index(of: action) + 1)?.isSeparatorItem == true)
+            _ = NSApplication.shared
+            menu.performActionForItem(at: menu.index(of: action))
+            let form = try #require(store.newEntryForm)
+            #expect(form.sheetURL == destination)
+            store.newEntryForm?.draft = .init(
+                kind: .command, title: "Diff", rawContent: "git fetch\ngit diff {{branch=main}}", language: "sh"
+            )
+            store.saveNewEntry()
+            #expect(store.newEntryForm == nil)
+            guard case .command(let entry) = store.selectedEntry else {
+                Issue.record("Expected the saved command to be selected")
+                return
+            }
+            #expect(entry.rawCommand == "git fetch\ngit diff {{branch=main}}")
+            #expect(try String(contentsOf: destination, encoding: .utf8).contains(entry.rawCommand))
+        }
+    }
+
     @Test func cancelKeepsTheFileAndPanelSelection() throws {
         try withStore { store in
             let original = try #require(store.selectedSheet)

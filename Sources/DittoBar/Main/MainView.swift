@@ -36,6 +36,13 @@ struct MainView: View {
                 VariableFormView(store: store)
             }
         }
+        .sheet(isPresented: Binding(
+            get: { store.newEntryForm != nil },
+            set: { if !$0 { store.cancelNewEntry() } }
+        )) {
+            NewEntryFormView(store: store)
+                .modifier(AccentTheme())
+        }
         .sheet(isPresented: $store.isSettingsPresented) {
             SettingsView(store: store)
                 .modifier(AccentTheme())
