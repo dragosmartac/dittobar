@@ -2,7 +2,7 @@ import SwiftUI
 
 struct RemoveEntryConfirmationView: View {
     @Environment(\.dittoAccent) private var accentColor
-    let removal: CheatSheetStore.EntryRemoval
+    let removal: SheetEntrySelection
     let onCancel: () -> Void
     let onRemove: () -> Void
 

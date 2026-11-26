@@ -15,8 +15,8 @@ extension AppDelegate {
             return event
         }
 
-        // SwiftUI can host Add Entry inside the panel or in an attached sheet.
-        if let form = store.newEntryForm, !form.isMarkdownHelpPresented, let window = event.window,
+        // SwiftUI can host the entry form inside the panel or in an attached sheet.
+        if let form = store.entryForm, !form.isMarkdownHelpPresented, let window = event.window,
            window === (panel.attachedSheet ?? panel),
            modifiers.intersection([.command, .option, .control, .shift]) == .command,
            let start = focusTraversalStart(in: window) {
@@ -65,6 +65,12 @@ extension AppDelegate {
             return nil
         }
 
+        if modifiers.contains(.command), event.charactersIgnoringModifiers == "=",
+           modifiers.isDisjoint(with: [.control, .option, .function]), event.window === panel {
+            if !event.isARepeat { store.editSelectedEntry() }
+            return nil
+        }
+
         if modifiers.intersection([.command, .shift, .control, .option, .function]) == .command,
            event.charactersIgnoringModifiers == "-", event.window === panel {
             if !event.isARepeat { store.requestEntryRemoval() }
@@ -101,7 +107,7 @@ extension AppDelegate {
             return nil
         }
 
-        if modifiers.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "e" {
+        if modifiers == .command, event.charactersIgnoringModifiers?.lowercased() == "e" {
             store.openSelectedSheetInEditor()
             return nil
         }

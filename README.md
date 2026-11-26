@@ -18,7 +18,7 @@ To build a standalone application:
 open "dist/DittoBar.app"
 ```
 
-In **Add Sheet Entry**, choose **Section → New section…** and enter a name to append a section to the selected sheet. Saving adds the new section and its first entry together.
+In **Add Sheet Entry** and **Edit Selected Entry**, choose a sheet and a section. Choose **New section…** to create a section when you save. Editing keeps the entry in its current position unless you choose a different destination, in which case Save moves it to the end of the chosen section.
 
 ## Keyboard controls
 
@@ -33,6 +33,8 @@ In **Add Sheet Entry**, choose **Section → New section…** and enter a name t
 | `Option-Return` | Open the selected entry or section's action menu |
 | `Command-Return` | Perform the primary action without opening the variable form |
 | `⌘+` | Add a sheet entry, including while search has focus |
+| `⌘=` | Edit the selected entry in place, also available under **More Options → Edit Selected Entry** |
+| `Command-S` | Save changes in Edit Entry |
 | `⌘−` | Ask to remove the selected entry from its Markdown file |
 | `Command-C` | Copy text selected inside an entry |
 | `Command-E` | Open the current Markdown file in the configured editor |

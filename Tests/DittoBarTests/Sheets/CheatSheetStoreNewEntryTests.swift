@@ -40,8 +40,8 @@ struct CheatSheetStoreNewEntryTests {
         for _ in 0..<3 {
             store.beginNewEntry()
             try await waitForSheet(true)
-            store.newEntryForm?.draft = .init(kind: .note, title: "Inserted", rawContent: "Edit")
-            store.saveNewEntry()
+            store.entryForm?.draft = .init(kind: .note, title: "Inserted", rawContent: "Edit")
+            store.saveEntryForm()
             try await waitForSheet(false)
             let inserted = try #require(store.selectedItem)
             #expect(inserted.entry?.title == "Inserted")
@@ -88,8 +88,8 @@ struct CheatSheetStoreNewEntryTests {
         }
         #expect(await selectedRowIsVisible())
         store.beginNewEntry()
-        store.newEntryForm?.draft = .init(kind: .note, title: "Last", rawContent: "New note")
-        store.saveNewEntry()
+        store.entryForm?.draft = .init(kind: .note, title: "Last", rawContent: "New note")
+        store.saveEntryForm()
         #expect(store.selectedEntry?.title == "Last")
         #expect(await selectedRowIsVisible())
 
@@ -110,7 +110,7 @@ struct CheatSheetStoreNewEntryTests {
         panel.makeKeyAndOrderFront(nil)
         defer { panel.orderOut(nil) }
         store.beginNewEntry()
-        let form = try #require(store.newEntryForm)
+        let form = try #require(store.entryForm)
         form.draft = .init(
             kind: .command, title: "Title", rawContent: "Command",
             rawDescription: "Description", language: "Language"
@@ -149,7 +149,7 @@ struct CheatSheetStoreNewEntryTests {
             try await Task.sleep(for: .milliseconds(10))
         }
         #expect(!form.isMarkdownHelpPresented)
-        #expect(store.newEntryForm === form)
+        #expect(store.entryForm === form)
         #expect(form.draft.rawContent == "Command")
 
         @MainActor func press(_ code: UInt16) throws {
@@ -220,7 +220,7 @@ struct CheatSheetStoreNewEntryTests {
             isARepeat: false, keyCode: 53
         ))
         if let event = delegate.handleKeyEvent(escape) { window.sendEvent(event) }
-        #expect(store.newEntryForm == nil)
+        #expect(store.entryForm == nil)
         #expect(panel.isVisible)
         #expect(try Data(contentsOf: form.sheetURL) == originalFile)
     }
@@ -253,11 +253,15 @@ struct CheatSheetStoreNewEntryTests {
             try press(48) // Tab from last
             #expect(options.highlightedItem?.title == "Add Sheet Entry")
             try press(48)
+            #expect(options.highlightedItem?.title == "Edit Selected Entry")
+            try press(48)
             #expect(options.highlightedItem?.title == "Remove Selected Entry")
             try press(48) // Skip the separator
             #expect(options.highlightedItem?.title == "New Cheat Sheet in Editor")
             try press(48, .shift)
             #expect(options.highlightedItem?.title == "Remove Selected Entry")
+            try press(48, .shift)
+            #expect(options.highlightedItem?.title == "Edit Selected Entry")
             try press(48, .shift)
             #expect(options.highlightedItem?.title == "Add Sheet Entry")
             try press(48, .shift)
@@ -276,6 +280,146 @@ struct CheatSheetStoreNewEntryTests {
             try press(36)
             #expect(options.highlightedItem == nil)
             #expect(store.isSettingsPresented)
+        }
+    }
+
+    @Test func editSelectedSearchResultFromMenuAndShortcut() async throws {
+        let (store, cleanup) = try makeStore()
+        defer { cleanup() }
+        _ = NSApplication.shared
+        let delegate = AppDelegate(store: store)
+        delegate.configurePanel()
+        let panel = try #require(delegate.panel)
+        panel.alphaValue = 0
+        panel.makeKeyAndOrderFront(nil)
+        defer { panel.orderOut(nil) }
+        store.query = "Later body"
+        let sheet = try #require(store.selectedSheet)
+        let menu = delegate.moreOptions
+        let editItem = try #require(menu.menu.item(withTitle: "Edit Selected Entry"))
+        #expect(editItem.keyEquivalent == "=")
+        #expect(editItem.keyEquivalentModifierMask == .command)
+        menu.choose(editItem)
+        let form = try #require(store.entryForm)
+        #expect(form.draft.rawContent == "Later body.")
+        #expect(form.section == .existing(try #require(sheet.items.compactMap(\.section).last)))
+        form.draft.title = "Discarded"
+        store.cancelEntryForm()
+        #expect(try String(contentsOf: sheet.sourceURL, encoding: .utf8) == Self.source)
+
+        let shortcut = try #require(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+            windowNumber: panel.windowNumber, context: nil, characters: "=", charactersIgnoringModifiers: "=",
+            isARepeat: false, keyCode: 24
+        ))
+        #expect(delegate.handleKeyEvent(shortcut) == nil)
+        let edit = try #require(store.entryForm)
+        edit.draft = .init(kind: .command, title: "Print", rawContent: "echo {{name}}", rawDescription: "**Output**")
+        let deadline = ContinuousClock.now + .seconds(2)
+        while panel.attachedSheet == nil, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let window = try #require(panel.attachedSheet)
+        func picker(_ label: String, under view: NSView) -> NSPopUpButton? {
+            if let button = view as? NSPopUpButton, button.accessibilityLabel() == label { return button }
+            return view.subviews.lazy.compactMap { picker(label, under: $0) }.first
+        }
+        let content = try #require(window.contentView)
+        content.layoutSubtreeIfNeeded()
+        let sheetPicker = try #require(picker("Sheet", under: content))
+        #expect(sheetPicker.titleOfSelectedItem == sheet.title)
+        let sectionPicker = try #require(picker("Section", under: content))
+        #expect(sectionPicker.titleOfSelectedItem == "Later")
+        sectionPicker.selectItem(withTitle: "Tools")
+        #expect(sectionPicker.sendAction(sectionPicker.action, to: sectionPicker.target))
+        let save = try #require(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
+            windowNumber: window.windowNumber, context: nil, characters: "s", charactersIgnoringModifiers: "s",
+            isARepeat: false, keyCode: 1
+        ))
+        #expect(window.performKeyEquivalent(with: save))
+        let dismissalDeadline = ContinuousClock.now + .seconds(2)
+        while panel.attachedSheet != nil, ContinuousClock.now < dismissalDeadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(panel.attachedSheet == nil)
+        #expect(store.entryForm == nil)
+        #expect(store.selectedSheet?.items.map(\.entry?.title) == ["First", nil, "Existing", "Print", nil])
+        let saved = try #require(store.selectedEntry)
+        #expect(NewEntryDraft(entry: saved) == edit.draft)
+        #expect(saved.variables.map(\.name) == ["name"])
+    }
+
+    @Test(arguments: [false, true]) func editMovesEntryToAnotherSheetAndSelectsIt(createSection: Bool) throws {
+        try withStore { store in
+            store.query = "Later body"
+            let source = try #require(store.selectedSheet)
+            let destination = try #require(store.sheets.last)
+            store.editSelectedEntry()
+            let form = try #require(store.entryForm)
+            form.sheetURL = destination.sourceURL
+            #expect(form.section == .unsectioned)
+            if createSection {
+                form.section = .newSection
+                form.newSectionName = "Moved"
+            }
+            form.draft.title = "Same"
+            form.draft.rawContent = "Moved {{value}}."
+            store.saveEntryForm()
+            #expect(store.entryForm == nil)
+            #expect(store.selectedSheet?.sourceURL == destination.sourceURL)
+            let saved = try #require(store.selectedEntry)
+            #expect(NewEntryDraft(entry: saved) == form.draft)
+            let items = try #require(store.selectedSheet?.items)
+            #expect(items.compactMap(\.entry).count == destination.items.compactMap(\.entry).count + 1)
+            let index = try #require(items.firstIndex(of: .entry(saved)))
+            #expect(items[..<index].compactMap(\.section).last?.title == (createSection ? "Moved" : nil))
+            #expect(try String(contentsOf: source.sourceURL, encoding: .utf8) ==
+                    Self.source.replacingOccurrences(of: "### Existing\nLater body.", with: ""))
+        }
+    }
+
+    @Test func invalidMoveLeavesBothSheetsIntactAndAllowsRetry() throws {
+        try withStore { store in
+            let source = try #require(store.selectedSheet)
+            let destination = try #require(store.sheets.last)
+            store.editSelectedEntry()
+            let form = try #require(store.entryForm)
+            form.sheetURL = destination.sourceURL
+            form.section = .existing(try #require(destination.items.compactMap(\.section).first))
+            let latest = "## Renamed\n### Other\nExternal edit."
+            try latest.write(to: destination.sourceURL, atomically: true, encoding: .utf8)
+            store.saveEntryForm()
+            #expect(store.entryForm === form)
+            #expect(form.errorMessage == SheetFiles.InsertionError.missingSection.localizedDescription)
+            #expect(try String(contentsOf: source.sourceURL, encoding: .utf8) == Self.source)
+            #expect(try String(contentsOf: destination.sourceURL, encoding: .utf8) == latest)
+            form.section = .unsectioned
+            store.saveEntryForm()
+            #expect(store.entryForm == nil)
+            #expect(store.selectedEntry?.title == form.draft.title)
+            #expect(try String(contentsOf: destination.sourceURL, encoding: .utf8).hasSuffix(latest))
+        }
+    }
+
+    @Test func failedEditRetainsDraftAndProtectsExternalChanges() throws {
+        try withStore { store in
+            store.selectFirstEntry()
+            store.editSelectedEntry()
+            let form = try #require(store.entryForm)
+            form.draft.rawContent = ""
+            store.saveEntryForm()
+            #expect(form.errorMessage == NewEntryDraft.ValidationError.missingContent.localizedDescription)
+            #expect(try String(contentsOf: form.sheetURL, encoding: .utf8) == Self.source)
+            let external = Self.source + "\n### External\nNew text."
+            try external.write(to: form.sheetURL, atomically: true, encoding: .utf8)
+            store.reload()
+            form.draft.rawContent = "My edit"
+            store.saveEntryForm()
+            #expect(store.entryForm === form)
+            #expect(form.draft.rawContent == "My edit")
+            #expect(form.errorMessage == SheetFiles.EntryChangeError.sheetChanged.localizedDescription)
+            #expect(try String(contentsOf: form.sheetURL, encoding: .utf8) == external)
         }
     }
 
@@ -363,16 +507,17 @@ struct CheatSheetStoreNewEntryTests {
             #expect(action.keyEquivalent == "+")
             #expect(action.keyEquivalentModifierMask == .command)
             #expect(options.validateMenuItem(action))
-            #expect(menu.item(at: menu.index(of: action) + 1)?.title == "Remove Selected Entry")
+            #expect(menu.item(at: menu.index(of: action) + 1)?.title == "Edit Selected Entry")
+            #expect(menu.item(at: menu.index(of: action) + 2)?.title == "Remove Selected Entry")
             _ = NSApplication.shared
             menu.performActionForItem(at: menu.index(of: action))
-            let form = try #require(store.newEntryForm)
+            let form = try #require(store.entryForm)
             #expect(form.sheetURL == destination)
-            store.newEntryForm?.draft = .init(
+            store.entryForm?.draft = .init(
                 kind: .command, title: "Diff", rawContent: "git fetch\ngit diff {{branch=main}}", language: "sh"
             )
-            store.saveNewEntry()
-            #expect(store.newEntryForm == nil)
+            store.saveEntryForm()
+            #expect(store.entryForm == nil)
             guard case .command(let entry) = store.selectedEntry else {
                 Issue.record("Expected the saved command to be selected")
                 return
@@ -413,24 +558,24 @@ struct CheatSheetStoreNewEntryTests {
                 editor.insertText(passed.characters ?? "", replacementRange: editor.selectedRange())
             }
             #expect(search.stringValue == "C++")
-            #expect(store.newEntryForm == nil)
+            #expect(store.entryForm == nil)
 
             let shortcut = try plus([.command, .shift])
             let modified = try plus([.command, .control])
             #expect(delegate.handleKeyEvent(modified) === modified)
             #expect(delegate.handleKeyEvent(try plus([.command, .shift], repeat: true)) == nil)
-            #expect(store.newEntryForm == nil)
+            #expect(store.entryForm == nil)
             #expect(delegate.handleKeyEvent(shortcut) == nil)
             #expect(search.stringValue == "C++")
-            let form = try #require(store.newEntryForm)
+            let form = try #require(store.entryForm)
             form.draft.title = "Language"
             form.draft.rawContent = "C"
             for _ in 0..<2 {
                 let passed = try #require(delegate.handleKeyEvent(key))
                 form.draft.rawContent += passed.characters ?? ""
             }
-            #expect(store.newEntryForm === form)
-            store.saveNewEntry()
+            #expect(store.entryForm === form)
+            store.saveEntryForm()
 
             delegate.closePanel(restoringFocus: false)
             #expect(delegate.handleKeyEvent(shortcut) === shortcut)
@@ -445,8 +590,8 @@ struct CheatSheetStoreNewEntryTests {
             panel.makeFirstResponder(nil)
             #expect(delegate.handleKeyEvent(key) === key)
             #expect(delegate.handleKeyEvent(try plus([.command, .numericPad])) == nil)
-            #expect(store.newEntryForm != nil)
-            store.cancelNewEntry()
+            #expect(store.entryForm != nil)
+            store.cancelEntryForm()
         }
     }
 
@@ -454,8 +599,8 @@ struct CheatSheetStoreNewEntryTests {
     func presentedFormSurvivesSaveAndCancel(save: Bool) throws {
         try withStore { store in
             store.beginNewEntry()
-            let form = try #require(store.newEntryForm)
-            let view = NewEntryFormView(store: store, form: form)
+            let form = try #require(store.entryForm)
+            let view = EntryFormView(store: store, form: form)
             let host = NSHostingView(rootView: view)
             host.setFrameSize(host.fittingSize)
             let content = view.$form.draft.rawContent
@@ -464,15 +609,15 @@ struct CheatSheetStoreNewEntryTests {
             content.wrappedValue = note
             host.layoutSubtreeIfNeeded()
 
-            if save { store.saveNewEntry() } else { store.cancelNewEntry() }
-            #expect(store.newEntryForm == nil)
+            if save { store.saveEntryForm() } else { store.cancelEntryForm() }
+            #expect(store.entryForm == nil)
             // The closing sheet can still lay out controls and read or write field bindings.
             host.needsLayout = true
             host.layoutSubtreeIfNeeded()
             #expect(content.wrappedValue == note)
             store.beginNewEntry()
             content.wrappedValue = "Late edit from the closing sheet"
-            #expect(store.newEntryForm?.draft.rawContent == "")
+            #expect(store.entryForm?.draft.rawContent == "")
             if save {
                 let entry = try #require(store.selectedEntry)
                 guard case .note(let saved) = entry else {
@@ -489,13 +634,13 @@ struct CheatSheetStoreNewEntryTests {
             let original = try #require(store.selectedSheet)
             let initialSelection = store.selectedItem
             store.beginNewEntry()
-            #expect(store.newEntryForm?.sheetURL == original.sourceURL)
-            #expect(store.newEntryForm?.section == .unsectioned)
-            store.newEntryForm?.draft.title = "Unsaved"
+            #expect(store.entryForm?.sheetURL == original.sourceURL)
+            #expect(store.entryForm?.section == .unsectioned)
+            store.entryForm?.draft.title = "Unsaved"
             store.beginNewEntry()
-            #expect(store.newEntryForm?.draft.title == "Unsaved")
-            store.cancelNewEntry()
-            #expect(store.newEntryForm == nil)
+            #expect(store.entryForm?.draft.title == "Unsaved")
+            store.cancelEntryForm()
+            #expect(store.entryForm == nil)
             #expect(store.selectedItem == initialSelection)
             #expect(try String(contentsOf: original.sourceURL, encoding: .utf8) == Self.source)
         }
@@ -507,13 +652,13 @@ struct CheatSheetStoreNewEntryTests {
             let previous = try #require(store.selectedSheet)
             let section = try #require(previous.items.compactMap(\.section).first)
             store.beginNewEntry()
-            #expect(store.newEntryForm?.section == .existing(section))
+            #expect(store.entryForm?.section == .existing(section))
             let destination = store.sheets[1]
-            store.newEntryForm?.sheetURL = destination.sourceURL
-            #expect(store.newEntryForm?.section == .unsectioned)
+            store.entryForm?.sheetURL = destination.sourceURL
+            #expect(store.entryForm?.section == .unsectioned)
             #expect(store.selectedSheet == previous)
-            store.newEntryForm?.draft = .init(kind: .note, title: "Same", rawContent: "Inserted")
-            store.saveNewEntry()
+            store.entryForm?.draft = .init(kind: .note, title: "Same", rawContent: "Inserted")
+            store.saveEntryForm()
 
             #expect(store.selectedSheet?.sourceURL == destination.sourceURL)
             #expect(store.query.isEmpty)
@@ -523,7 +668,7 @@ struct CheatSheetStoreNewEntryTests {
                 return
             }
             #expect(note.rawContent == "Inserted")
-            #expect(store.newEntryForm == nil)
+            #expect(store.entryForm == nil)
         }
     }
 
@@ -534,12 +679,12 @@ struct CheatSheetStoreNewEntryTests {
             let section = try #require(sheet.items.compactMap(\.section).first)
             store.toggleSection(section)
             store.beginNewEntry()
-            #expect(store.newEntryForm?.section == .existing(section))
+            #expect(store.entryForm?.section == .existing(section))
             store.query = query
             if query == "Existing" { store.toggleSection(section) }
-            store.newEntryForm?.draft = .init(kind: .note, title: "Existing", rawContent: "New body")
-            store.saveNewEntry()
-            #expect(store.newEntryForm == nil)
+            store.entryForm?.draft = .init(kind: .note, title: "Existing", rawContent: "New body")
+            store.saveEntryForm()
+            #expect(store.entryForm == nil)
             #expect(store.query == (query == "missing" ? "" : query))
             #expect(!store.isCollapsed(section))
             #expect(store.selectedItem == store.selectedSheet?.items[3])
@@ -559,7 +704,7 @@ struct CheatSheetStoreNewEntryTests {
             let original = try #require(store.selectedSheet)
             let destination = store.sheets[1]
             store.beginNewEntry()
-            let form = try #require(store.newEntryForm)
+            let form = try #require(store.entryForm)
             form.section = .newSection
             form.newSectionName = "Old destination"
             form.sheetURL = destination.sourceURL
@@ -568,9 +713,9 @@ struct CheatSheetStoreNewEntryTests {
             form.section = .newSection
             form.newSectionName = "  Other  "
             form.draft = .init(kind: .note, title: "Same", rawContent: "In the new section")
-            store.saveNewEntry()
+            store.saveEntryForm()
 
-            #expect(store.newEntryForm == nil)
+            #expect(store.entryForm == nil)
             let saved = try #require(store.selectedSheet)
             #expect(saved.sourceURL == destination.sourceURL)
             // Repeated titles are valid in the sheet format. A new section gets its own heading.
@@ -585,21 +730,21 @@ struct CheatSheetStoreNewEntryTests {
     @Test func invalidOrCancelledNewSectionLeavesTheSheetIntact() throws {
         try withStore { store in
             store.beginNewEntry()
-            let form = try #require(store.newEntryForm)
+            let form = try #require(store.entryForm)
             form.section = .newSection
             form.draft = .init(kind: .note, title: "First", rawContent: "Keep draft")
             for invalidName in ["  ", "One\n## Two"] {
                 form.newSectionName = invalidName
-                store.saveNewEntry()
+                store.saveEntryForm()
                 #expect(form.errorMessage == SheetFiles.InsertionError.invalidSectionName.localizedDescription)
-                #expect(store.newEntryForm === form)
+                #expect(store.entryForm === form)
             }
             form.newSectionName = "Valid name"
             form.draft.title = ""
-            store.saveNewEntry()
+            store.saveEntryForm()
             #expect(form.errorMessage == NewEntryDraft.ValidationError.missingTitle.localizedDescription)
-            store.cancelNewEntry()
-            #expect(store.newEntryForm == nil)
+            store.cancelEntryForm()
+            #expect(store.entryForm == nil)
             #expect(try String(contentsOf: form.sheetURL, encoding: .utf8) == Self.source)
         }
     }
@@ -608,19 +753,19 @@ struct CheatSheetStoreNewEntryTests {
         try withStore { store in
             store.query = "Existing"
             store.beginNewEntry()
-            let url = try #require(store.newEntryForm?.sheetURL)
+            let url = try #require(store.entryForm?.sheetURL)
             try "# Replaced".write(to: url, atomically: true, encoding: .utf8)
-            store.newEntryForm?.draft = .init(kind: .note, title: "Retry", rawContent: "My text")
-            store.saveNewEntry()
-            #expect(store.newEntryForm?.errorMessage == SheetFiles.InsertionError.missingSection.localizedDescription)
-            #expect(store.newEntryForm?.draft.rawContent == "My text")
+            store.entryForm?.draft = .init(kind: .note, title: "Retry", rawContent: "My text")
+            store.saveEntryForm()
+            #expect(store.entryForm?.errorMessage == SheetFiles.InsertionError.missingSection.localizedDescription)
+            #expect(store.entryForm?.draft.rawContent == "My text")
             #expect(store.query == "Existing")
             #expect(try String(contentsOf: url, encoding: .utf8) == "# Replaced")
 
-            store.newEntryForm?.section = .unsectioned
-            store.saveNewEntry()
-            store.saveNewEntry()
-            #expect(store.newEntryForm == nil)
+            store.entryForm?.section = .unsectioned
+            store.saveEntryForm()
+            store.saveEntryForm()
+            #expect(store.entryForm == nil)
             #expect(store.selectedEntry?.title == "Retry")
             #expect(store.selectedSheet?.items.count == 1)
         }

@@ -1,13 +1,23 @@
 import SwiftUI
 
-struct NewEntryFormView: View {
+struct EntryFormView: View {
     @ObservedObject var store: CheatSheetStore
-    @ObservedObject var form: NewEntryFormState
+    @ObservedObject var form: EntryFormState
     @FocusState private var titleFocused: Bool
 
     private enum Spacing {
         static let section: CGFloat = 16
         static let compact: CGFloat = 8
+    }
+
+    private var primaryButtonTitle: String {
+        if form.isMarkdownHelpPresented { return "Done" }
+        return form.original == nil ? "Add Entry" : "Save"
+    }
+
+    private var primaryButtonShortcut: KeyboardShortcut? {
+        if form.isMarkdownHelpPresented { return .defaultAction }
+        return form.original == nil ? nil : KeyboardShortcut("s", modifiers: .command)
     }
 
     var body: some View {
@@ -24,21 +34,21 @@ struct NewEntryFormView: View {
                 }
                 Spacer()
                 if !form.isMarkdownHelpPresented {
-                    Button("Cancel", role: .cancel) { store.cancelNewEntry() }
+                    Button("Cancel", role: .cancel) { store.cancelEntryForm() }
                         .keyboardShortcut(.cancelAction)
                 }
                 Button {
                     if form.isMarkdownHelpPresented {
                         form.isMarkdownHelpPresented = false
                     } else {
-                        store.saveNewEntry()
+                        store.saveEntryForm()
                     }
                 } label: {
-                    Text(form.isMarkdownHelpPresented ? "Done" : "Add Entry")
+                    Text(primaryButtonTitle)
                         .frame(minWidth: 60)
                 }
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut(form.isMarkdownHelpPresented ? .defaultAction : nil)
+                .keyboardShortcut(primaryButtonShortcut)
             }
         }
         .padding(20)
@@ -48,7 +58,7 @@ struct NewEntryFormView: View {
             if form.isMarkdownHelpPresented {
                 form.isMarkdownHelpPresented = false
             } else {
-                store.cancelNewEntry()
+                store.cancelEntryForm()
             }
         }
     }
@@ -69,7 +79,7 @@ struct NewEntryFormView: View {
 
     @ViewBuilder
     private var entryFieldsView: some View {
-        Text("Add Entry")
+        Text(form.original == nil ? "Add Entry" : "Edit Entry")
             .font(.title2.bold())
 
         ScrollView {

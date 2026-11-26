@@ -57,12 +57,22 @@ enum SheetFiles {
         }
     }
 
-    /// Returns the new item's position in the saved sheet, including section headings.
+    /// Returns the entry's position in the destination sheet, including section headings.
     @discardableResult
-    static func insert(
-        _ draft: NewEntryDraft, into url: URL, section: EntrySectionChoice, newSectionName: String = ""
+    static func save(
+        _ draft: NewEntryDraft, into url: URL, section: EntrySectionChoice,
+        newSectionName: String = "", editing original: SheetEntrySelection? = nil
     ) throws -> Int {
         guard isSheetFile(url) else { throw InsertionError.invalidSheet }
+        if let original, original.sheet.sourceURL == url {
+            let items = original.sheet.items
+            guard let index = items.firstIndex(of: .entry(original.entry)) else { throw EntryChangeError.sheetChanged }
+            let oldSection = items[..<index].last(where: { $0.section != nil })?.section
+            if section == EntrySectionChoice(oldSection) {
+                return try replace(original.entry, in: original.sheet, with: draft)
+            }
+        }
+
         var markdown = try draft.markdown()
         if section == .newSection {
             let name = newSectionName.trimmingCharacters(in: .whitespaces)
@@ -70,47 +80,117 @@ enum SheetFiles {
             markdown = "## \(name)\n\n" + markdown
         }
 
-        return try updateFile(at: url) { file in
-            try insertMarkdown(markdown, into: file, sheetURL: url, section: section)
+        let sourceURL = original?.sheet.sourceURL ?? url
+        return try updateFiles(at: sourceURL, and: url) { sourceFile, destinationFile in
+            var sourceBytes = try Data(contentsOf: sourceFile)
+            if let original {
+                _ = try replace(original.entry, in: original.sheet, with: nil, bytes: &sourceBytes)
+            }
+            if sourceFile == destinationFile {
+                let index = try insertMarkdown(markdown, into: &sourceBytes, sheetURL: url, section: section)
+                try sourceBytes.write(to: sourceFile, options: .atomic)
+                return index
+            }
+
+            let previousDestination = try Data(contentsOf: destinationFile)
+            var destinationBytes = previousDestination
+            let index = try insertMarkdown(markdown, into: &destinationBytes, sheetURL: url, section: section)
+            // Write the destination first so an interrupted move always leaves a copy.
+            try destinationBytes.write(to: destinationFile, options: .atomic)
+            do {
+                try sourceBytes.write(to: sourceFile, options: .atomic)
+            } catch {
+                do { try previousDestination.write(to: destinationFile, options: .atomic) }
+                catch { throw EntryChangeError.moveIncomplete }
+                throw error
+            }
+            return index
         }
     }
 
-    enum RemovalError: LocalizedError {
-        case sheetChanged
+    enum EntryChangeError: LocalizedError {
+        case sheetChanged, moveIncomplete
 
         var errorDescription: String? {
-            "The sheet has changed. Select the entry again before removing it."
+            switch self {
+            case .sheetChanged: "The sheet has changed. Reopen the entry to use its latest version."
+            case .moveIncomplete: "The original entry is still in its sheet. Check the destination for a saved copy before retrying."
+            }
         }
     }
 
     static func remove(_ entry: CheatSheetEntry, from sheet: CheatSheet) throws {
-        guard isSheetFile(sheet.sourceURL) else { throw RemovalError.sheetChanged }
-        try updateFile(at: sheet.sourceURL) { file in
-            var bytes = try Data(contentsOf: file)
-            let bomSize = bytes.starts(with: [0xEF, 0xBB, 0xBF]) ? 3 : 0
-            guard let source = String(bytes: bytes.dropFirst(bomSize), encoding: .utf8) else {
-                throw CocoaError(.fileReadInapplicableStringEncoding)
-            }
-            let document = CheatSheetParser.parseDocument(source, fileURL: sheet.sourceURL, locating: entry)
-            // An external edit can change which duplicate has the confirmed ID.
-            guard document.sheet == sheet, !document.entrySourceRanges.isEmpty else { throw RemovalError.sheetChanged }
-            for range in document.entrySourceRanges.reversed() {
-                let start = source.utf8.distance(from: source.startIndex, to: range.lowerBound)
-                let end = source.utf8.distance(from: source.startIndex, to: range.upperBound)
-                bytes.removeSubrange((bomSize + start)..<(bomSize + end))
-            }
-            try bytes.write(to: file, options: .atomic)
+        _ = try replace(entry, in: sheet, with: nil)
+    }
+
+    /// Replace the entry at its original position. A nil draft removes it.
+    static func replace(_ entry: CheatSheetEntry, in sheet: CheatSheet, with draft: NewEntryDraft?) throws -> Int {
+        guard isSheetFile(sheet.sourceURL) else { throw EntryChangeError.sheetChanged }
+        return try updateFiles(at: sheet.sourceURL, and: sheet.sourceURL) { file, _ in
+            let originalBytes = try Data(contentsOf: file)
+            var bytes = originalBytes
+            let index = try replace(entry, in: sheet, with: draft, bytes: &bytes)
+            if bytes != originalBytes { try bytes.write(to: file, options: .atomic) }
+            return index
         }
     }
 
+    private static func replace(
+        _ entry: CheatSheetEntry, in sheet: CheatSheet, with draft: NewEntryDraft?, bytes: inout Data
+    ) throws -> Int {
+        let bomSize = bytes.starts(with: [0xEF, 0xBB, 0xBF]) ? 3 : 0
+        guard let source = String(bytes: bytes.dropFirst(bomSize), encoding: .utf8) else {
+            throw CocoaError(.fileReadInapplicableStringEncoding)
+        }
+        let document = CheatSheetParser.parseDocument(source, fileURL: sheet.sourceURL, locating: entry)
+        // An external edit can change which duplicate has the confirmed ID.
+        guard document.sheet == sheet, let first = document.entrySourceRanges.first,
+              let index = sheet.items.firstIndex(of: .entry(entry)) else { throw EntryChangeError.sheetChanged }
+        if draft == NewEntryDraft(entry: entry) { return index }
+
+        var replacement = ""
+        if let draft {
+            let newline = source.first(where: \.isNewline).map(String.init) ?? "\n"
+            replacement = try draft.markdown().replacingOccurrences(of: "\n", with: newline)
+            // Keep the separator before the next heading or an intervening HTML comment.
+            let original = source[first]
+            if let last = original.lastIndex(where: { !$0.isNewline }) {
+                replacement += original[original.index(after: last)...]
+            }
+        }
+        for range in document.entrySourceRanges.reversed() {
+            let start = source.utf8.distance(from: source.startIndex, to: range.lowerBound)
+            let end = source.utf8.distance(from: source.startIndex, to: range.upperBound)
+            let text = range == first ? replacement : ""
+            bytes.replaceSubrange((bomSize + start)..<(bomSize + end), with: text.utf8)
+        }
+        return index
+    }
+
     // Keep cooperating writers out between reading the latest file and replacing it.
-    private static func updateFile<T>(at url: URL, _ update: (URL) throws -> T) throws -> T {
+    private static func updateFiles<T>(
+        at sourceURL: URL, and destinationURL: URL, _ update: (URL, URL) throws -> T
+    ) throws -> T {
         var coordinationError: NSError?
         var result: Result<T, Error>?
-        // Replace the target of a symlink while retaining the sheet name used for section IDs.
-        let target = url.resolvingSymlinksInPath()
-        NSFileCoordinator().coordinate(writingItemAt: target, options: .forMerging, error: &coordinationError) { file in
-            result = Result { try update(file) }
+        // Aliases with different spelling can point to one file on a case-insensitive volume.
+        func target(of url: URL) throws -> URL {
+            let resolved = url.resolvingSymlinksInPath().standardizedFileURL
+            let path = try resolved.resourceValues(forKeys: [.canonicalPathKey]).canonicalPath
+            return path.map { URL(fileURLWithPath: $0) } ?? resolved
+        }
+        let source = try target(of: sourceURL)
+        let destination = sourceURL == destinationURL ? source : try target(of: destinationURL)
+        let coordinator = NSFileCoordinator()
+        if source == destination {
+            coordinator.coordinate(writingItemAt: source, options: .forMerging, error: &coordinationError) { file in
+                result = Result { try update(file, file) }
+            }
+        } else {
+            coordinator.coordinate(writingItemAt: source, options: .forMerging,
+                                   writingItemAt: destination, options: .forMerging, error: &coordinationError) { from, to in
+                result = Result { try update(from, to) }
+            }
         }
         if let coordinationError { throw coordinationError }
         guard let result else { throw CocoaError(.fileWriteUnknown) }
@@ -118,9 +198,8 @@ enum SheetFiles {
     }
 
     private static func insertMarkdown(
-        _ markdown: String, into file: URL, sheetURL: URL, section: EntrySectionChoice
+        _ markdown: String, into bytes: inout Data, sheetURL: URL, section: EntrySectionChoice
     ) throws -> Int {
-        var bytes = try Data(contentsOf: file)
         // Keep the original UTF-8 bytes, including a byte order mark when present.
         let bomSize = bytes.starts(with: [0xEF, 0xBB, 0xBF]) ? 3 : 0
         guard let source = String(bytes: bytes.dropFirst(bomSize), encoding: .utf8) else {
@@ -162,7 +241,6 @@ enum SheetFiles {
             insertion += newline
         }
         bytes.insert(contentsOf: insertion.utf8, at: bomSize + preceding.utf8.count)
-        try bytes.write(to: file, options: .atomic)
         // A newly appended heading occupies the item immediately before the entry.
         if section == .newSection { return document.sheet.items.endIndex + 1 }
         return nextHeading.flatMap { document.sheet.items.firstIndex(of: .section($0.section)) }

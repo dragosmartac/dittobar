@@ -52,8 +52,8 @@ struct MainView: View {
                 VariableFormView(store: store)
             }
         }
-        .sheet(item: $store.newEntryForm) { form in
-            NewEntryFormView(store: store, form: form)
+        .sheet(item: $store.entryForm) { form in
+            EntryFormView(store: store, form: form)
                 .modifier(AccentTheme())
         }
         .sheet(item: $store.pendingEntryRemoval) { removal in
@@ -234,12 +234,13 @@ struct MainView: View {
             case nil:
                 EmptyView()
             }
-            footerShortcut("⌘E", label: "edit")
+            footerShortcut("⌘E", label: "edit sheet")
             footerShortcut("⌘⇧N", label: "new")
             if store.selectedSheet != nil {
                 Divider().frame(height: chromeSize * 1.4)
                 footerShortcut("⌘+", label: "Add entry")
                 if store.selectedEntry != nil {
+                    footerShortcut("⌘=", label: "Edit entry")
                     footerShortcut("⌘−", label: "Remove entry")
                 }
             }

@@ -35,19 +35,14 @@ final class CheatSheetStore: ObservableObject {
     @Published var editorErrorMessage: String?
     @Published var isNewSheetPromptPresented = false
     @Published var newSheetName = ""
-    @Published var newEntryForm: NewEntryFormState?
-    struct EntryRemoval: Identifiable {
-        let id = UUID()
-        let entry: CheatSheetEntry
-        let sheet: CheatSheet
-    }
-    @Published var pendingEntryRemoval: EntryRemoval?
+    @Published var entryForm: EntryFormState?
+    @Published var pendingEntryRemoval: SheetEntrySelection?
     @Published var variableForm: VariableFormState?
     @Published var isSettingsPresented = false
     @Published var isMarkdownRulesPresented = false
 
     var isPanelSheetPresented: Bool {
-        isSettingsPresented || isMarkdownRulesPresented || newEntryForm != nil || pendingEntryRemoval != nil
+        isSettingsPresented || isMarkdownRulesPresented || entryForm != nil || pendingEntryRemoval != nil
     }
 
     @Published private var pinnedItemID: String?
@@ -131,7 +126,7 @@ final class CheatSheetStore: ObservableObject {
         } else {
             defaults.set(url.path, forKey: Self.sheetsDirectoryPathKey)
         }
-        newEntryForm = nil
+        entryForm = nil
         pendingEntryRemoval = nil
         variableForm = nil
         pinnedItemID = nil
@@ -316,14 +311,14 @@ final class CheatSheetStore: ObservableObject {
         )
     }
 
-    // MARK: - Add entry
+    // MARK: - Entry editing
 
     func requestEntryRemoval() {
         guard !isPanelSheetPresented, let sheet = selectedSheet, let entry = selectedEntry else { return }
-        pendingEntryRemoval = EntryRemoval(entry: entry, sheet: sheet)
+        pendingEntryRemoval = SheetEntrySelection(entry: entry, sheet: sheet)
     }
 
-    func removeEntry(_ removal: EntryRemoval) {
+    func removeEntry(_ removal: SheetEntrySelection) {
         guard pendingEntryRemoval?.id == removal.id else { return }
         pendingEntryRemoval = nil
         do {
@@ -335,31 +330,41 @@ final class CheatSheetStore: ObservableObject {
     }
 
     func beginNewEntry() {
-        guard newEntryForm == nil, let sheet = selectedSheet else { return }
+        presentEntryForm(editing: nil)
+    }
+
+    func editSelectedEntry() {
+        guard let entry = selectedEntry else { return }
+        presentEntryForm(editing: entry)
+    }
+
+    private func presentEntryForm(editing entry: CheatSheetEntry?) {
+        guard !isPanelSheetPresented, let sheet = selectedSheet else { return }
         let index = selectedItem.flatMap { sheet.items.firstIndex(of: $0) }
         let section = index.flatMap { sheet.items[...$0].last(where: { $0.section != nil })?.section }
-        newEntryForm = NewEntryFormState(sheetURL: sheet.sourceURL, section: section)
+        entryForm = EntryFormState(sheet: sheet, section: section, editing: entry)
     }
 
-    func cancelNewEntry() {
-        newEntryForm = nil
+    func cancelEntryForm() {
+        entryForm = nil
     }
 
-    func saveNewEntry() {
-        guard let form = newEntryForm else { return }
+    func saveEntryForm() {
+        guard let form = entryForm else { return }
         let itemIndex: Int
         do {
-            itemIndex = try SheetFiles.insert(
-                form.draft, into: form.sheetURL, section: form.section, newSectionName: form.newSectionName
+            itemIndex = try SheetFiles.save(
+                form.draft, into: form.sheetURL, section: form.section,
+                newSectionName: form.newSectionName, editing: form.original
             )
         } catch {
-            newEntryForm?.errorMessage = error.localizedDescription
+            entryForm?.errorMessage = error.localizedDescription
             return
         }
 
         // The write succeeded. Even if the file disappears during reload, retrying
         // the same draft would duplicate an entry that was already saved.
-        newEntryForm = nil
+        entryForm = nil
         pinnedItemID = nil
         reload()
         guard let sheetIndex = sheets.firstIndex(where: { $0.sourceURL == form.sheetURL }) else { return }

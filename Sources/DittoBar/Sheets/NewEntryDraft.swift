@@ -1,6 +1,6 @@
 import Foundation
 
-struct NewEntryDraft {
+struct NewEntryDraft: Equatable {
     enum Kind: String {
         case note, command, url, file
     }
@@ -71,5 +71,21 @@ struct NewEntryDraft {
         }
         blocks.append("```" + fenceLabel + "\n" + content.joined(separator: "\n") + "\n```")
         return blocks.joined(separator: "\n\n")
+    }
+}
+
+extension NewEntryDraft {
+    init(entry: CheatSheetEntry) {
+        switch entry {
+        case .note(let note):
+            self.init(kind: .note, title: entry.title, rawContent: note.rawContent)
+        case .command(let command):
+            self.init(kind: .command, title: entry.title, rawContent: command.rawCommand,
+                      rawDescription: command.rawDescription ?? "", language: command.language ?? "")
+        case .url(let url):
+            self.init(kind: .url, title: entry.title, rawContent: url.rawURL, rawDescription: url.rawDescription ?? "")
+        case .file(let file):
+            self.init(kind: .file, title: entry.title, rawContent: file.rawPath, rawDescription: file.rawDescription ?? "")
+        }
     }
 }

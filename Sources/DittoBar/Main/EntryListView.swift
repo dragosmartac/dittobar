@@ -122,6 +122,9 @@ struct EntryListView: View {
                 }
             }
             .listStyle(.inset)
+            // Switching between search results and the whole sheet replaces the data set.
+            // Give each its own backing table when a save clears the search during dismissal.
+            .id(store.query.isEmpty)
             .overlay {
                 if store.visibleItems.isEmpty {
                     ContentUnavailableView.search(text: store.query)
