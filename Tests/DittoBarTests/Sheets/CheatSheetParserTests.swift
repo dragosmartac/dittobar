@@ -259,7 +259,7 @@ struct CheatSheetParserTests {
         #expect(entries.map(\.title) == ["Before sections", "Inside section"])
         #expect(entries.map(\.id) == [
             "mixed_structure.md:0:Before sections",
-            "mixed_structure.md:1:Inside section"
+            "mixed_structure.md:0:Inside section"
         ])
         #expect(entries.map(\.storageKey) == [
             "mixed_structure.md#Before sections",

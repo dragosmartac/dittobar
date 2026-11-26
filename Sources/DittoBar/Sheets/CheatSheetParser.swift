@@ -31,7 +31,9 @@ enum CheatSheetParser {
         var entryTitle: String?
         var descriptionLines: [String] = []
         var items: [CheatSheetItem] = []
-        var entryCount = 0
+        // List rows need stable IDs when another entry is inserted or removed.
+        // Count only entries with the same title to distinguish duplicates.
+        var titleCounts: [String: Int] = [:]
         var entrySourceRanges: [Range<String.Index>] = []
         var currentRanges: [Range<String.Index>] = []
         var sectionHeadings: [(section: CheatSheetSection, start: String.Index)] = []
@@ -65,10 +67,11 @@ enum CheatSheetParser {
                 rawFencedContent: rawFencedContent,
                 fenceLanguage: fenceLanguage
             )
-            if let entry = makeEntry(from: draft, fileName: fileName, entryIndex: entryCount) {
+            let occurrence = titleCounts[title, default: 0]
+            if let entry = makeEntry(from: draft, fileName: fileName, titleOccurrence: occurrence) {
                 items.append(.entry(entry))
                 if entry == target { entrySourceRanges = currentRanges }
-                entryCount += 1
+                titleCounts[title, default: 0] += 1
             }
         }
 
@@ -174,14 +177,14 @@ enum CheatSheetParser {
     private static func makeEntry(
         from draft: EntryDraft,
         fileName: String,
-        entryIndex: Int
+        titleOccurrence: Int
     ) -> CheatSheetEntry? {
         let rawDescription = draft.rawDescription
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let rawFencedContent = draft.rawFencedContent?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let metadata = EntryMetadata(
-            id: "\(fileName):\(entryIndex):\(draft.title)",
+            id: "\(fileName):\(titleOccurrence):\(draft.title)",
             storageKey: "\(fileName)#\(draft.title)",
             title: draft.title
         )

@@ -7,6 +7,54 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct CheatSheetStoreNewEntryTests {
+    @Test func editingWithSheetsPreservesExistingRowIDs() async throws {
+        let (store, cleanup) = try makeStore()
+        defer { cleanup() }
+        let url = try #require(store.selectedSheet?.sourceURL)
+        let source = (1...8).map { section in
+            let entries = (1...8).map { number in
+                "### Task \(number)\nText with **emphasis** and {{variables}}.\n\n| A | B |\n| --- | --- |\n| one | two |"
+            }
+            return (["## Section \(section)"] + entries).joined(separator: "\n")
+        }.joined(separator: "\n")
+        try source.write(to: url, atomically: true, encoding: .utf8)
+        store.reload()
+        _ = NSApplication.shared
+        let delegate = AppDelegate(store: store)
+        delegate.configurePanel()
+        let panel = try #require(delegate.panel)
+        panel.alphaValue = 0
+        panel.setContentSize(NSSize(width: 780, height: 650))
+        panel.makeKeyAndOrderFront(nil)
+        defer { panel.orderOut(nil) }
+        @MainActor func waitForSheet(_ visible: Bool) async throws {
+            let deadline = ContinuousClock.now + .seconds(2)
+            while (panel.attachedSheet != nil) != visible, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            #expect((panel.attachedSheet != nil) == visible)
+        }
+        store.selectFirstEntry()
+        let originalIDs = store.visibleItems.map(\.id)
+        #expect(Set(originalIDs).count == originalIDs.count)
+        for _ in 0..<3 {
+            store.beginNewEntry()
+            try await waitForSheet(true)
+            store.newEntryForm?.draft = .init(kind: .note, title: "Inserted", rawContent: "Edit")
+            store.saveNewEntry()
+            try await waitForSheet(false)
+            let inserted = try #require(store.selectedItem)
+            #expect(inserted.entry?.title == "Inserted")
+            #expect(store.visibleItems.map(\.id).filter { $0 != inserted.id } == originalIDs)
+            store.requestEntryRemoval()
+            try await waitForSheet(true)
+            store.removeEntry(try #require(store.pendingEntryRemoval))
+            try await waitForSheet(false)
+            #expect(store.visibleItems.map(\.id) == originalIDs)
+            store.selectFirstEntry()
+        }
+    }
+
     @Test func listRevealsSelectionAfterAddingAndRemovingAnEntry() async throws {
         let (store, cleanup) = try makeStore()
         defer { cleanup() }

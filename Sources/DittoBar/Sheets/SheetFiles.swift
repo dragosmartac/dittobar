@@ -92,8 +92,7 @@ enum SheetFiles {
                 throw CocoaError(.fileReadInapplicableStringEncoding)
             }
             let document = CheatSheetParser.parseDocument(source, fileURL: sheet.sourceURL, locating: entry)
-            // Entry IDs include their position. An external edit could move an identically
-            // titled entry into that position while the confirmation is open.
+            // An external edit can change which duplicate has the confirmed ID.
             guard document.sheet == sheet, !document.entrySourceRanges.isEmpty else { throw RemovalError.sheetChanged }
             for range in document.entrySourceRanges.reversed() {
                 let start = source.utf8.distance(from: source.startIndex, to: range.lowerBound)
