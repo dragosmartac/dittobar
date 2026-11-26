@@ -1,6 +1,7 @@
 import Carbon
 import Foundation
 
+// Register a global hotkey (⌥ + Space) to trigger the provided handler when pressed.
 final class HotKeyManager {
     private var hotKey: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?

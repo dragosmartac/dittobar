@@ -1,0 +1,118 @@
+import AppKit
+
+extension AppDelegate {
+    /// Return nil to consume a key press, or return the event to let AppKit deliver it.
+    func handleKeyEvent(_ event: NSEvent) -> NSEvent? {
+        guard panel.isVisible else { return event }
+
+        // keyCode identifies a physical key. Letter and number shortcuts below use
+        // charactersIgnoringModifiers to read the character for the current keyboard layout.
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+
+        // Alerts bring their own Return and Escape handling.
+        if store.isNewSheetPromptPresented || store.editorErrorMessage != nil
+            || copyOptionsController.isPresented {
+            return event
+        }
+
+        // Let the settings sheet handle its own fields and key equivalents.
+        if store.isSettingsPresented {
+            return event
+        }
+
+        // The variable form owns the keyboard while it is open: Tab moves
+        // between its fields and Return confirms via their onSubmit.
+        if store.isVariableFormPresented {
+            if event.keyCode == 53 { // Escape
+                store.cancelVariableForm()
+                return nil
+            }
+            return event
+        }
+
+        if event.keyCode == 53 { // Escape
+            closePanel(restoringFocus: true)
+            return nil
+        }
+
+        if modifiers.contains(.command),
+           let characters = event.charactersIgnoringModifiers,
+           let number = Int(characters),
+           (1...9).contains(number) {
+            store.selectSheet(at: number - 1)
+            return nil
+        }
+
+        if modifiers.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "f" {
+            NotificationCenter.default.post(name: .focusCheatSheetSearch, object: nil)
+            return nil
+        }
+
+        if modifiers == .command, event.charactersIgnoringModifiers == "," {
+            store.isSettingsPresented = true
+            return nil
+        }
+
+        if modifiers.contains(.command), modifiers.contains(.shift),
+           event.charactersIgnoringModifiers?.lowercased() == "m" {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .openCheatSheetMoreOptions, object: nil)
+            }
+            return nil
+        }
+
+        if modifiers.contains(.command), modifiers.contains(.shift),
+           event.charactersIgnoringModifiers?.lowercased() == "n" {
+            store.requestNewSheetCreation()
+            return nil
+        }
+
+        if modifiers.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "e" {
+            store.openSelectedSheetInEditor()
+            return nil
+        }
+
+        if modifiers.contains(.command), modifiers.contains(.option),
+           !modifiers.contains(.control), !modifiers.contains(.shift) {
+            if event.keyCode == 123 { // Left Arrow
+                store.moveSheetSelection(by: -1)
+                return nil
+            }
+            if event.keyCode == 124 { // Right Arrow
+                store.moveSheetSelection(by: 1)
+                return nil
+            }
+        }
+
+        if event.keyCode == 48 { // Tab
+            store.moveSelection(by: modifiers.contains(.shift) ? -1 : 1, isRepeat: event.isARepeat)
+            return nil
+        }
+
+        if event.keyCode == 125 { // Down Arrow
+            store.moveSelection(by: 1, isRepeat: event.isARepeat)
+            return nil
+        }
+
+        if event.keyCode == 126 { // Up Arrow
+            store.moveSelection(by: -1, isRepeat: event.isARepeat)
+            return nil
+        }
+
+        // Return copies, leaving ⌘C to the system so text in the list stays
+        // selectable and copyable. ⌥Return opens copy options, while ⌘Return
+        // copies without opening the variable form. Return toggles sections.
+        if event.keyCode == 36 || event.keyCode == 76 { // Return (36) or numeric keypad Enter (76)
+            if let item = store.selectedItem, modifiers == .option {
+                copyOptionsController.present(for: item)
+            } else if modifiers.contains(.command) {
+                store.performPrimaryActionForSelectedEntry(skippingVariableForm: true)
+            } else {
+                store.performPrimaryActionForSelectedEntry()
+            }
+            return nil
+        }
+
+        return event
+    }
+}

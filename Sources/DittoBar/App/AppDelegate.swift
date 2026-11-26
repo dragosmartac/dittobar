@@ -3,11 +3,11 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-    private var panel: CheatSheetPanel!
-    private let store = CheatSheetStore()
+    private(set) var panel: CheatSheetPanel!
+    let store = CheatSheetStore()
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
-    private var copyOptionsController: CopyOptionsMenuController!
+    private(set) var copyOptionsController: CopyOptionsMenuController!
     private var hotKeyManager: HotKeyManager?
     private var keyMonitor: Any?
     private var outsideClickMonitor: Any?
@@ -224,7 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    private func closePanel(restoringFocus: Bool) {
+    func closePanel(restoringFocus: Bool) {
         guard panel.isVisible else { return }
         stopMonitoringOutsideClicks()
         panel.orderOut(nil)
@@ -240,117 +240,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // The panel never activates the app, but its sheets and alerts can.
         guard restoringFocus, NSApp.isActive else { return }
         previouslyActiveApplication?.activate(options: [])
-    }
-
-    private func handleKeyEvent(_ event: NSEvent) -> NSEvent? {
-        guard panel.isVisible else { return event }
-
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-
-        // Alerts bring their own Return and Escape handling.
-        if store.isNewSheetPromptPresented || store.editorErrorMessage != nil
-            || copyOptionsController.isPresented {
-            return event
-        }
-
-        // Let the settings sheet handle its own fields and key equivalents.
-        if store.isSettingsPresented {
-            return event
-        }
-
-        // The variable form owns the keyboard while it is open: Tab moves
-        // between its fields and Return confirms via their onSubmit.
-        if store.isVariableFormPresented {
-            if event.keyCode == 53 {
-                store.cancelVariableForm()
-                return nil
-            }
-            return event
-        }
-
-        if event.keyCode == 53 {
-            closePanel(restoringFocus: true)
-            return nil
-        }
-
-        if modifiers.contains(.command),
-           let characters = event.charactersIgnoringModifiers,
-           let number = Int(characters),
-           (1...9).contains(number) {
-            store.selectSheet(at: number - 1)
-            return nil
-        }
-
-        if modifiers.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "f" {
-            NotificationCenter.default.post(name: .focusCheatSheetSearch, object: nil)
-            return nil
-        }
-
-        if modifiers == .command, event.charactersIgnoringModifiers == "," {
-            store.isSettingsPresented = true
-            return nil
-        }
-
-        if modifiers.contains(.command), modifiers.contains(.shift),
-           event.charactersIgnoringModifiers?.lowercased() == "m" {
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .openCheatSheetMoreOptions, object: nil)
-            }
-            return nil
-        }
-
-        if modifiers.contains(.command), modifiers.contains(.shift),
-           event.charactersIgnoringModifiers?.lowercased() == "n" {
-            store.requestNewSheetCreation()
-            return nil
-        }
-
-        if modifiers.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "e" {
-            store.openSelectedSheetInEditor()
-            return nil
-        }
-
-        if modifiers.contains(.command), modifiers.contains(.option),
-           !modifiers.contains(.control), !modifiers.contains(.shift) {
-            if event.keyCode == 123 {
-                store.moveSheetSelection(by: -1)
-                return nil
-            }
-            if event.keyCode == 124 {
-                store.moveSheetSelection(by: 1)
-                return nil
-            }
-        }
-
-        if event.keyCode == 48 {
-            store.moveSelection(by: modifiers.contains(.shift) ? -1 : 1, isRepeat: event.isARepeat)
-            return nil
-        }
-
-        if event.keyCode == 125 {
-            store.moveSelection(by: 1, isRepeat: event.isARepeat)
-            return nil
-        }
-
-        if event.keyCode == 126 {
-            store.moveSelection(by: -1, isRepeat: event.isARepeat)
-            return nil
-        }
-
-        // Return copies, leaving ⌘C to the system so text in the list stays
-        // selectable and copyable. ⌥Return opens copy options, while ⌘Return
-        // copies without opening the variable form. Return toggles sections.
-        if event.keyCode == 36 || event.keyCode == 76 {
-            if let item = store.selectedItem, modifiers == .option {
-                copyOptionsController.present(for: item)
-            } else if modifiers.contains(.command) {
-                store.performPrimaryActionForSelectedEntry(skippingVariableForm: true)
-            } else {
-                store.performPrimaryActionForSelectedEntry()
-            }
-            return nil
-        }
-
-        return event
     }
 }
