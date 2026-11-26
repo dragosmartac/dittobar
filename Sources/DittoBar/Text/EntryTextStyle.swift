@@ -410,19 +410,13 @@ enum EntryTextStyle {
                     continue
                 }
 
+                let weight: NSFont.Weight = isBold ? .bold : (emphasized || isVariable ? .semibold : .regular)
                 var font = isCode
-                    ? fonts.code(
-                        size: size,
-                        weight: emphasized || isVariable || isBold ? .semibold : .regular
-                    )
-                    : fonts.text(
-                        size: size,
-                        weight: emphasized || isVariable || isBold ? .semibold : .regular
-                    )
+                    ? fonts.code(size: size, weight: weight)
+                    : fonts.text(size: size, weight: weight)
 
                 if isItalic {
-                    let descriptor = font.fontDescriptor.withSymbolicTraits(.italic)
-                    font = NSFont(descriptor: descriptor, size: size) ?? font
+                    font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
                 }
 
                 var attributes: [NSAttributedString.Key: Any] = [
