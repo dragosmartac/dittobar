@@ -60,7 +60,7 @@ struct EntryFormPicker<Value: Hashable>: NSViewRepresentable {
     }
 }
 
-private final class FocusablePopUpButton: NSPopUpButton {
+class FocusablePopUpButton: NSPopUpButton {
     override var acceptsFirstResponder: Bool { isEnabled }
     override var canBecomeKeyView: Bool { isEnabled && !isHiddenOrHasHiddenAncestor }
 

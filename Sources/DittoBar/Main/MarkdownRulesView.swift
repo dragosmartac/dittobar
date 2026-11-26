@@ -31,7 +31,7 @@ struct MarkdownRulesContent: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Sheet structure").font(.headline)
                         example("# Sheet title\n## Section\n### Entry title")
-                        Text("There are multiple types of entries. Usually you can start typing immediately after the entrie's title. For a command, URL, or file entry add a fenced block like this:")
+                        Text("Write a note below its entry title. For a command, URL, or file, add a fenced block labeled with the command language, url, or file.")
                         example("```sh\ngit switch {{branch=main}}\n```")
                     }
                     Divider()
@@ -51,7 +51,7 @@ struct MarkdownRulesContent: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Variables").font(.headline)
                     example("{{branch=main}}   {{branch}}")
-                    Text("The default value should be set only once per variable. Reuse the variable name as much as you want in the content or description.")
+                    Text("Set a default once, then reuse the variable by name in the content or description.")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

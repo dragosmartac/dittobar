@@ -31,7 +31,7 @@ final class EntryFormState: ObservableObject, Identifiable {
     }
     @Published var section: EntrySectionChoice
     @Published var newSectionName = ""
-    @Published var draft = NewEntryDraft(kind: .note, title: "", rawContent: "")
+    @Published var draft = EntryDraft(kind: .note, title: "", rawContent: "")
     @Published var isMarkdownHelpPresented = false
     @Published var errorMessage: String?
 
@@ -39,6 +39,6 @@ final class EntryFormState: ObservableObject, Identifiable {
         original = entry.map { SheetEntrySelection(entry: $0, sheet: sheet) }
         self.sheetURL = sheet.sourceURL
         self.section = EntrySectionChoice(section)
-        if let entry { draft = NewEntryDraft(entry: entry) }
+        if let entry { draft = EntryDraft(entry: entry) }
     }
 }

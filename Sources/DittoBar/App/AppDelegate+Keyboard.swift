@@ -33,9 +33,7 @@ extension AppDelegate {
         }
 
         // Pass other sheet events through for normal editing and key equivalents.
-        if store.isPanelSheetPresented {
-            return event
-        }
+        guard !store.isPanelSheetPresented, panel.attachedSheet == nil, event.window === panel else { return event }
 
         // The variable form owns the keyboard while it is open: Tab moves
         // between its fields and Return confirms via their onSubmit.
@@ -47,7 +45,7 @@ extension AppDelegate {
             return event
         }
 
-        if moreOptions.highlightedItem != nil, event.window === panel {
+        if moreOptions.highlightedItem != nil {
             moreOptions.handleKeyEvent(event)
             return nil
         }
@@ -60,19 +58,19 @@ extension AppDelegate {
         // Match the plus character, including Shift-= and keypad +, while search has focus too.
         if modifiers.contains(.command), event.charactersIgnoringModifiers == "+",
            modifiers.isDisjoint(with: [.control, .option, .function]),
-           event.window === panel, store.selectedSheet != nil {
+           store.selectedSheet != nil {
             if !event.isARepeat { store.beginNewEntry() }
             return nil
         }
 
         if modifiers.contains(.command), event.charactersIgnoringModifiers == "=",
-           modifiers.isDisjoint(with: [.control, .option, .function]), event.window === panel {
+           modifiers.isDisjoint(with: [.control, .option, .function]) {
             if !event.isARepeat { store.editSelectedEntry() }
             return nil
         }
 
         if modifiers.intersection([.command, .shift, .control, .option, .function]) == .command,
-           event.charactersIgnoringModifiers == "-", event.window === panel {
+           event.charactersIgnoringModifiers == "-" {
             if !event.isARepeat { store.requestEntryRemoval() }
             return nil
         }

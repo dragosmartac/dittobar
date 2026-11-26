@@ -165,34 +165,15 @@ struct CheatSheetStoreNewEntryTests {
             (window.firstResponder as? NSTextView)?.string
         }
         #expect(focusedText() == "Title")
-        @MainActor func focusPicker(_ label: String, with code: UInt16) throws -> NSPopUpButton {
+        @MainActor func focusPicker(_ label: String, with code: UInt16) throws -> FocusablePopUpButton {
             try press(code)
-            let button = try #require(window.firstResponder as? NSPopUpButton)
+            let button = try #require(window.firstResponder as? FocusablePopUpButton)
             #expect(button.accessibilityLabel() == label)
             return button
         }
-        @MainActor func verifyMenuOpens(_ picker: NSPopUpButton, keyCode: UInt16, character: String,
-                                        modifiers: NSEvent.ModifierFlags = []) throws {
-            let probe = PickerOpeningProbe()
-            let menu = try #require(picker.menu)
-            let originalDelegate = menu.delegate
-            menu.delegate = probe
-            defer { menu.delegate = originalDelegate }
-            let event = try #require(NSEvent.keyEvent(
-                with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
-                windowNumber: windowNumber, context: nil, characters: character, charactersIgnoringModifiers: character,
-                isARepeat: false, keyCode: keyCode
-            ))
-            window.sendEvent(event)
-            #expect(probe.opened)
-        }
-
         let type = try focusPicker("Type", with: 126)
-        try verifyMenuOpens(type, keyCode: 36, character: "\r")
-        let section = try focusPicker("Section", with: 126)
-        try verifyMenuOpens(section, keyCode: 76, character: "\u{3}", modifiers: .numericPad)
-        let sheet = try focusPicker("Sheet", with: 126)
-        try verifyMenuOpens(sheet, keyCode: 49, character: " ")
+        _ = try focusPicker("Section", with: 126)
+        _ = try focusPicker("Sheet", with: 126)
         _ = try focusPicker("Section", with: 125)
         _ = try focusPicker("Type", with: 125)
         #expect(type.titleOfSelectedItem == "Command")
@@ -223,6 +204,29 @@ struct CheatSheetStoreNewEntryTests {
         #expect(store.entryForm == nil)
         #expect(panel.isVisible)
         #expect(try Data(contentsOf: form.sheetURL) == originalFile)
+        // Escape clears the form immediately. AppKit still needs the panel until dismissal finishes.
+        let deadlineAfterCancel = ContinuousClock.now + .seconds(2)
+        while panel.attachedSheet != nil, ContinuousClock.now < deadlineAfterCancel {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(panel.attachedSheet == nil)
+    }
+
+    @Test func returnAndKeypadEnterRequestTheNativePickerMenu() throws {
+        _ = NSApplication.shared
+        let picker = PickerClickProbe()
+        for (code, text, modifiers): (UInt16, String, NSEvent.ModifierFlags) in [
+            (36, "\r", []), (76, "\u{3}", .numericPad)
+        ] {
+            let event = try #require(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+                windowNumber: 0, context: nil, characters: text, charactersIgnoringModifiers: text,
+                isARepeat: false, keyCode: code
+            ))
+            let before = picker.clickCount
+            picker.keyDown(with: event)
+            #expect(picker.clickCount == before + 1)
+        }
     }
 
     @Test func moreMenuKeyboardNavigationWrapsAndSkipsUnavailableItems() throws {
@@ -246,6 +250,13 @@ struct CheatSheetStoreNewEntryTests {
 
             let options = delegate.moreOptions
             let entryIndex = store.selectedItemIndex
+            let unrelatedKey = try #require(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: 0, context: nil, characters: "\t", charactersIgnoringModifiers: "\t",
+                isARepeat: false, keyCode: 48
+            ))
+            #expect(delegate.handleKeyEvent(unrelatedKey) === unrelatedKey)
+            #expect(store.selectedItemIndex == entryIndex)
             try press(46, [.command, .shift], text: "M")
             #expect(options.highlightedItem?.title == "Add Sheet Entry")
             try press(126) // Up from first
@@ -274,6 +285,9 @@ struct CheatSheetStoreNewEntryTests {
             store.selectedSheetIndex = store.sheets.count
             options.open()
             #expect(options.highlightedItem?.title == "New Cheat Sheet in Editor")
+            try press(48)
+            #expect(options.highlightedItem?.title == "Open Cheat Sheets Folder")
+            try press(48, .shift)
             try press(48, .shift)
             #expect(options.highlightedItem?.title == "Quit DittoBar")
             try press(126)
@@ -346,7 +360,7 @@ struct CheatSheetStoreNewEntryTests {
         #expect(store.entryForm == nil)
         #expect(store.selectedSheet?.items.map(\.entry?.title) == ["First", nil, "Existing", "Print", nil])
         let saved = try #require(store.selectedEntry)
-        #expect(NewEntryDraft(entry: saved) == edit.draft)
+        #expect(EntryDraft(entry: saved) == edit.draft)
         #expect(saved.variables.map(\.name) == ["name"])
     }
 
@@ -369,7 +383,7 @@ struct CheatSheetStoreNewEntryTests {
             #expect(store.entryForm == nil)
             #expect(store.selectedSheet?.sourceURL == destination.sourceURL)
             let saved = try #require(store.selectedEntry)
-            #expect(NewEntryDraft(entry: saved) == form.draft)
+            #expect(EntryDraft(entry: saved) == form.draft)
             let items = try #require(store.selectedSheet?.items)
             #expect(items.compactMap(\.entry).count == destination.items.compactMap(\.entry).count + 1)
             let index = try #require(items.firstIndex(of: .entry(saved)))
@@ -409,7 +423,7 @@ struct CheatSheetStoreNewEntryTests {
             let form = try #require(store.entryForm)
             form.draft.rawContent = ""
             store.saveEntryForm()
-            #expect(form.errorMessage == NewEntryDraft.ValidationError.missingContent.localizedDescription)
+            #expect(form.errorMessage == EntryDraft.ValidationError.missingContent.localizedDescription)
             #expect(try String(contentsOf: form.sheetURL, encoding: .utf8) == Self.source)
             let external = Self.source + "\n### External\nNew text."
             try external.write(to: form.sheetURL, atomically: true, encoding: .utf8)
@@ -742,7 +756,7 @@ struct CheatSheetStoreNewEntryTests {
             form.newSectionName = "Valid name"
             form.draft.title = ""
             store.saveEntryForm()
-            #expect(form.errorMessage == NewEntryDraft.ValidationError.missingTitle.localizedDescription)
+            #expect(form.errorMessage == EntryDraft.ValidationError.missingTitle.localizedDescription)
             store.cancelEntryForm()
             #expect(store.entryForm == nil)
             #expect(try String(contentsOf: form.sheetURL, encoding: .utf8) == Self.source)
@@ -807,11 +821,11 @@ struct CheatSheetStoreNewEntryTests {
     }
 }
 
-@MainActor private final class PickerOpeningProbe: NSObject, NSMenuDelegate {
-    private(set) var opened = false
-    func menuWillOpen(_ menu: NSMenu) {
-        opened = true
-        menu.perform(#selector(NSMenu.cancelTrackingWithoutAnimation), with: nil,
-                     afterDelay: 0, inModes: [.eventTracking, .default])
+// Cancelling a real pop-up menu inside Swift Testing can stop the runner's main run loop.
+@MainActor private final class PickerClickProbe: FocusablePopUpButton {
+    private(set) var clickCount = 0
+
+    override func performClick(_ sender: Any?) {
+        clickCount += 1
     }
 }

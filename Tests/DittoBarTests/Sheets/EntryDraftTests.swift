@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import DittoBar
 
-struct NewEntryDraftTests {
-    private func parse(_ draft: NewEntryDraft) throws -> CheatSheetEntry {
+struct EntryDraftTests {
+    private func parse(_ draft: EntryDraft) throws -> CheatSheetEntry {
         let sheet = CheatSheetParser.parse(
             try draft.markdown(),
             fileURL: URL(fileURLWithPath: "/tmp/draft.md")
@@ -15,7 +15,7 @@ struct NewEntryDraftTests {
     }
 
     @Test func variablesFollowTheFieldsShownForTheCurrentType() {
-        var draft = NewEntryDraft(kind: .command, title: "Example", rawContent: "{{branch")
+        var draft = EntryDraft(kind: .command, title: "Example", rawContent: "{{branch")
         #expect(draft.variables.isEmpty)
         draft.rawContent = "{{branch=main}} {{path}}"
         draft.rawDescription = "Check {{branch}} on {{host=local}}."
@@ -31,7 +31,7 @@ struct NewEntryDraftTests {
     }
 
     @Test func noteKeepsRawMarkdown() throws {
-        let draft = NewEntryDraft(kind: .note, title: "Review", rawContent: "Review **changes**.\n\n- Check tests")
+        let draft = EntryDraft(kind: .note, title: "Review", rawContent: "Review **changes**.\n\n- Check tests")
         guard case .note(let note) = try parse(draft) else {
             Issue.record("Expected a note")
             return
@@ -40,7 +40,7 @@ struct NewEntryDraftTests {
     }
 
     @Test func commandKeepsMultipleLinesAndVariables() throws {
-        let draft = NewEntryDraft(
+        let draft = EntryDraft(
             kind: .command, title: "Diff",
             rawContent: "git fetch\r\n# Compare branches\r\ngit diff {{branch=main}}",
             rawDescription: "Compare against **{{branch=main}}**."
@@ -56,7 +56,7 @@ struct NewEntryDraftTests {
     }
 
     @Test func unlabeledFenceIsACommand() throws {
-        let draft = NewEntryDraft(kind: .command, title: "Status", rawContent: "git status", language: "")
+        let draft = EntryDraft(kind: .command, title: "Status", rawContent: "git status", language: "")
         guard case .command(let command) = try parse(draft) else {
             Issue.record("Expected a command")
             return
@@ -65,8 +65,14 @@ struct NewEntryDraftTests {
         #expect(command.rawDescription == nil)
     }
 
+    @Test func editingACommandPreservesIndentationAndBlankLines() throws {
+        let draft = EntryDraft(kind: .command, title: "Indented snippet", rawContent: "\n    run()\n    finish()  \n")
+        let entry = try parse(draft)
+        #expect(EntryDraft(entry: entry) == draft)
+    }
+
     @Test func urlKeepsRawAddress() throws {
-        let draft = NewEntryDraft(kind: .url, title: "Docs", rawContent: "https://{{host}}/docs")
+        let draft = EntryDraft(kind: .url, title: "Docs", rawContent: "https://{{host}}/docs")
         guard case .url(let entry) = try parse(draft) else {
             Issue.record("Expected a URL")
             return
@@ -76,7 +82,7 @@ struct NewEntryDraftTests {
     }
 
     @Test func fileKeepsRelativePathAndDescription() throws {
-        let draft = NewEntryDraft(
+        let draft = EntryDraft(
             kind: .file, title: "Notes", rawContent: "{{project}}/notes.md", rawDescription: "Project notes"
         )
         guard case .file(let entry) = try parse(draft) else {
@@ -88,7 +94,7 @@ struct NewEntryDraftTests {
     }
 
     @Test func rejectsDraftsTheSheetCannotRepresent() {
-        let cases: [(NewEntryDraft, NewEntryDraft.ValidationError)] = [
+        let cases: [(EntryDraft, EntryDraft.ValidationError)] = [
             (.init(kind: .note, title: " ", rawContent: "Text"), .missingTitle),
             (.init(kind: .url, title: "Docs", rawContent: "\n ", rawDescription: "Site"), .missingContent),
             (.init(kind: .file, title: "First\nSecond", rawContent: "/tmp"), .multilineTitle),
@@ -100,8 +106,8 @@ struct NewEntryDraftTests {
             #expect(throws: error) { try draft.markdown() }
         }
         for language in ["URL", "File", "sh\nbody"] {
-            let draft = NewEntryDraft(kind: .command, title: "Run", rawContent: "ls", language: language)
-            #expect(throws: NewEntryDraft.ValidationError.invalidLanguage) { try draft.markdown() }
+            let draft = EntryDraft(kind: .command, title: "Run", rawContent: "ls", language: language)
+            #expect(throws: EntryDraft.ValidationError.invalidLanguage) { try draft.markdown() }
         }
     }
 }

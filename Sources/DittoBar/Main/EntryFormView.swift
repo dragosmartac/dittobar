@@ -140,7 +140,7 @@ struct EntryFormView: View {
     }
 
     @ViewBuilder
-    private func entryFields(_ draft: Binding<NewEntryDraft>) -> some View {
+    private func entryFields(_ draft: Binding<EntryDraft>) -> some View {
         switch draft.wrappedValue.kind {
         case .note:
             editor("Content", text: draft.rawContent)

@@ -105,7 +105,8 @@ final class MoreOptionsMenu: NSObject, ObservableObject, NSMenuItemValidation {
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         switch menuItem.action {
-        case #selector(addEntry): store.selectedSheet != nil
+        case #selector(addEntry), #selector(editCurrentSheet), #selector(copyCurrentSheetPath):
+            store.selectedSheet != nil
         case #selector(editSelectedEntry), #selector(removeSelectedEntry): store.selectedEntry != nil
         default: true
         }
@@ -165,6 +166,7 @@ struct MoreOptionsAnchor: PreferenceKey {
 }
 
 struct MoreOptionsList: View {
+    @Environment(\.dittoAccent) private var accentColor
     @ObservedObject var options: MoreOptionsMenu
 
     var body: some View {
@@ -204,7 +206,7 @@ struct MoreOptionsList: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .background(selected ? Color.accentColor : .clear, in: RoundedRectangle(cornerRadius: 4))
+                    .background(selected ? accentColor.opacity(0.2) : .clear, in: RoundedRectangle(cornerRadius: 4))
                     .accessibilityAddTraits(selected ? .isSelected : [])
                     .onHover { inside in
                         if inside { options.highlight(item) }

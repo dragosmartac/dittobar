@@ -67,14 +67,20 @@ private struct ShortcutGroup: Identifiable {
         ShortcutGroup(title: "Entries", shortcuts: [
             Shortcut(title: "Add entry", keys: [["⌘", "+"]]),
             Shortcut(title: "Edit selected entry", keys: [["⌘", "="]]),
-            Shortcut(title: "Save in Edit Entry", keys: [["⌘", "S"]]),
             Shortcut(title: "Remove selected entry", keys: [["⌘", "−"]]),
             Shortcut(title: "Copy or open, or fill in variables first", keys: [["↩"]]),
             Shortcut(title: "Copy or open with the current variable values", keys: [["⌘", "↩"]]),
             Shortcut(title: "Show all actions", keys: [["⌥", "↩"]])
         ]),
         ShortcutGroup(title: "Sections", shortcuts: [
-            Shortcut(title: "Show section actions", keys: [["↩"]])
+            Shortcut(title: "Expand or collapse the selected section", keys: [["↩"]]),
+            Shortcut(title: "Show section actions", keys: [["⌥", "↩"]])
+        ]),
+        ShortcutGroup(title: "Entry Form", shortcuts: [
+            Shortcut(title: "Previous or next field", keys: [["⌘", "↑"], ["⌘", "↓"]]),
+            Shortcut(title: "Markdown help", keys: [["⌘", "M"]]),
+            Shortcut(title: "Save changes in Edit Entry", keys: [["⌘", "S"]]),
+            Shortcut(title: "Cancel", keys: [["Esc"]])
         ]),
         ShortcutGroup(title: "Variable Form", shortcuts: [
             Shortcut(title: "Next or previous field", keys: [["Tab"], ["⇧", "Tab"]]),

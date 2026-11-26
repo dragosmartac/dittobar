@@ -1,7 +1,7 @@
 import Foundation
 
 enum CheatSheetParser {
-    private struct EntryDraft {
+    private struct ParsedEntryFields {
         let title: String
         let rawDescription: String
         let rawFencedContent: String?
@@ -17,6 +17,10 @@ enum CheatSheetParser {
 
     static func parse(_ source: String, fileURL: URL) -> CheatSheet {
         parseDocument(source, fileURL: fileURL).sheet
+    }
+
+    static func startsHeading(_ line: Substring) -> Bool {
+        line.hasPrefix("# ") || line.hasPrefix("## ") || line.hasPrefix("### ")
     }
 
     /// File edits use the same heading, fence, and comment boundaries as the displayed sheet.
@@ -61,7 +65,7 @@ enum CheatSheetParser {
             }
 
             guard let title = entryTitle else { return }
-            let draft = EntryDraft(
+            let draft = ParsedEntryFields(
                 title: title,
                 rawDescription: descriptionLines.joined(separator: "\n"),
                 rawFencedContent: rawFencedContent,
@@ -175,13 +179,13 @@ enum CheatSheetParser {
     }
 
     private static func makeEntry(
-        from draft: EntryDraft,
+        from draft: ParsedEntryFields,
         fileName: String,
         titleOccurrence: Int
     ) -> CheatSheetEntry? {
         let rawDescription = draft.rawDescription
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let rawFencedContent = draft.rawFencedContent?
+        let trimmedContent = draft.rawFencedContent?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let metadata = EntryMetadata(
             id: "\(fileName):\(titleOccurrence):\(draft.title)",
@@ -189,9 +193,9 @@ enum CheatSheetParser {
             title: draft.title
         )
 
-        if let rawFencedContent, !rawFencedContent.isEmpty {
+        if let content = draft.rawFencedContent, let trimmedContent, !trimmedContent.isEmpty {
             let description = rawDescription.isEmpty ? nil : rawDescription
-            let variableSource = [description, rawFencedContent]
+            let variableSource = [description, content]
                 .compactMap { $0 }
                 .joined(separator: "\n")
             let variables = TextVariables.variables(in: variableSource)
@@ -201,7 +205,7 @@ enum CheatSheetParser {
                     URLEntry(
                         metadata: metadata,
                         rawDescription: description,
-                        rawURL: rawFencedContent,
+                        rawURL: trimmedContent,
                         variables: variables
                     )
                 )
@@ -212,7 +216,7 @@ enum CheatSheetParser {
                     FileEntry(
                         metadata: metadata,
                         rawDescription: description,
-                        rawPath: rawFencedContent,
+                        rawPath: trimmedContent,
                         variables: variables
                     )
                 )
@@ -224,7 +228,7 @@ enum CheatSheetParser {
                 CommandEntry(
                     metadata: metadata,
                     rawDescription: description,
-                    rawCommand: rawFencedContent,
+                    rawCommand: content,
                     language: language?.isEmpty == true ? nil : language,
                     variables: variables
                 )

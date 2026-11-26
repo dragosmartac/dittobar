@@ -234,14 +234,14 @@ struct MainView: View {
             case nil:
                 EmptyView()
             }
-            footerShortcut("⌘E", label: "edit sheet")
-            footerShortcut("⌘⇧N", label: "new")
+            footerShortcut("⌘⇧N", label: "new sheet")
             if store.selectedSheet != nil {
+                footerShortcut("⌘E", label: "edit sheet")
                 Divider().frame(height: chromeSize * 1.4)
-                footerShortcut("⌘+", label: "Add entry")
+                footerShortcut("⌘+", label: "add entry")
                 if store.selectedEntry != nil {
-                    footerShortcut("⌘=", label: "Edit entry")
-                    footerShortcut("⌘−", label: "Remove entry")
+                    footerShortcut("⌘=", label: "edit entry")
+                    footerShortcut("⌘−", label: "remove entry")
                 }
             }
             Spacer()

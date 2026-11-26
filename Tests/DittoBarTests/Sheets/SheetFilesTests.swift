@@ -71,7 +71,7 @@ struct SheetFilesTests {
         }
     }
 
-    private let draft = NewEntryDraft(kind: .note, title: "Reminder", rawContent: "Check {{branch=main}}.")
+    private let draft = EntryDraft(kind: .note, title: "Reminder", rawContent: "Check {{branch=main}}.")
 
     @Test func removalPreservesOtherEntriesCommentsAndOriginalBytes() throws {
         try withFolder { folder in
@@ -94,13 +94,13 @@ struct SheetFilesTests {
             let prefix = "\u{FEFF}# Café\r\n## Tools\r\n"
             let comment = "<!-- example -->\r\n"
             let suffix = "\r\n### Next\r\nOther note.  "
-            for (label, kind) in [("", NewEntryDraft.Kind.command), ("URL", .url), ("file", .file)] {
+            for (label, kind) in [("", EntryDraft.Kind.command), ("URL", .url), ("file", .file)] {
                 let source = prefix + "### Target\r\n" + comment
                     + "**See** {{name}}.\r\n```" + label + "\r\n{{path}}\r\n```\r\n" + suffix
                 try Data(source.utf8).write(to: url)
                 let sheet = try #require(SheetFiles.load(from: folder).first)
                 let entry = try #require(sheet.items.compactMap(\.entry).first)
-                var draft = NewEntryDraft(entry: entry)
+                var draft = EntryDraft(entry: entry)
                 #expect(draft.kind == kind)
                 #expect(draft.rawDescription == "**See** {{name}}.")
                 #expect(draft.rawContent == "{{path}}")
@@ -111,11 +111,44 @@ struct SheetFilesTests {
                 draft.rawContent = "new {{path}}"
                 let index = try SheetFiles.replace(entry, in: sheet, with: draft)
                 let saved = try #require(SheetFiles.load(from: folder).first)
-                #expect(NewEntryDraft(entry: try #require(saved.items[index].entry)) == draft)
+                #expect(EntryDraft(entry: try #require(saved.items[index].entry)) == draft)
                 let bytes = try Data(contentsOf: url)
                 #expect(bytes.starts(with: Data(prefix.utf8)))
                 #expect(bytes.suffix(suffix.utf8.count) == Data(suffix.utf8))
                 #expect(bytes.range(of: Data(comment.utf8)) != nil)
+            }
+        }
+    }
+
+    @Test func renamingOnlyChangesTheSelectedHeading() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let source = "\u{FEFF}### Same\r\nFirst.\r\n### Same\r\n<!-- keep here -->\r\n"
+                + "See **details**.  \r\n\r\n```sh\r\n  echo hi  \r\n```\r\n"
+            try Data(source.utf8).write(to: url)
+            let sheet = try #require(SheetFiles.load(from: folder).first)
+            let entry = try #require(sheet.items.last?.entry)
+            var draft = EntryDraft(entry: entry)
+            draft.title = "Renamed"
+            _ = try SheetFiles.save(draft, into: sheet.sourceURL, section: .unsectioned,
+                                    editing: SheetEntrySelection(entry: entry, sheet: sheet))
+            let expected = source.replacingOccurrences(of: "First.\r\n### Same", with: "First.\r\n### Renamed")
+            #expect(try Data(contentsOf: url) == Data(expected.utf8))
+        }
+    }
+
+    @Test func editingOrRemovingAFencedEntryCannotAttachLooseMarkdownToANote() throws {
+        try withFolder { folder in
+            let url = folder.appendingPathComponent("notes.md")
+            let source = "### First\nKeep this note.\n### Run\n```sh\npwd\n```\n\nLoose text.\n```sh\ndate\n```\n"
+            try Data(source.utf8).write(to: url)
+            let sheet = try #require(SheetFiles.load(from: folder).first)
+            let entry = try #require(sheet.items.last?.entry)
+            for change in [draft, nil] {
+                #expect(throws: SheetFiles.EntryChangeError.looseMarkdown) {
+                    _ = try SheetFiles.replace(entry, in: sheet, with: change)
+                }
+                #expect(try Data(contentsOf: url) == Data(source.utf8))
             }
         }
     }
@@ -216,7 +249,7 @@ struct SheetFilesTests {
             let saved = try #require(SheetFiles.load(from: folder).first { $0.id == alias.lastPathComponent })
             #expect(saved.items.compactMap(\.entry).count == 1)
             #expect(index == 2)
-            #expect(NewEntryDraft(entry: try #require(saved.items[index].entry)) == draft)
+            #expect(EntryDraft(entry: try #require(saved.items[index].entry)) == draft)
             #expect(try FileManager.default.destinationOfSymbolicLink(atPath: alias.path) == source.path)
         }
     }

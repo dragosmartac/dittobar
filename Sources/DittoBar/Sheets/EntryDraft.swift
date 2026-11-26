@@ -1,6 +1,6 @@
 import Foundation
 
-struct NewEntryDraft: Equatable {
+struct EntryDraft: Equatable {
     enum Kind: String {
         case note, command, url, file
     }
@@ -33,10 +33,15 @@ struct NewEntryDraft: Equatable {
         }
     }
 
-    func markdown() throws -> String {
+    func validatedTitle() throws -> String {
         let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { throw ValidationError.missingTitle }
         guard !title.contains(where: \.isNewline) else { throw ValidationError.multilineTitle }
+        return title
+    }
+
+    func markdown() throws -> String {
+        let title = try validatedTitle()
         guard !rawContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ValidationError.missingContent
         }
@@ -45,7 +50,7 @@ struct NewEntryDraft: Equatable {
         let prose = kind == .note ? rawContent : rawDescription
         let proseLines = prose.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
         for line in proseLines {
-            if line.hasPrefix("# ") || line.hasPrefix("## ") || line.hasPrefix("### ")
+            if CheatSheetParser.startsHeading(line)
                 || line.hasPrefix("```") || line.drop(while: { $0.isWhitespace }).hasPrefix("<!--") {
                 throw ValidationError.structuralLineInProse
             }
@@ -74,7 +79,7 @@ struct NewEntryDraft: Equatable {
     }
 }
 
-extension NewEntryDraft {
+extension EntryDraft {
     init(entry: CheatSheetEntry) {
         switch entry {
         case .note(let note):
