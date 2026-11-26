@@ -15,11 +15,6 @@ struct EntryFormView: View {
         return form.original == nil ? "Add Entry" : "Save"
     }
 
-    private var primaryButtonShortcut: KeyboardShortcut? {
-        if form.isMarkdownHelpPresented { return .defaultAction }
-        return form.original == nil ? nil : KeyboardShortcut("s", modifiers: .command)
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.section) {
             if form.isMarkdownHelpPresented {
@@ -48,7 +43,7 @@ struct EntryFormView: View {
                         .frame(minWidth: 60)
                 }
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut(primaryButtonShortcut)
+                .keyboardShortcut(form.isMarkdownHelpPresented ? .defaultAction : KeyboardShortcut(.return, modifiers: .command))
             }
         }
         .padding(20)
@@ -75,6 +70,8 @@ struct EntryFormView: View {
         }
         .buttonStyle(.plain)
         .keyboardShortcut("m", modifiers: .command)
+        FooterShortcutHint(keys: "⌘↩", label: "save", keySize: 11)
+            .font(.caption)
     }
 
     @ViewBuilder

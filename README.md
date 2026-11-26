@@ -31,10 +31,9 @@ In **Add Sheet Entry** and **Edit Selected Entry**, choose a sheet and a section
 | `Up` / `Down` | Select the previous or next entry or section |
 | `Return` | Perform the selected entry's primary action, or open its variable form. URLs and files open; other entries copy. On a section, collapse or expand it |
 | `Option-Return` | Open the selected entry or section's action menu |
-| `Command-Return` | Perform the primary action without opening the variable form |
+| `Command-Return` | In the list, perform the primary action without opening the variable form. In Add Entry or Edit Entry, save the entry |
 | `⌘+` | Add a sheet entry, including while search has focus |
 | `⌘=` | Edit the selected entry in place, also available under **More Options → Edit Selected Entry** |
-| `Command-S` | Save changes in Edit Entry |
 | `⌘−` | Ask to remove the selected entry from its Markdown file |
 | `Command-C` | Copy text selected inside an entry |
 | `Command-E` | Open the current Markdown file in the configured editor |

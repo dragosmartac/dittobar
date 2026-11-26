@@ -79,7 +79,7 @@ private struct ShortcutGroup: Identifiable {
         ShortcutGroup(title: "Entry Form", shortcuts: [
             Shortcut(title: "Previous or next field", keys: [["⌘", "↑"], ["⌘", "↓"]]),
             Shortcut(title: "Markdown help", keys: [["⌘", "M"]]),
-            Shortcut(title: "Save changes in Edit Entry", keys: [["⌘", "S"]]),
+            Shortcut(title: "Save entry", keys: [["⌘", "↩"]]),
             Shortcut(title: "Cancel", keys: [["Esc"]])
         ]),
         ShortcutGroup(title: "Variable Form", shortcuts: [

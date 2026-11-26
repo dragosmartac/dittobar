@@ -26,7 +26,7 @@ struct MainView: View {
             }
 
             Divider()
-            footer
+            MainFooter(store: store, chromeSize: chromeSize)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { PanelBackground() }
@@ -116,8 +116,8 @@ struct MainView: View {
                         .frame(width: chromeSize * 1.5, height: chromeSize * 1.5)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("More actions")
-                .help("More actions (⌘⇧M)")
+                .accessibilityLabel("More Options")
+                .help("More Options (⌘⇧M)")
                 .anchorPreference(key: MoreOptionsAnchor.self, value: .bounds) { $0 }
             }
 
@@ -206,59 +206,5 @@ struct MainView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var footer: some View {
-        ViewThatFits(in: .horizontal) {
-            footerHints
-            ScrollView(.horizontal) { footerHints }
-        }
-        .font(.system(size: chromeSize * 0.85))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 14)
-        .frame(height: max(38, chromeSize * 2.6))
-    }
-
-    private var footerHints: some View {
-        HStack(spacing: 14) {
-            switch store.selectedItem {
-            case .entry(let entry):
-                footerShortcut("↩", label: returnVerb(for: entry))
-                footerShortcut("⌥↩", label: "options")
-                if entry.hasVariables {
-                    footerShortcut("⌘↩", label: "skip form")
-                }
-            case .section(let section):
-                footerShortcut("↩", label: store.isCollapsed(section) ? "expand" : "collapse")
-                footerShortcut("⌥↩", label: "options")
-            case nil:
-                EmptyView()
-            }
-            footerShortcut("⌘⇧N", label: "new sheet")
-            if store.selectedSheet != nil {
-                footerShortcut("⌘E", label: "edit sheet")
-                Divider().frame(height: chromeSize * 1.4)
-                footerShortcut("⌘+", label: "add entry")
-                if store.selectedEntry != nil {
-                    footerShortcut("⌘=", label: "edit entry")
-                    footerShortcut("⌘−", label: "remove entry")
-                }
-            }
-            Spacer()
-            footerShortcut("⌘⇧M", label: "more")
-        }
-    }
-
-    private func footerShortcut(_ keys: String, label: String) -> some View {
-        FooterShortcutHint(keys: keys, label: label, keySize: chromeSize * 0.8)
-    }
-
-    private func returnVerb(for entry: CheatSheetEntry) -> String {
-        switch entry.actions.primary {
-        case .openURL, .openFile, .revealInFinder:
-            return "open"
-        default:
-            return "copy"
-        }
     }
 }

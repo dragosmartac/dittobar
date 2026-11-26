@@ -7,6 +7,24 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct CheatSheetStoreNewEntryTests {
+    @Test func footerGrowsToFitHintsAtNarrowWidths() throws {
+        try withStore { store in
+            store.selectFirstEntry()
+            @MainActor func footerSize(width: CGFloat, fontSize: CGFloat) throws -> CGSize {
+                let footer = MainFooter(store: store, chromeSize: fontSize).frame(width: width)
+                let image = ImageRenderer(content: footer).nsImage
+                return try #require(image).size
+            }
+            let wide = try footerSize(width: 1200, fontSize: 14)
+            let narrow = try footerSize(width: 500, fontSize: 14)
+            let largeText = try footerSize(width: 500, fontSize: 28)
+            #expect(narrow.width == 500)
+            #expect(narrow.height > wide.height)
+            #expect(largeText.width == 500)
+            #expect(largeText.height > narrow.height)
+        }
+    }
+
     @Test func editingWithSheetsPreservesExistingRowIDs() async throws {
         let (store, cleanup) = try makeStore()
         defer { cleanup() }
@@ -212,6 +230,46 @@ struct CheatSheetStoreNewEntryTests {
         #expect(panel.attachedSheet == nil)
     }
 
+    @Test func commandReturnSavesFromMultilineAddEntryField() async throws {
+        let (store, cleanup) = try makeStore()
+        defer { cleanup() }
+        _ = NSApplication.shared
+        let delegate = AppDelegate(store: store)
+        delegate.configurePanel()
+        let panel = try #require(delegate.panel)
+        panel.alphaValue = 0
+        panel.makeKeyAndOrderFront(nil)
+        defer { panel.orderOut(nil) }
+        store.beginNewEntry()
+        let form = try #require(store.entryForm)
+        form.draft = .init(kind: .note, title: "Two lines", rawContent: "First")
+        let deadline = ContinuousClock.now + .seconds(2)
+        while (panel.attachedSheet?.firstResponder as? NSTextView)?.string != "Two lines", ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let window = try #require(panel.attachedSheet)
+        func key(_ code: UInt16, _ text: String, _ modifiers: NSEvent.ModifierFlags = []) throws -> NSEvent {
+            try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+                                          windowNumber: window.windowNumber, context: nil, characters: text,
+                                          charactersIgnoringModifiers: text, isARepeat: false, keyCode: code))
+        }
+        #expect(delegate.handleKeyEvent(try key(125, "\u{F701}", [.command, .function, .numericPad])) == nil)
+        let editor = try #require(window.firstResponder as? NSTextView)
+        #expect(editor.string == "First")
+        editor.setSelectedRange(NSRange(location: 5, length: 0))
+        window.sendEvent(try key(36, "\r"))
+        #expect(editor.string == "First\n")
+        editor.insertText("Second", replacementRange: editor.selectedRange())
+        #expect(store.entryForm === form)
+        #expect(window.performKeyEquivalent(with: try key(36, "\r", .command)))
+        let dismissalDeadline = ContinuousClock.now + .seconds(2)
+        while panel.attachedSheet != nil, ContinuousClock.now < dismissalDeadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(store.entryForm == nil)
+        #expect(store.selectedEntry.map(EntryDraft.init(entry:))?.rawContent == "First\nSecond")
+    }
+
     @Test func returnAndKeypadEnterRequestTheNativePickerMenu() throws {
         _ = NSApplication.shared
         let picker = PickerClickProbe()
@@ -348,8 +406,8 @@ struct CheatSheetStoreNewEntryTests {
         #expect(sectionPicker.sendAction(sectionPicker.action, to: sectionPicker.target))
         let save = try #require(NSEvent.keyEvent(
             with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,
-            windowNumber: window.windowNumber, context: nil, characters: "s", charactersIgnoringModifiers: "s",
-            isARepeat: false, keyCode: 1
+            windowNumber: window.windowNumber, context: nil, characters: "\r", charactersIgnoringModifiers: "\r",
+            isARepeat: false, keyCode: 36
         ))
         #expect(window.performKeyEquivalent(with: save))
         let dismissalDeadline = ContinuousClock.now + .seconds(2)
@@ -566,6 +624,14 @@ struct CheatSheetStoreNewEntryTests {
             panel.contentView?.addSubview(search)
             #expect(panel.makeFirstResponder(search))
             let editor = try #require(search.currentEditor() as? NSTextView)
+            let selection = store.selectedItemIndex
+            let selectText = try #require(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [.shift, .numericPad, .function], timestamp: 0,
+                windowNumber: windowNumber, context: nil, characters: "\u{F701}", charactersIgnoringModifiers: "\u{F701}",
+                isARepeat: false, keyCode: 125
+            ))
+            #expect(delegate.handleKeyEvent(selectText) === selectText)
+            #expect(store.selectedItemIndex == selection)
             editor.setSelectedRange(NSRange(location: 1, length: 0))
             for _ in 0..<2 {
                 let passed = try #require(delegate.handleKeyEvent(key))

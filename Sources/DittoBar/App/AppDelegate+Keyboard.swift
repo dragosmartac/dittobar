@@ -7,7 +7,8 @@ extension AppDelegate {
 
         // keyCode identifies a physical key. Letter and number shortcuts below use
         // charactersIgnoringModifiers to read the character for the current keyboard layout.
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        // Caps Lock and the numeric keypad do not change the meaning of a shortcut.
+        let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
 
         // Alerts bring their own Return and Escape handling.
         if store.isNewSheetPromptPresented || store.editorErrorMessage != nil
@@ -18,7 +19,7 @@ extension AppDelegate {
         // SwiftUI can host the entry form inside the panel or in an attached sheet.
         if let form = store.entryForm, !form.isMarkdownHelpPresented, let window = event.window,
            window === (panel.attachedSheet ?? panel),
-           modifiers.intersection([.command, .option, .control, .shift]) == .command,
+           modifiers == .command,
            let start = focusTraversalStart(in: window) {
             switch event.keyCode {
             case 125: // Down Arrow
@@ -55,103 +56,56 @@ extension AppDelegate {
             return nil
         }
 
-        // Match the plus character, including Shift-= and keypad +, while search has focus too.
-        if modifiers.contains(.command), event.charactersIgnoringModifiers == "+",
-           modifiers.isDisjoint(with: [.control, .option, .function]),
-           store.selectedSheet != nil {
-            if !event.isARepeat { store.beginNewEntry() }
-            return nil
-        }
-
-        if modifiers.contains(.command), event.charactersIgnoringModifiers == "=",
-           modifiers.isDisjoint(with: [.control, .option, .function]) {
-            if !event.isARepeat { store.editSelectedEntry() }
-            return nil
-        }
-
-        if modifiers.intersection([.command, .shift, .control, .option, .function]) == .command,
-           event.charactersIgnoringModifiers == "-" {
-            if !event.isARepeat { store.requestEntryRemoval() }
-            return nil
-        }
-
-        if modifiers.contains(.command),
-           let characters = event.charactersIgnoringModifiers,
-           let number = Int(characters),
-           (1...9).contains(number) {
+        let character = event.modifierFlags.contains(.function) ? nil : event.charactersIgnoringModifiers?.lowercased()
+        if modifiers == .command, let character, let number = Int(character), (1...9).contains(number) {
             store.selectSheet(at: number - 1)
             return nil
         }
-
-        if modifiers.contains(.command), event.charactersIgnoringModifiers?.lowercased() == "f" {
+        // Match the produced symbol so Shift-= and keypad + both add an entry.
+        switch (character, modifiers) {
+        case ("+", .command), ("+", [.command, .shift]):
+            guard store.selectedSheet != nil else { return event }
+            if !event.isARepeat { store.beginNewEntry() }
+        case ("=", .command), ("=", [.command, .shift]):
+            if !event.isARepeat { store.editSelectedEntry() }
+        case ("-", .command), ("-", [.command, .shift]):
+            if !event.isARepeat { store.requestEntryRemoval() }
+        case ("f", .command):
             NotificationCenter.default.post(name: .focusCheatSheetSearch, object: nil)
-            return nil
-        }
-
-        if modifiers == .command, event.charactersIgnoringModifiers == "," {
+        case (",", .command):
             store.isSettingsPresented = true
-            return nil
-        }
-
-        if modifiers.contains(.command), modifiers.contains(.shift),
-           event.charactersIgnoringModifiers?.lowercased() == "m" {
+        case ("m", [.command, .shift]):
             moreOptions.open()
-            return nil
-        }
-
-        if modifiers.contains(.command), modifiers.contains(.shift),
-           event.charactersIgnoringModifiers?.lowercased() == "n" {
+        case ("n", [.command, .shift]):
             store.requestNewSheetCreation()
-            return nil
-        }
-
-        if modifiers == .command, event.charactersIgnoringModifiers?.lowercased() == "e" {
+        case ("e", .command):
             store.openSelectedSheetInEditor()
-            return nil
+        default:
+            return handleNavigationKey(event, modifiers: modifiers)
         }
+        return nil
+    }
 
-        if modifiers.contains(.command), modifiers.contains(.option),
-           !modifiers.contains(.control), !modifiers.contains(.shift) {
-            if event.keyCode == 123 { // Left Arrow
-                store.moveSheetSelection(by: -1)
-                return nil
-            }
-            if event.keyCode == 124 { // Right Arrow
-                store.moveSheetSelection(by: 1)
-                return nil
-            }
-        }
-
-        if event.keyCode == 48 { // Tab
-            store.moveSelection(by: modifiers.contains(.shift) ? -1 : 1, isRepeat: event.isARepeat)
-            return nil
-        }
-
-        if event.keyCode == 125 { // Down Arrow
+    private func handleNavigationKey(_ event: NSEvent, modifiers: NSEvent.ModifierFlags) -> NSEvent? {
+        switch (event.keyCode, modifiers) {
+        case (123, [.command, .option]): // Left Arrow
+            store.moveSheetSelection(by: -1)
+        case (124, [.command, .option]): // Right Arrow
+            store.moveSheetSelection(by: 1)
+        case (48, []), (125, []): // Tab or Down Arrow
             store.moveSelection(by: 1, isRepeat: event.isARepeat)
-            return nil
-        }
-
-        if event.keyCode == 126 { // Up Arrow
+        case (48, .shift), (126, []): // Shift-Tab or Up Arrow
             store.moveSelection(by: -1, isRepeat: event.isARepeat)
-            return nil
+        case (36, .option), (76, .option): // Option-Return or Option-keypad Enter
+            if let item = store.selectedItem { copyOptionsController.present(for: item) }
+        case (36, []), (76, []):
+            store.performPrimaryActionForSelectedEntry()
+        case (36, .command), (76, .command):
+            store.performPrimaryActionForSelectedEntry(skippingVariableForm: true)
+        default:
+            return event
         }
-
-        // Return copies, leaving ⌘C to the system so text in the list stays
-        // selectable and copyable. ⌥Return opens copy options, while ⌘Return
-        // copies without opening the variable form. Return toggles sections.
-        if event.keyCode == 36 || event.keyCode == 76 { // Return (36) or numeric keypad Enter (76)
-            if let item = store.selectedItem, modifiers == .option {
-                copyOptionsController.present(for: item)
-            } else if modifiers.contains(.command) {
-                store.performPrimaryActionForSelectedEntry(skippingVariableForm: true)
-            } else {
-                store.performPrimaryActionForSelectedEntry()
-            }
-            return nil
-        }
-
-        return event
+        return nil
     }
 
     private func focusTraversalStart(in window: NSWindow) -> NSView? {
