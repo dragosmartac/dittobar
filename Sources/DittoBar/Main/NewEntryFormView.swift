@@ -22,11 +22,12 @@ struct NewEntryFormView: View {
                         TextField("New section name", text: $form.newSectionName)
                             .textFieldStyle(.roundedBorder)
                     }
-                    Picker("Type", selection: $form.draft.kind) {
-                        Text("Note").tag(NewEntryDraft.Kind.note)
-                        Text("Command").tag(NewEntryDraft.Kind.command)
-                        Text("URL").tag(NewEntryDraft.Kind.url)
-                        Text("File").tag(NewEntryDraft.Kind.file)
+                    HStack {
+                        Text("Type")
+                        EntryFormPicker(label: "Type", selection: $form.draft.kind, items: [
+                            .option("Note", .note), .option("Command", .command),
+                            .option("URL", .url), .option("File", .file)
+                        ])
                     }
                     .fixedSize()
                     variablesSummary(form.draft.variables)
@@ -43,6 +44,8 @@ struct NewEntryFormView: View {
             }
             Divider()
             HStack(spacing: Spacing.compact) {
+                FooterShortcutHint(keys: "⌘↑ / ⌘↓", label: "navigate fields", keySize: 11)
+                    .font(.caption)
                 Spacer()
                 Button("Cancel", role: .cancel) { store.cancelNewEntry() }
                     .keyboardShortcut(.cancelAction)
@@ -59,25 +62,26 @@ struct NewEntryFormView: View {
     private var destinations: some View {
         let destination = store.sheets.first { $0.sourceURL == form.sheetURL }
         let sections = destination?.items.compactMap(\.section) ?? []
+        var sheets = store.sheets.map { EntryFormPicker<URL>.Item.option($0.title, $0.sourceURL) }
+        if destination == nil { sheets.insert(.option("Unavailable sheet", form.sheetURL), at: 0) }
+
+        var sectionItems: [EntryFormPicker<EntrySectionChoice>.Item] = [.option("No section", .unsectioned)]
+        if case .existing(let section) = form.section, !sections.contains(section) {
+            sectionItems.append(.option("Unavailable section", form.section))
+        }
+        sectionItems += sections.map { .option($0.title, .existing($0)) }
+        sectionItems += [.divider, .option("New section…", .newSection)]
+
         return HStack(spacing: Spacing.section) {
-            Picker("Sheet", selection: $form.sheetURL) {
-                if destination == nil {
-                    Text("Unavailable sheet").tag(form.sheetURL)
-                }
-                ForEach(store.sheets) { sheet in
-                    Text(sheet.title).tag(sheet.sourceURL)
-                }
+            HStack {
+                Text("Sheet")
+                EntryFormPicker(label: "Sheet", selection: $form.sheetURL, items: sheets)
+                    .frame(maxWidth: .infinity)
             }
-            Picker("Section", selection: $form.section) {
-                Text("No section").tag(EntrySectionChoice.unsectioned)
-                if case .existing(let section) = form.section, !sections.contains(section) {
-                    Text("Unavailable section").tag(EntrySectionChoice.existing(section))
-                }
-                ForEach(sections) { section in
-                    Text(section.title).tag(EntrySectionChoice.existing(section))
-                }
-                Divider()
-                Text("New section…").tag(EntrySectionChoice.newSection)
+            HStack {
+                Text("Section")
+                EntryFormPicker(label: "Section", selection: $form.section, items: sectionItems)
+                    .frame(maxWidth: .infinity)
             }
         }
     }

@@ -231,22 +231,7 @@ struct MainView: View {
     }
 
     private func footerShortcut(_ keys: String, label: String) -> some View {
-        HStack(spacing: 8) {
-            Text(keys)
-                .font(.system(size: chromeSize * 0.8, weight: .medium, design: .monospaced))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(PanelStyle.mutedFill, in: RoundedRectangle(cornerRadius: 4))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
-                }
-            Text(label)
-                .foregroundStyle(.secondary.opacity(0.85))
-        }
-        .fixedSize()
-        .accessibilityElement(children: .combine)
+        FooterShortcutHint(keys: keys, label: label, keySize: chromeSize * 0.8)
     }
 
     private func returnVerb(for entry: CheatSheetEntry) -> String {

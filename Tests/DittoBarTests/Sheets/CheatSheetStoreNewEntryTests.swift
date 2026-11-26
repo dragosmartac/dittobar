@@ -5,6 +5,94 @@ import Testing
 
 @MainActor
 struct CheatSheetStoreNewEntryTests {
+    @Test func commandArrowsReachAddEntryPickersAndTextEditors() async throws {
+        let (store, cleanup) = try makeStore()
+        defer { cleanup() }
+        _ = NSApplication.shared
+        let delegate = AppDelegate(store: store)
+        delegate.configurePanel()
+        let panel = try #require(delegate.panel)
+        panel.alphaValue = 0
+        panel.makeKeyAndOrderFront(nil)
+        defer { panel.orderOut(nil) }
+        store.beginNewEntry()
+        let form = try #require(store.newEntryForm)
+        form.draft = .init(
+            kind: .command, title: "Title", rawContent: "Command",
+            rawDescription: "Description", language: "Language"
+        )
+
+        // Presentation and initial focus are asynchronous.
+        let deadline = ContinuousClock.now + .seconds(2)
+        while ((panel.attachedSheet ?? panel).firstResponder as? NSTextView)?.string != "Title",
+              ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let window = panel.attachedSheet ?? panel
+        let windowNumber = window.windowNumber
+
+        @MainActor func press(_ code: UInt16) throws {
+            let character = code == 125 ? "\u{F701}" : "\u{F700}"
+            let event = try #require(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [.command, .function, .numericPad],
+                timestamp: 0, windowNumber: windowNumber, context: nil, characters: character,
+                charactersIgnoringModifiers: character, isARepeat: false, keyCode: code
+            ))
+            #expect(delegate.handleKeyEvent(event) == nil)
+        }
+        @MainActor func focusedText() -> String? {
+            (window.firstResponder as? NSTextView)?.string
+        }
+        #expect(focusedText() == "Title")
+        @MainActor func focusPicker(_ label: String, with code: UInt16) throws -> NSPopUpButton {
+            try press(code)
+            let button = try #require(window.firstResponder as? NSPopUpButton)
+            #expect(button.accessibilityLabel() == label)
+            return button
+        }
+        @MainActor func verifyMenuOpens(_ picker: NSPopUpButton, keyCode: UInt16, character: String,
+                                        modifiers: NSEvent.ModifierFlags = []) throws {
+            let probe = PickerOpeningProbe()
+            let menu = try #require(picker.menu)
+            let originalDelegate = menu.delegate
+            menu.delegate = probe
+            defer { menu.delegate = originalDelegate }
+            let event = try #require(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+                windowNumber: windowNumber, context: nil, characters: character, charactersIgnoringModifiers: character,
+                isARepeat: false, keyCode: keyCode
+            ))
+            window.sendEvent(event)
+            #expect(probe.opened)
+        }
+
+        let type = try focusPicker("Type", with: 126)
+        try verifyMenuOpens(type, keyCode: 36, character: "\r")
+        let section = try focusPicker("Section", with: 126)
+        try verifyMenuOpens(section, keyCode: 76, character: "\u{3}", modifiers: .numericPad)
+        let sheet = try focusPicker("Sheet", with: 126)
+        try verifyMenuOpens(sheet, keyCode: 49, character: " ")
+        _ = try focusPicker("Section", with: 125)
+        _ = try focusPicker("Type", with: 125)
+        #expect(type.titleOfSelectedItem == "Command")
+        type.selectItem(withTitle: "URL")
+        #expect(type.sendAction(type.action, to: type.target))
+        #expect(form.draft.kind == .url)
+        type.selectItem(withTitle: "Command")
+        #expect(type.sendAction(type.action, to: type.target))
+        try press(125)
+        #expect(focusedText() == "Title")
+        try press(125)
+        #expect(focusedText() == "Command")
+        try press(125)
+        #expect(focusedText() == "Language")
+        try press(125)
+        #expect(focusedText() == "Description")
+        try press(126)
+        #expect(focusedText() == "Language")
+        store.cancelNewEntry()
+    }
+
     @Test func moreMenuKeyboardNavigationWrapsAndSkipsUnavailableItems() throws {
         try withStore { store in
             _ = NSApplication.shared
@@ -356,11 +444,17 @@ struct CheatSheetStoreNewEntryTests {
     """
 
     private func withStore(_ body: (CheatSheetStore) throws -> Void) throws {
+        let (store, cleanup) = try makeStore()
+        defer { cleanup() }
+        try body(store)
+    }
+
+    private func makeStore() throws -> (CheatSheetStore, () -> Void) {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let suite = "CheatSheetStoreNewEntryTests-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
-        defer {
+        let cleanup = {
             defaults.removePersistentDomain(forName: suite)
             try? FileManager.default.removeItem(at: folder)
         }
@@ -369,6 +463,15 @@ struct CheatSheetStoreNewEntryTests {
         try "### Same\nBefore.\n## Other\n### Same\nAfter.".write(
             to: folder.appendingPathComponent("b.md"), atomically: true, encoding: .utf8
         )
-        try body(CheatSheetStore(defaults: defaults))
+        return (CheatSheetStore(defaults: defaults), cleanup)
+    }
+}
+
+@MainActor private final class PickerOpeningProbe: NSObject, NSMenuDelegate {
+    private(set) var opened = false
+    func menuWillOpen(_ menu: NSMenu) {
+        opened = true
+        menu.perform(#selector(NSMenu.cancelTrackingWithoutAnimation), with: nil,
+                     afterDelay: 0, inModes: [.eventTracking, .default])
     }
 }

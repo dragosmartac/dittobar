@@ -15,7 +15,24 @@ extension AppDelegate {
             return event
         }
 
-        // Sheets handle their own text editing, focus traversal, and key equivalents.
+        // SwiftUI can host Add Entry inside the panel or in an attached sheet.
+        if store.newEntryForm != nil, let window = event.window,
+           window === (panel.attachedSheet ?? panel),
+           modifiers.intersection([.command, .option, .control, .shift]) == .command,
+           let start = focusTraversalStart(in: window) {
+            switch event.keyCode {
+            case 125: // Down Arrow
+                window.selectKeyView(following: start)
+                return nil
+            case 126: // Up Arrow
+                window.selectKeyView(preceding: start)
+                return nil
+            default:
+                break
+            }
+        }
+
+        // Pass other sheet events through for normal editing and key equivalents.
         if store.isPanelSheetPresented {
             return event
         }
@@ -125,5 +142,15 @@ extension AppDelegate {
         }
 
         return event
+    }
+
+    private func focusTraversalStart(in window: NSWindow) -> NSView? {
+        // A single-line field edits through a shared NSTextView. The field itself
+        // participates in the key-view loop, so start traversal from its owner.
+        if let editor = window.firstResponder as? NSTextView, editor.isFieldEditor,
+           let owner = editor.delegate as? NSView {
+            return owner
+        }
+        return window.firstResponder as? NSView ?? window.contentView
     }
 }
