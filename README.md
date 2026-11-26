@@ -18,6 +18,8 @@ To build a standalone application:
 open "dist/DittoBar.app"
 ```
 
+In **Add Sheet Entry**, choose **Section → New section…** and enter a name to append a section to the selected sheet. Saving adds the new section and its first entry together.
+
 ## Keyboard controls
 
 | Key | Action |

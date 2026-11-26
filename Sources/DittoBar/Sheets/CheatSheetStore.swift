@@ -320,7 +320,9 @@ final class CheatSheetStore: ObservableObject {
         guard let form = newEntryForm else { return }
         let itemIndex: Int
         do {
-            itemIndex = try SheetFiles.insert(form.draft, into: form.sheetURL, section: form.section)
+            itemIndex = try SheetFiles.insert(
+                form.draft, into: form.sheetURL, section: form.section, newSectionName: form.newSectionName
+            )
         } catch {
             newEntryForm?.errorMessage = error.localizedDescription
             return
@@ -338,7 +340,7 @@ final class CheatSheetStore: ObservableObject {
               entry.title == form.draft.title.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
         let item = CheatSheetItem.entry(entry)
         if !matchingItems.contains(item) { query = "" }
-        if let section = form.section, isCollapsed(section) {
+        if let section = items[..<itemIndex].last(where: { $0.section != nil })?.section, isCollapsed(section) {
             toggleSection(section)
         }
         if let index = selectableItems.firstIndex(of: item) {

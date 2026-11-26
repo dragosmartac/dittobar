@@ -13,6 +13,10 @@ struct NewEntryFormView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     destinations
+                    if form.section == .newSection {
+                        TextField("New section name", text: $form.newSectionName)
+                            .textFieldStyle(.roundedBorder)
+                    }
                     Picker("Type", selection: $form.draft.kind) {
                         Text("Note").tag(NewEntryDraft.Kind.note)
                         Text("Command").tag(NewEntryDraft.Kind.command)
@@ -60,13 +64,15 @@ struct NewEntryFormView: View {
                 }
             }
             Picker("Section", selection: $form.section) {
-                Text("No section").tag(CheatSheetSection?.none)
-                if let section = form.section, !sections.contains(section) {
-                    Text("Unavailable section").tag(Optional(section))
+                Text("No section").tag(EntrySectionChoice.unsectioned)
+                if case .existing(let section) = form.section, !sections.contains(section) {
+                    Text("Unavailable section").tag(EntrySectionChoice.existing(section))
                 }
                 ForEach(sections) { section in
-                    Text(section.title).tag(Optional(section))
+                    Text(section.title).tag(EntrySectionChoice.existing(section))
                 }
+                Divider()
+                Text("New section…").tag(EntrySectionChoice.newSection)
             }
         }
     }

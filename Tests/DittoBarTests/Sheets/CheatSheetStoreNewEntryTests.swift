@@ -141,7 +141,7 @@ struct CheatSheetStoreNewEntryTests {
             let initialSelection = store.selectedItem
             store.beginNewEntry()
             #expect(store.newEntryForm?.sheetURL == original.sourceURL)
-            #expect(store.newEntryForm?.section == nil)
+            #expect(store.newEntryForm?.section == .unsectioned)
             store.newEntryForm?.draft.title = "Unsaved"
             store.beginNewEntry()
             #expect(store.newEntryForm?.draft.title == "Unsaved")
@@ -158,10 +158,10 @@ struct CheatSheetStoreNewEntryTests {
             let previous = try #require(store.selectedSheet)
             let section = try #require(previous.items.compactMap(\.section).first)
             store.beginNewEntry()
-            #expect(store.newEntryForm?.section == section)
+            #expect(store.newEntryForm?.section == .existing(section))
             let destination = store.sheets[1]
             store.newEntryForm?.sheetURL = destination.sourceURL
-            #expect(store.newEntryForm?.section == nil)
+            #expect(store.newEntryForm?.section == .unsectioned)
             #expect(store.selectedSheet == previous)
             store.newEntryForm?.draft = .init(kind: .note, title: "Same", rawContent: "Inserted")
             store.saveNewEntry()
@@ -185,7 +185,7 @@ struct CheatSheetStoreNewEntryTests {
             let section = try #require(sheet.items.compactMap(\.section).first)
             store.toggleSection(section)
             store.beginNewEntry()
-            #expect(store.newEntryForm?.section == section)
+            #expect(store.newEntryForm?.section == .existing(section))
             store.query = query
             if query == "Existing" { store.toggleSection(section) }
             store.newEntryForm?.draft = .init(kind: .note, title: "Existing", rawContent: "New body")
@@ -205,6 +205,56 @@ struct CheatSheetStoreNewEntryTests {
         }
     }
 
+    @Test func newSectionAndEntryAreSavedTogetherInTheChosenSheet() throws {
+        try withStore { store in
+            let original = try #require(store.selectedSheet)
+            let destination = store.sheets[1]
+            store.beginNewEntry()
+            let form = try #require(store.newEntryForm)
+            form.section = .newSection
+            form.newSectionName = "Old destination"
+            form.sheetURL = destination.sourceURL
+            #expect(form.section == .unsectioned)
+            #expect(form.newSectionName.isEmpty)
+            form.section = .newSection
+            form.newSectionName = "  Other  "
+            form.draft = .init(kind: .note, title: "Same", rawContent: "In the new section")
+            store.saveNewEntry()
+
+            #expect(store.newEntryForm == nil)
+            let saved = try #require(store.selectedSheet)
+            #expect(saved.sourceURL == destination.sourceURL)
+            // Repeated titles are valid in the sheet format. A new section gets its own heading.
+            #expect(saved.items.compactMap(\.section).map(\.title) == ["Other", "Other"])
+            #expect(store.selectedItem == saved.items.last)
+            #expect(try String(contentsOf: original.sourceURL, encoding: .utf8) == Self.source)
+            let text = try String(contentsOf: destination.sourceURL, encoding: .utf8)
+            #expect(text.hasSuffix("## Other\n\n### Same\n\nIn the new section"))
+        }
+    }
+
+    @Test func invalidOrCancelledNewSectionLeavesTheSheetIntact() throws {
+        try withStore { store in
+            store.beginNewEntry()
+            let form = try #require(store.newEntryForm)
+            form.section = .newSection
+            form.draft = .init(kind: .note, title: "First", rawContent: "Keep draft")
+            for invalidName in ["  ", "One\n## Two"] {
+                form.newSectionName = invalidName
+                store.saveNewEntry()
+                #expect(form.errorMessage == SheetFiles.InsertionError.invalidSectionName.localizedDescription)
+                #expect(store.newEntryForm === form)
+            }
+            form.newSectionName = "Valid name"
+            form.draft.title = ""
+            store.saveNewEntry()
+            #expect(form.errorMessage == NewEntryDraft.ValidationError.missingTitle.localizedDescription)
+            store.cancelNewEntry()
+            #expect(store.newEntryForm == nil)
+            #expect(try String(contentsOf: form.sheetURL, encoding: .utf8) == Self.source)
+        }
+    }
+
     @Test func failedSaveKeepsDraftForRetry() throws {
         try withStore { store in
             store.query = "Existing"
@@ -218,7 +268,7 @@ struct CheatSheetStoreNewEntryTests {
             #expect(store.query == "Existing")
             #expect(try String(contentsOf: url, encoding: .utf8) == "# Replaced")
 
-            store.newEntryForm?.section = nil
+            store.newEntryForm?.section = .unsectioned
             store.saveNewEntry()
             store.saveNewEntry()
             #expect(store.newEntryForm == nil)

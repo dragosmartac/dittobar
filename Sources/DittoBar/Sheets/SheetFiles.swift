@@ -45,11 +45,12 @@ enum SheetFiles {
     }
 
     enum InsertionError: LocalizedError {
-        case invalidSheet, missingSection, unclosedBlock
+        case invalidSheet, missingSection, invalidSectionName, unclosedBlock
 
         var errorDescription: String? {
             switch self {
             case .invalidSheet: "Choose a cheat sheet Markdown file."
+            case .invalidSectionName: "Enter a section name on one line."
             case .missingSection: "The selected section has changed. Choose a destination again."
             case .unclosedBlock: "Close the unfinished code block or HTML comment at the end of the sheet before adding an entry."
             }
@@ -58,9 +59,16 @@ enum SheetFiles {
 
     /// Returns the new item's position in the saved sheet, including section headings.
     @discardableResult
-    static func insert(_ draft: NewEntryDraft, into url: URL, section: CheatSheetSection?) throws -> Int {
+    static func insert(
+        _ draft: NewEntryDraft, into url: URL, section: EntrySectionChoice, newSectionName: String = ""
+    ) throws -> Int {
         guard isSheetFile(url) else { throw InsertionError.invalidSheet }
-        let markdown = try draft.markdown()
+        var markdown = try draft.markdown()
+        if section == .newSection {
+            let name = newSectionName.trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty, !name.contains(where: \.isNewline) else { throw InsertionError.invalidSectionName }
+            markdown = "## \(name)\n\n" + markdown
+        }
 
         // Keep cooperating writers out between reading the latest file and replacing it.
         var coordinationError: NSError?
@@ -76,7 +84,7 @@ enum SheetFiles {
     }
 
     private static func insertMarkdown(
-        _ markdown: String, into file: URL, sheetURL: URL, section: CheatSheetSection?
+        _ markdown: String, into file: URL, sheetURL: URL, section: EntrySectionChoice
     ) throws -> Int {
         var bytes = try Data(contentsOf: file)
         // Keep the original UTF-8 bytes, including a byte order mark when present.
@@ -87,12 +95,15 @@ enum SheetFiles {
         let document = CheatSheetParser.parseDocument(source, fileURL: sheetURL)
         let headings = document.sectionHeadings
         let nextHeading: (section: CheatSheetSection, start: String.Index)?
-        if let section {
-            guard let index = headings.firstIndex(where: { $0.section == section }) else {
+        switch section {
+        case .existing(let existing):
+            guard let index = headings.firstIndex(where: { $0.section == existing }) else {
                 throw InsertionError.missingSection
             }
             nextHeading = headings.dropFirst(index + 1).first
-        } else {
+        case .newSection:
+            nextHeading = nil
+        case .unsectioned:
             nextHeading = headings.first
         }
         guard nextHeading != nil || !document.endsInsideBlock else {
@@ -118,6 +129,8 @@ enum SheetFiles {
         }
         bytes.insert(contentsOf: insertion.utf8, at: bomSize + preceding.utf8.count)
         try bytes.write(to: file, options: .atomic)
+        // A newly appended heading occupies the item immediately before the entry.
+        if section == .newSection { return document.sheet.items.endIndex + 1 }
         return nextHeading.flatMap { document.sheet.items.firstIndex(of: .section($0.section)) }
             ?? document.sheet.items.endIndex
     }
