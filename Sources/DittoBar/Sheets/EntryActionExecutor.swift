@@ -38,7 +38,7 @@ struct EntryActionExecutor {
                 }
                 return openDirectory(url) ? .opened : .failed("Finder could not open \"\(url.path)\".")
             }
-            guard !isDirectory.boolValue else {
+            guard !isDirectory.boolValue || NSWorkspace.shared.isFilePackage(atPath: url.path) else {
                 return .failed("\"\(url.path)\" is a folder. File entries can only open files.")
             }
             if action == .revealInFinder {

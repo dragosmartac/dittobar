@@ -20,7 +20,7 @@ open "dist/DittoBar.app"
 
 In **Add Sheet Entry** and **Edit Selected Entry**, choose a sheet and a section. Choose **New section…** to create a section when you save. Editing keeps the entry in its current position unless you choose a different destination, in which case Save moves it to the end of the chosen section.
 
-In Google Chrome, press **Option-Shift-Space** to open Add Entry with the current tab’s title and URL. Review the destination and press **Command-Return** to save, or **Escape** to cancel. On first use, macOS asks for permission to read from Chrome. In other apps, the same shortcut opens a blank entry.
+In Google Chrome, press **Option-Shift-Space** to open Add Entry with the current tab’s title and URL. In Finder, select one file or folder and use the same shortcut to prefill the entry type, title, and editable absolute path. You can also right-click the DittoBar status icon and choose **Add Quick Entry**. Review the destination and press **Command-Return** to save, or **Escape** to cancel. On first use, macOS asks for permission to read from the source app. In other apps, the same shortcut opens a blank entry.
 
 ## Keyboard controls
 

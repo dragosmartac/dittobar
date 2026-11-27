@@ -194,21 +194,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             store.entryForm?.errorMessage = message
         }
 
-        guard let source, source.bundleIdentifier == ChromeTabCapture.bundleID else {
+        guard let source else {
             present()
             return
         }
-        captureTask = Task {
-            defer { captureTask = nil }
-            do {
-                let draft = try await ChromeTabCapture.read(processID: source.processIdentifier)
-                if !Task.isCancelled { present(draft: draft) }
-            } catch {
-                if !Task.isCancelled {
-                    present(draft: EntryDraft(kind: .url, title: "", rawContent: ""),
-                            message: ChromeTabCapture.message(for: error))
+
+        func capture(using read: @escaping (pid_t) async throws -> EntryDraft,
+                     fallbackKind: EntryDraft.Kind, message: @escaping (Error) -> String) {
+            captureTask = Task {
+                defer { captureTask = nil }
+                do {
+                    let draft = try await read(source.processIdentifier)
+                    if !Task.isCancelled { present(draft: draft) }
+                } catch {
+                    if !Task.isCancelled {
+                        present(draft: EntryDraft(kind: fallbackKind, title: "", rawContent: ""),
+                                message: message(error))
+                    }
                 }
             }
+        }
+
+        switch source.bundleIdentifier {
+        case FinderSelectionCapture.bundleID:
+            capture(using: FinderSelectionCapture.read, fallbackKind: .file, message: FinderSelectionCapture.message)
+        case ChromeTabCapture.bundleID:
+            capture(using: ChromeTabCapture.read, fallbackKind: .url, message: ChromeTabCapture.message)
+        default:
+            present()
         }
     }
 

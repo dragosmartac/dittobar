@@ -13,9 +13,7 @@ struct CheatSheetStoreNewEntryTests {
         let url = "https://example.org/page?a=1&b=2#top"
         record.setDescriptor(.init(string: url), forKeyword: 0x55524C20) // Chrome's 'URL ' property
         record.setDescriptor(.init(string: "Example\npage"), forKeyword: AEKeyword(pName))
-        let reply = NSAppleEventDescriptor.record()
-        reply.setParam(record, forKeyword: AEKeyword(keyDirectObject))
-        let draft = try ChromeTabCapture.draft(from: reply)
+        let draft = try ChromeTabCapture.draft(from: record)
         #expect(draft == EntryDraft(kind: .url, title: "Example page", rawContent: url))
 
         try withStore { store in
