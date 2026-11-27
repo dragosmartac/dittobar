@@ -4,7 +4,7 @@ enum SectionMarkdownExporter {
     /// The section and its visible entries in cheat-sheet Markdown, with
     /// each text resolved. URLs become bare lines, which most Markdown
     /// renderers turn into links, rather than `url` fences. Paths keep
-    /// their `file` fences, since no renderer would link a bare path.
+    /// their path-type fences, since no renderer would link a bare path.
     static func markdown(
         for section: CheatSheetSection,
         entries: [CheatSheetEntry],
@@ -28,13 +28,13 @@ enum SectionMarkdownExporter {
                     parts.append(TextVariables.resolve(rawDescription, values: values(entry)))
                 }
                 parts.append(TextVariables.resolve(url.rawURL, values: values(entry)))
-            case .file(let file):
-                if let rawDescription = file.rawDescription {
+            case .file(let path), .directory(let path):
+                if let rawDescription = path.rawDescription {
                     parts.append(TextVariables.resolve(rawDescription, values: values(entry)))
                 }
                 parts.append(Self.fenced(
-                    TextVariables.resolve(file.rawPath, values: values(entry)),
-                    language: "file"
+                    TextVariables.resolve(path.rawPath, values: values(entry)),
+                    language: entry.kind.rawValue
                 ))
             }
             return parts

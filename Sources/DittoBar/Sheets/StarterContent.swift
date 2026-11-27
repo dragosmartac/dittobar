@@ -19,10 +19,11 @@ enum StarterContent {
 
     ## Entry types
 
-    - **Command**: a non-empty fenced block with any language except `url` or `file`.
+    - **Command**: a non-empty fenced block with any language except `url`, `file`, or `directory`.
     - **URL**: a non-empty fenced block labeled `url` containing a URL.
     - **File**: a non-empty fenced block labeled `file` containing an absolute path,
       a path starting with `~`, or a path relative to this folder.
+    - **Directory**: a `directory` fence uses the same path formats. Return opens the folder in Finder.
     - **Note**: content without a non-empty fenced block.
 
     Descriptions support Markdown tables, block quotes, `inline code`, **bold**,
@@ -76,13 +77,15 @@ enum StarterContent {
 
       Entry types:
       1. Command
-         Any non-empty fenced block except ```url ...``` and ```file ...```.
+         Any non-empty fenced block except those labeled url, file, or directory.
       2. URL
          A non-empty ```url ...``` block.
       3. File
          A non-empty ```file ...``` block holding a path: absolute, starting
          with ~, or relative to this folder.
-      4. Note
+      4. Directory
+         A directory fence holds a folder path. Return opens the folder in Finder.
+      5. Note
          Content without a non-empty fenced block.
 
     Description formatting

@@ -90,7 +90,7 @@ struct EntryFormView: View {
                     Text("Type")
                     EntryFormPicker(label: "Type", selection: $form.draft.kind, items: [
                         .option("Note", .note), .option("Command", .command),
-                        .option("URL", .url), .option("File", .file)
+                        .option("URL", .url), .option("File", .file), .option("Directory", .directory)
                     ])
                 }
                 .fixedSize()
@@ -149,6 +149,8 @@ struct EntryFormView: View {
             editor("URL", text: draft.rawContent)
         case .file:
             editor("File path", text: draft.rawContent)
+        case .directory:
+            editor("Directory path", text: draft.rawContent)
         }
         if draft.wrappedValue.kind != .note {
             editor("Description (optional)", text: draft.rawDescription)

@@ -94,7 +94,7 @@ struct SheetFilesTests {
             let prefix = "\u{FEFF}# Café\r\n## Tools\r\n"
             let comment = "<!-- example -->\r\n"
             let suffix = "\r\n### Next\r\nOther note.  "
-            for (label, kind) in [("", EntryDraft.Kind.command), ("URL", .url), ("file", .file)] {
+            for (label, kind) in [("", EntryDraft.Kind.command), ("URL", .url), ("file", .file), ("DIRECTORY", .directory)] {
                 let source = prefix + "### Target\r\n" + comment
                     + "**See** {{name}}.\r\n```" + label + "\r\n{{path}}\r\n```\r\n" + suffix
                 try Data(source.utf8).write(to: url)

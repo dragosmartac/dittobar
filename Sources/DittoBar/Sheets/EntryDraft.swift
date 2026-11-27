@@ -2,7 +2,7 @@ import Foundation
 
 struct EntryDraft: Equatable {
     enum Kind: String {
-        case note, command, url, file
+        case note, command, url, file, directory
     }
 
     var kind: Kind
@@ -26,7 +26,7 @@ struct EntryDraft: Equatable {
             case .missingTitle: "Enter a title."
             case .missingContent: "Enter content for this entry."
             case .multilineTitle: "Keep the title on one line."
-            case .invalidLanguage: "Use a single-line command language other than url or file."
+            case .invalidLanguage: "Use a single-line command language other than url, file, or directory."
             case .structuralLineInProse: "Sheet headings, code fences, and HTML comment blocks cannot appear in a note or description."
             case .fenceInContent: "A line starting with three backticks would close the entry’s code block."
             }
@@ -70,7 +70,7 @@ struct EntryDraft: Equatable {
         if kind == .command {
             fenceLabel = language.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !fenceLabel.contains(where: \.isNewline),
-                  !["url", "file"].contains(fenceLabel.lowercased()) else {
+                  !["url", "file", "directory"].contains(fenceLabel.lowercased()) else {
                 throw ValidationError.invalidLanguage
             }
         }
@@ -89,8 +89,8 @@ extension EntryDraft {
                       rawDescription: command.rawDescription ?? "", language: command.language ?? "")
         case .url(let url):
             self.init(kind: .url, title: entry.title, rawContent: url.rawURL, rawDescription: url.rawDescription ?? "")
-        case .file(let file):
-            self.init(kind: .file, title: entry.title, rawContent: file.rawPath, rawDescription: file.rawDescription ?? "")
+        case .file(let path), .directory(let path):
+            self.init(kind: entry.kind, title: entry.title, rawContent: path.rawPath, rawDescription: path.rawDescription ?? "")
         }
     }
 }

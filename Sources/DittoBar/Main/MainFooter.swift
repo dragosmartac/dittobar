@@ -51,7 +51,7 @@ struct MainFooter: View {
 
     private func returnVerb(for entry: CheatSheetEntry) -> String {
         switch entry.actions.primary {
-        case .openURL, .openFile, .revealInFinder:
+        case .openURL, .openFile, .openDirectory, .revealInFinder:
             return "open"
         default:
             return "copy"

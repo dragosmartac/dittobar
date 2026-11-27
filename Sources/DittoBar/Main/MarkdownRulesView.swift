@@ -31,7 +31,7 @@ struct MarkdownRulesContent: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Sheet structure").font(.headline)
                         example("# Sheet title\n## Section\n### Entry title")
-                        Text("Write a note below its entry title. For a command, URL, or file, add a fenced block labeled with the command language, url, or file.")
+                        Text("Write a note below its entry title. For other entries, label the fenced block with the command language, url, file, or directory.")
                         example("```sh\ngit switch {{branch=main}}\n```")
                     }
                     Divider()

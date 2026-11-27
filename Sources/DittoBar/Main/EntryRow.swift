@@ -53,6 +53,9 @@ struct EntryRow: View, Equatable {
                 if case .file = entry {
                     EntryBadge(title: "File", symbol: "doc", titleFontSize: titleFontSize, fonts: fonts)
                 }
+                if case .directory = entry {
+                    EntryBadge(title: "Directory", symbol: "folder", titleFontSize: titleFontSize, fonts: fonts)
+                }
                 Spacer()
                 if wasCopied {
                     Label("Copied", systemImage: "checkmark")
@@ -74,11 +77,11 @@ struct EntryRow: View, Equatable {
                     descriptionText(rawDescription)
                 }
                 payloadText(url.rawURL)
-            case .file(let file):
-                if let rawDescription = file.rawDescription {
+            case .file(let path), .directory(let path):
+                if let rawDescription = path.rawDescription {
                     descriptionText(rawDescription)
                 }
-                payloadText(file.rawPath)
+                payloadText(path.rawPath)
             }
         }
         .padding(.leading, 16)

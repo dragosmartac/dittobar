@@ -10,6 +10,7 @@ struct EntryActionExecutor {
     }
 
     var open: (URL) -> Bool = { NSWorkspace.shared.open($0) }
+    var openDirectory: (URL) -> Bool = { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: $0.path) }
     var reveal: ([URL]) -> Void = { NSWorkspace.shared.activateFileViewerSelecting($0) }
     var pasteboard: NSPasteboard = .general
     var fileManager: FileManager = .default
@@ -22,11 +23,20 @@ struct EntryActionExecutor {
                 return .failed("\"\(value)\" is not a valid URL.")
             }
             return open(url) ? .opened : .failed("The URL could not be opened.")
-        case .openFile, .revealInFinder:
+        case .openFile, .openDirectory, .revealInFinder:
+            if action == .openDirectory, output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return .failed("Enter a directory path.")
+            }
             let url = Self.fileURL(forPath: output, relativeTo: folderURL)
             var isDirectory: ObjCBool = false
             guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
                 return .failed("\"\(url.path)\" does not exist.")
+            }
+            if action == .openDirectory {
+                guard isDirectory.boolValue else {
+                    return .failed("\"\(url.path)\" is not a directory.")
+                }
+                return openDirectory(url) ? .opened : .failed("Finder could not open \"\(url.path)\".")
             }
             guard !isDirectory.boolValue else {
                 return .failed("\"\(url.path)\" is a folder. File entries can only open files.")

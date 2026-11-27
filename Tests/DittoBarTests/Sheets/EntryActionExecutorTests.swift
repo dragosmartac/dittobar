@@ -44,6 +44,24 @@ struct EntryActionExecutorTests {
             == .failed("No application could open \"\(file.path)\"."))
     }
 
+    @Test func directoryOpensTheFolderItselfInFinder() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let directory = root.appendingPathComponent("Project notes", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("note.md")
+        try "Note".write(to: file, atomically: true, encoding: .utf8)
+        var opened: [URL] = []
+        let executor = EntryActionExecutor(openDirectory: { opened.append($0); return true })
+        #expect(executor.execute(.openDirectory, output: "note.md", folderURL: root)
+            == .failed("\"\(file.path)\" is not a directory."))
+        #expect(executor.execute(.openDirectory, output: "missing", folderURL: root)
+            == .failed("\"\(root.appendingPathComponent("missing").path)\" does not exist."))
+        #expect(executor.execute(.openDirectory, output: "", folderURL: root) == .failed("Enter a directory path."))
+        #expect(executor.execute(.openDirectory, output: "Project notes", folderURL: root) == .opened)
+        #expect(opened.map(\.path) == [directory.path])
+    }
+
     @Test func copyActionsWriteToTheSuppliedPasteboard() {
         let pasteboard = NSPasteboard.withUniqueName()
         defer { pasteboard.releaseGlobally() }

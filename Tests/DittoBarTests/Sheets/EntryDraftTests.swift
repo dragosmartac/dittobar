@@ -93,6 +93,18 @@ struct EntryDraftTests {
         #expect(entry.rawDescription == draft.rawDescription)
     }
 
+    @Test func directoryRoundTripsWithItsPathDescriptionAndVariables() throws {
+        let draft = EntryDraft(kind: .directory, title: "Documents", rawContent: "~/{{project=Work}}",
+                               rawDescription: "Documents for **{{project}}**")
+        let entry = try parse(draft)
+        #expect(entry.kind == .directory)
+        #expect(EntryDraft(entry: entry) == draft)
+        #expect(entry.variables == [EntryVariable(name: "project", defaultValue: "Work")])
+        #expect(entry.actions == EntryActions(primary: .openDirectory, secondary: [
+            .copyPath, .copyTitle, .copyDescription(.markdownStripped), .copyDescription(.resolved)
+        ]))
+    }
+
     @Test func rejectsDraftsTheSheetCannotRepresent() {
         let cases: [(EntryDraft, EntryDraft.ValidationError)] = [
             (.init(kind: .note, title: " ", rawContent: "Text"), .missingTitle),
@@ -105,7 +117,7 @@ struct EntryDraftTests {
         for (draft, error) in cases {
             #expect(throws: error) { try draft.markdown() }
         }
-        for language in ["URL", "File", "sh\nbody"] {
+        for language in ["URL", "File", "Directory", "sh\nbody"] {
             let draft = EntryDraft(kind: .command, title: "Run", rawContent: "ls", language: language)
             #expect(throws: EntryDraft.ValidationError.invalidLanguage) { try draft.markdown() }
         }

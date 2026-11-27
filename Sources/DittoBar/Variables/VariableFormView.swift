@@ -166,7 +166,7 @@ struct VariableFormView: View {
 
     private func confirmTitle(for form: VariableFormState) -> String {
         switch form.action {
-        case .openURL, .openFile, .revealInFinder:
+        case .openURL, .openFile, .openDirectory, .revealInFinder:
             return form.action.title
         default:
             return "Copy"

@@ -533,8 +533,8 @@ final class CheatSheetStore: ObservableObject {
                 skippingVariableForm: skippingVariableForm
             )
 
-        case (.copyDescription(let textForm), .file(let file)):
-            guard let rawDescription = file.rawDescription else { return }
+        case (.copyDescription(let textForm), .file(let path)), (.copyDescription(let textForm), .directory(let path)):
+            guard let rawDescription = path.rawDescription else { return }
             performTextAction(
                 action,
                 for: entry,
@@ -554,12 +554,13 @@ final class CheatSheetStore: ObservableObject {
                 skippingVariableForm: skippingVariableForm
             )
 
-        case (.openFile, .file(let file)), (.copyPath, .file(let file)), (.revealInFinder, .file(let file)):
+        case (.openFile, .file(let path)), (.revealInFinder, .file(let path)), (.copyPath, .file(let path)),
+             (.openDirectory, .directory(let path)), (.copyPath, .directory(let path)):
             performTextAction(
                 action,
                 for: entry,
-                raw: file.rawPath,
-                variables: file.variables,
+                raw: path.rawPath,
+                variables: path.variables,
                 textForm: .resolved,
                 skippingVariableForm: skippingVariableForm
             )
@@ -652,11 +653,14 @@ final class CheatSheetStore: ObservableObject {
     func actions(for section: CheatSheetSection) -> [SectionAction] {
         let entries = entries(in: section)
         var actions: [SectionAction] = []
-        if entries.contains(where: { if case .url = $0 { true } else { false } }) {
+        if entries.contains(where: { $0.kind == .url }) {
             actions.append(.openAllURLs)
         }
-        if entries.contains(where: { if case .file = $0 { true } else { false } }) {
+        if entries.contains(where: { $0.kind == .file }) {
             actions.append(.openAllFiles)
+        }
+        if entries.contains(where: { $0.kind == .directory }) {
+            actions.append(.openAllDirectories)
         }
         if !entries.isEmpty {
             actions.append(contentsOf: [.copyAllEntries, .copyAsMarkdown])
@@ -676,12 +680,16 @@ final class CheatSheetStore: ObservableObject {
             }
             openAll(.openURL, values: urls)
 
-        case .openAllFiles:
+        case .openAllFiles, .openAllDirectories:
             let paths = entries.compactMap { entry -> String? in
-                guard case .file(let file) = entry else { return nil }
-                return output(file.rawPath, for: entry, textForm: .resolved)
+                switch (action, entry) {
+                case (.openAllFiles, .file(let path)), (.openAllDirectories, .directory(let path)):
+                    return output(path.rawPath, for: entry, textForm: .resolved)
+                default:
+                    return nil
+                }
             }
-            openAll(.openFile, values: paths)
+            openAll(action == .openAllDirectories ? .openDirectory : .openFile, values: paths)
 
         case .copyAllEntries:
             guard !entries.isEmpty else { return }
@@ -714,9 +722,9 @@ final class CheatSheetStore: ObservableObject {
             return output(note.rawContent, for: entry, textForm: .markdownStripped)
         case .url(let url):
             return output(url.rawURL, for: entry, textForm: .resolved)
-        case .file(let file):
+        case .file(let path), .directory(let path):
             return EntryActionExecutor.copiedPath(
-                for: output(file.rawPath, for: entry, textForm: .resolved),
+                for: output(path.rawPath, for: entry, textForm: .resolved),
                 relativeTo: folderURL
             )
         }

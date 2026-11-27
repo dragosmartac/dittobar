@@ -211,15 +211,11 @@ enum CheatSheetParser {
                 )
             }
 
-            if draft.fenceLanguage?.caseInsensitiveCompare("file") == .orderedSame {
-                return .file(
-                    FileEntry(
-                        metadata: metadata,
-                        rawDescription: description,
-                        rawPath: trimmedContent,
-                        variables: variables
-                    )
-                )
+            let label = draft.fenceLanguage?.lowercased()
+            if label == "file" || label == "directory" {
+                let path = PathEntry(metadata: metadata, rawDescription: description,
+                                     rawPath: trimmedContent, variables: variables)
+                return label == "directory" ? .directory(path) : .file(path)
             }
 
             let language = draft.fenceLanguage?

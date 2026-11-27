@@ -15,7 +15,8 @@ An entry has multiple text properties (e.g. description, command). Each of them 
 
 | Term | Meaning |
 |---|---|
-| **command entry** | An H3 followed by a fenced block other than `url` or `file` |
+| **command entry** | An H3 followed by a fenced block other than `url`, `file`, or `directory` |
 | **URL entry** | An H3 followed by a `url` fenced block. Return opens the URL |
 | **file entry** | An H3 followed by a `file` fenced block holding a path: absolute, starting with `~`, or relative to the cheat-sheets folder. Return opens the file |
+| **directory entry** | An H3 followed by a `directory` fenced block holding a folder path. Return opens the directory in Finder |
 | **note entry** | An H3 followed by content but no fenced block |
