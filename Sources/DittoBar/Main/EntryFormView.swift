@@ -1,9 +1,11 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct EntryFormView: View {
     @ObservedObject var store: CheatSheetStore
     @ObservedObject var form: EntryFormState
     @FocusState private var titleFocused: Bool
+    @State private var isBrowsingPath = false
 
     private enum Spacing {
         static let section: CGFloat = 16
@@ -147,19 +149,35 @@ struct EntryFormView: View {
                 .textFieldStyle(.roundedBorder)
         case .url:
             editor("URL", text: draft.rawContent)
-        case .file:
-            editor("File path", text: draft.rawContent)
-        case .directory:
-            editor("Directory path", text: draft.rawContent)
+        case .file, .directory:
+            let isDirectory = draft.wrappedValue.kind == .directory
+            editor(isDirectory ? "Directory path" : "File path", text: draft.rawContent, browse: {
+                isBrowsingPath = true
+            })
+            .fileImporter(isPresented: $isBrowsingPath, allowedContentTypes: isDirectory ? [.folder] : [.data]) { result in
+                switch result {
+                case .success(let url):
+                    draft.rawContent.wrappedValue = url.path
+                case .failure(let error):
+                    form.errorMessage = error.localizedDescription
+                }
+            }
         }
         if draft.wrappedValue.kind != .note {
             editor("Description (optional)", text: draft.rawDescription)
         }
     }
 
-    private func editor(_ label: String, text: Binding<String>, monospaced: Bool = false) -> some View {
+    private func editor(_ label: String, text: Binding<String>, monospaced: Bool = false,
+                        browse: (() -> Void)? = nil) -> some View {
         VStack(alignment: .leading, spacing: Spacing.compact) {
-            Text(label)
+            HStack {
+                Text(label)
+                if let browse {
+                    Spacer()
+                    Button("Browse…", action: browse)
+                }
+            }
             TextEditor(text: text)
                 .font(monospaced ? .system(.body, design: .monospaced) : .body)
                 .accessibilityLabel(label)
