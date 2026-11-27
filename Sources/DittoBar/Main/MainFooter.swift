@@ -35,10 +35,11 @@ struct MainFooter: View {
             footerShortcut("⌘⇧N", label: "new sheet")
             if store.selectedSheet != nil {
                 footerShortcut("⌘E", label: "edit sheet")
-                footerShortcut("⌘+", label: "add entry")
                 if store.selectedEntry != nil {
-                    footerShortcut("⌘=", label: "edit entry")
-                    footerShortcut("⌘−", label: "remove entry")
+                    footerShortcut("⌘+ / ⌘= / ⌘−", label: "add / edit / remove entry")
+                        .accessibilityLabel("Command plus to add, Command equals to edit, Command minus to remove entry")
+                } else {
+                    footerShortcut("⌘+", label: "add entry")
                 }
             }
         }
