@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import SwiftUI
 import Testing
 @testable import DittoBar
@@ -7,6 +8,34 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct CheatSheetStoreNewEntryTests {
+    @Test func capturedTabOpensAnEditableDraftAndWritesOnlyOnSave() throws {
+        let record = NSAppleEventDescriptor.record()
+        let url = "https://example.org/page?a=1&b=2#top"
+        record.setDescriptor(.init(string: url), forKeyword: 0x55524C20) // Chrome's 'URL ' property
+        record.setDescriptor(.init(string: "Example\npage"), forKeyword: AEKeyword(pName))
+        let reply = NSAppleEventDescriptor.record()
+        reply.setParam(record, forKeyword: AEKeyword(keyDirectObject))
+        let draft = try ChromeTabCapture.draft(from: reply)
+        #expect(draft == EntryDraft(kind: .url, title: "Example page", rawContent: url))
+
+        try withStore { store in
+            store.selectSheet(at: 1)
+            let destination = try #require(store.selectedSheet?.sourceURL)
+            let original = try String(contentsOf: destination, encoding: .utf8)
+            store.beginNewEntry(draft: draft)
+            #expect(store.entryForm?.sheetURL == destination)
+            #expect(store.entryForm?.draft == draft)
+            store.cancelEntryForm()
+            #expect(try String(contentsOf: destination, encoding: .utf8) == original)
+
+            store.beginNewEntry(draft: draft)
+            store.entryForm?.draft.title = "Saved tab"
+            store.saveEntryForm()
+            let saved = try #require(store.selectedEntry)
+            #expect(EntryDraft(entry: saved) == EntryDraft(kind: .url, title: "Saved tab", rawContent: url))
+        }
+    }
+
     @Test func footerGrowsToFitHintsAtNarrowWidths() throws {
         try withStore { store in
             store.selectFirstEntry()

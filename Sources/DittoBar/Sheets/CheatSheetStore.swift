@@ -329,8 +329,8 @@ final class CheatSheetStore: ObservableObject {
         reload()
     }
 
-    func beginNewEntry() {
-        presentEntryForm(editing: nil)
+    func beginNewEntry(draft: EntryDraft? = nil) {
+        presentEntryForm(editing: nil, draft: draft)
     }
 
     func editSelectedEntry() {
@@ -338,11 +338,13 @@ final class CheatSheetStore: ObservableObject {
         presentEntryForm(editing: entry)
     }
 
-    private func presentEntryForm(editing entry: CheatSheetEntry?) {
+    private func presentEntryForm(editing entry: CheatSheetEntry?, draft: EntryDraft? = nil) {
         guard !isPanelSheetPresented, let sheet = selectedSheet else { return }
         let index = selectedItem.flatMap { sheet.items.firstIndex(of: $0) }
         let section = index.flatMap { sheet.items[...$0].last(where: { $0.section != nil })?.section }
-        entryForm = EntryFormState(sheet: sheet, section: section, editing: entry)
+        let form = EntryFormState(sheet: sheet, section: section, editing: entry)
+        if let draft { form.draft = draft }
+        entryForm = form
     }
 
     func cancelEntryForm() {

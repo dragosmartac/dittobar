@@ -54,7 +54,8 @@ private struct ShortcutGroup: Identifiable {
 
     static let all = [
         ShortcutGroup(title: "Anywhere", shortcuts: [
-            Shortcut(title: "Show or hide DittoBar", keys: [["⌥", "Space"]])
+            Shortcut(title: "Show or hide DittoBar", keys: [["⌥", "Space"]]),
+            Shortcut(title: "Quick Capture (current tab in Chrome)", keys: [["⌥", "⇧", "Space"]])
         ]),
         ShortcutGroup(title: "Navigation", shortcuts: [
             Shortcut(title: "Next entry or section", keys: [["↓"], ["Tab"]]),

@@ -20,11 +20,14 @@ open "dist/DittoBar.app"
 
 In **Add Sheet Entry** and **Edit Selected Entry**, choose a sheet and a section. Choose **New section…** to create a section when you save. Editing keeps the entry in its current position unless you choose a different destination, in which case Save moves it to the end of the chosen section.
 
+In Google Chrome, press **Option-Shift-Space** to open Add Entry with the current tab’s title and URL. Review the destination and press **Command-Return** to save, or **Escape** to cancel. On first use, macOS asks for permission to read from Chrome. In other apps, the same shortcut opens a blank entry.
+
 ## Keyboard controls
 
 | Key | Action |
 | --- | --- |
 | `Option-Space` | Open or close the panel globally |
+| `Option-Shift-Space` | Quick Capture from the frontmost app |
 | `Command-1` … `Command-9` | Select a cheat-sheet tab |
 | `Command-Option-Left` / `Command-Option-Right` | Select the previous or next cheat-sheet tab |
 | `Tab` / `Shift-Tab` | Select the next or previous entry or section |

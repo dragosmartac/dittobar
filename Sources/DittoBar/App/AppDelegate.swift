@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItemMenu: NSMenu!
     private(set) var copyOptionsController: CopyOptionsMenuController!
     private var hotKeyManager: HotKeyManager?
+    private var captureTask: Task<Void, Never>?
     private var keyMonitor: Any?
     private var outsideClickMonitor: Any?
     private var previouslyActiveApplication: NSRunningApplication?
@@ -27,9 +28,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         configurePanel()
         configureStatusItem()
 
-        hotKeyManager = HotKeyManager { [weak self] in
+        hotKeyManager = HotKeyManager { [weak self] shortcut in
             DispatchQueue.main.async {
-                self?.togglePanel(restoringFocusOnClose: true)
+                switch shortcut {
+                case .togglePanel: self?.togglePanel(restoringFocusOnClose: true)
+                case .quickCapture: self?.quickCapture()
+                }
             }
         }
 
@@ -132,13 +136,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func togglePanel(restoringFocusOnClose: Bool) {
+        captureTask?.cancel()
         if panel.isVisible {
             closePanel(restoringFocus: restoringFocusOnClose)
             return
         }
 
+        showPanel(from: NSWorkspace.shared.frontmostApplication)
+    }
+
+    private var canStartCapture: Bool {
+        !store.isPanelSheetPresented && !store.isVariableFormPresented &&
+            !store.isNewSheetPromptPresented && store.editorErrorMessage == nil &&
+            panel.attachedSheet == nil && !copyOptionsController.isPresented
+    }
+
+    private func quickCapture() {
+        let source = NSWorkspace.shared.frontmostApplication
+        guard canStartCapture else {
+            if !panel.isVisible { showPanel(from: source) }
+            return
+        }
+        guard captureTask == nil else { return }
+        moreOptions.dismiss()
+
+        func present(draft: EntryDraft? = nil, message: String? = nil) {
+            guard canStartCapture else { return }
+            if !panel.isVisible { showPanel(from: source) }
+            guard store.selectedSheet != nil else {
+                store.editorErrorMessage = "Create a cheat sheet with ⌘⇧N before capturing an entry."
+                return
+            }
+            store.beginNewEntry(draft: draft)
+            store.entryForm?.errorMessage = message
+        }
+
+        guard let source, source.bundleIdentifier == ChromeTabCapture.bundleID else {
+            present()
+            return
+        }
+        captureTask = Task {
+            defer { captureTask = nil }
+            do {
+                let draft = try await ChromeTabCapture.read(processID: source.processIdentifier)
+                if !Task.isCancelled { present(draft: draft) }
+            } catch {
+                if !Task.isCancelled {
+                    present(draft: EntryDraft(kind: .url, title: "", rawContent: ""),
+                            message: ChromeTabCapture.message(for: error))
+                }
+            }
+        }
+    }
+
+    private func showPanel(from frontmostApplication: NSRunningApplication?) {
         guard let button = statusItem.button else { return }
-        let frontmostApplication = NSWorkspace.shared.frontmostApplication
         if frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier {
             previouslyActiveApplication = frontmostApplication
         }
@@ -233,6 +285,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func closePanel(restoringFocus: Bool) {
         guard panel.isVisible else { return }
+        captureTask?.cancel()
         stopMonitoringOutsideClicks()
         moreOptions.dismiss()
         panel.orderOut(nil)

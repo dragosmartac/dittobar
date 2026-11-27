@@ -22,6 +22,8 @@
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Quick Capture reads the title and URL of your current Google Chrome tab when you press its shortcut.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
