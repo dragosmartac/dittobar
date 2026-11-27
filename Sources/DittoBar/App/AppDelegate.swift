@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let store: CheatSheetStore
     private var statusItem: NSStatusItem!
     private var statusItemMenu: NSMenu!
+    private var statusMenuSource: NSRunningApplication?
     private(set) var copyOptionsController: CopyOptionsMenuController!
     private var hotKeyManager: HotKeyManager?
     private var captureTask: Task<Void, Never>?
@@ -32,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             DispatchQueue.main.async {
                 switch shortcut {
                 case .togglePanel: self?.togglePanel(restoringFocusOnClose: true)
-                case .quickCapture: self?.quickCapture()
+                case .quickCapture: self?.quickCapture(from: NSWorkspace.shared.frontmostApplication)
                 }
             }
         }
@@ -111,6 +112,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
         let menu = NSMenu()
+        let openItem = menu.addItem(withTitle: "Open", action: #selector(openFromStatusMenu), keyEquivalent: " ")
+        openItem.target = self
+        openItem.keyEquivalentModifierMask = .option
+
+        let captureItem = menu.addItem(withTitle: "Add Quick Entry", action: #selector(captureFromStatusMenu), keyEquivalent: " ")
+        captureItem.target = self
+        captureItem.keyEquivalentModifierMask = [.option, .shift]
+
+        menu.addItem(.separator())
         let quitItem = NSMenuItem(
             title: "Quit DittoBar",
             action: #selector(quitApplication),
@@ -124,7 +134,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func statusItemClicked() {
         if let event = NSApp.currentEvent, event.type == .rightMouseUp,
            let button = statusItem.button {
-            NSMenu.popUpContextMenu(statusItemMenu, with: event, for: button)
+            statusMenuSource = NSWorkspace.shared.frontmostApplication
+            defer { statusMenuSource = nil }
+            statusItemMenu.popUp(positioning: nil, at: button.convert(event.locationInWindow, from: nil), in: button)
             return
         }
 
@@ -133,6 +145,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func quitApplication() {
         NSApp.terminate(nil)
+    }
+
+    @objc private func openFromStatusMenu() {
+        if panel.isVisible {
+            (panel.attachedSheet ?? panel).makeKeyAndOrderFront(nil)
+        } else {
+            showPanel(from: statusMenuSource)
+        }
+    }
+
+    @objc private func captureFromStatusMenu() {
+        quickCapture(from: statusMenuSource)
     }
 
     private func togglePanel(restoringFocusOnClose: Bool) {
@@ -151,8 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             panel.attachedSheet == nil && !copyOptionsController.isPresented
     }
 
-    private func quickCapture() {
-        let source = NSWorkspace.shared.frontmostApplication
+    private func quickCapture(from source: NSRunningApplication?) {
         guard canStartCapture else {
             if !panel.isVisible { showPanel(from: source) }
             return
